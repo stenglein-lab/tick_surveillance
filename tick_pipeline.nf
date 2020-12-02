@@ -27,9 +27,10 @@ params.R_bindir="${baseDir}/scripts"
 // -------------------
 // Reference sequences
 // -------------------
-params.refseq_dir = "refseq"
+params.refseq_dir = "${baseDir}/refseq"
 params.refseq_fasta = "${params.refseq_dir}/reference_sequences.fasta"
-params.refseq_version = "2020-11-11"
+// TODO: versioning of reference sequences
+params.refseq_version = "2020-12-01"
 
 params.primers = "${params.refseq_dir}/primers.csv"
 
@@ -69,7 +70,8 @@ Channel
     .into {samples_ch_qc; samples_ch_trim}
 
 /* 
- The primer sequences that will be trimmed off of read pairs
+ The primer sequences used to amplify surveillance targets, which will be trimmed 
+ off of read pairs
 
  Only read pairs that have an expected matching pair of primer sequences
  will be retained.
@@ -89,7 +91,6 @@ primers_and_samples = primers_ch.combine(samples_ch_trim)
    Only do this once at beginning.
    TODO: remove initial .dict file
 */
-/*
 process setup_indexes {
 
   output:
@@ -99,22 +100,10 @@ process setup_indexes {
 
   script:
   """
-  # -----------------------
-  # bwa index viral refseq
-  # -----------------------
-  bwa index ${params.viral_fasta}
-
-  # -----------------
-  # GATK index setup
-  # -----------------
-  # setup gatk indexes for BSQR
-  ${params.gatk_exe} IndexFeatureFile -I ${params.ignore_regions} 
-
-  rm -f "${baseDir}/viral_refseq/${params.viral_refseq_name}.dict"
-  ${params.gatk_exe} CreateSequenceDictionary -R ${params.viral_fasta}
+  # Blast database of the reference sequences
+  makeblastdb -dbtype nucl -in ${params.refseq_fasta} -out ${params.refseq_fasta}
   """
 }
-*/
 
 
 /*                                                                              
@@ -174,12 +163,26 @@ process initial_multiqc {
 } 
 
 /*
- trim primer sequences 
+ Trim primer sequences.
+
+ This process will look output read pairs that have one of the expected primer pairs at 
+ the expected positions at the ends of R1 and R2.  These primers will be trimmed and 
+ matching read pairs will be output to a new file.  This avoid amplification products that
+ were formed by unexpected primer combinations (since this is a multiplex PCR assay).  
+
+ This trimming takes advantage of as described in:
+
+ https://cutadapt.readthedocs.io/en/stable/recipes.html#trimming-amplicon-primers-from-both-ends-of-paired-end-reads
+
+ This step also throws away read pairs shorter than ${params.post_trim_min_length} 
+
+ This process will be run once per input fastq file pair per read pair
 */
 process trim_primer_seqs {                                                      
   label 'lowmem'
                                                                               
   input:                                                                      
+  val("indexes_complete") from post_index_setup_ch
   tuple val(target), 
         val(primer_f_name), val(primer_f), 
         val(primer_r_name), val(primer_r), 
@@ -194,15 +197,15 @@ process trim_primer_seqs {
   def f1 = initial_fastq[0]
   def f2 = initial_fastq[1]
 
-  // the cutadapt primer trimming arguments should be of the form: 
-  // -a ^FWDPRIMER...RCREVPRIMER -A ^REVPRIMER...RCFWDPRIMER
+  // setup arguments for trimming this particular pair of primers
   // see: https://cutadapt.readthedocs.io/en/stable/recipes.html#trimming-amplicon-primers-from-both-ends-of-paired-end-reads
-  // def primer_args = "-a " + target + "_F=^" + primer_f + "..." + primer_r_rc + " -A " + target + "_R=^" + primer_r + "..."  + primer_f_rc
+  
   def primer_args = "-a " + target + "_F=^" + primer_f_rc + "..." + primer_r + " -A " + target + "_R=^" + primer_r_rc + "..."  + primer_f
                                                                               
   """                                                                         
   # the --discard-untrimmed option means that the output of this command will contain
-  # only those reads that match this particular expected primer pair
+  # only those reads that match this particular expected primer pair because only
+  # those matching read pairs will be trimmed, and non-trimmed pairs will get discarded.
   #
   # from the cutadapt manual:
   # "Use --discard-untrimmed to throw away all read pairs in which R1 
@@ -214,6 +217,23 @@ process trim_primer_seqs {
                                                                                 
 /*
   This process concatenates the outputs from the individual cutadapt calls
+
+  Cutadapt is run multiple times per fastq pair to create individual outputs 
+  containing read pairs that contained an expected primer pair at their ends
+
+  This step concatenates all those outputs into a single file per original
+  fastq pair. 
+
+  Because *all* cutadapt output flows into the primer_trimmed_ch_ungrouped channel,
+  it is necessary to bin these outputs into groups corresponding to the original
+  fastq read pairs.  
+
+  The trick to doing this is the .groupTuple() operator, which
+  groups tuples (sample_id + read1_trimmed_fastq + read2_trimmed_fastq) based on 
+  a shared sample_id.
+
+  This process also does one more round of trimming to remove truseq-style adapters
+
 */
 process collect_cutadapt_output {                                               
   publishDir "${params.trimmed_outdir}", mode:'link'                                    
@@ -223,7 +243,6 @@ process collect_cutadapt_output {
   tuple val(sample_id), path(individual_r1), path(individual_r2) from primer_trimmed_ch_ungrouped.groupTuple()
                                                                                 
   output:                                                                       
-  // tuple val(sample_id), path("*_trimmed.fastq") into post_trim_ch
   val(sample_id) into post_trim_ch
   tuple val(sample_id), path("*_trimmed.fastq") into post_trim_qc_ch
                                                                                 
@@ -232,6 +251,8 @@ process collect_cutadapt_output {
   // cutadapt parameters to trim TruSeq-style adapters
   // see: https://cutadapt.readthedocs.io/en/stable/guide.html#basic-usage
   def truseq_cutadapt = "-a AGATCGGAAGAGCACACGTCTGAACTCCAGTCA -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
+
+  // these will be the file names of the new concatenated outputs, before truseq trimming
   def f1 = "${sample_id}.r1_individual_primers.fastq"
   def f2 = "${sample_id}.r2_individual_primers.fastq"
 
@@ -292,13 +313,26 @@ process run_dada_on_trimmed {
   val(all_sample_ids) from post_trim_ch.collect()
 
   output:
-  path("wide_seqtab.txt")
+  path("sequences.fasta") into post_dada_ch
 
   script:                                                                       
   """                                                                           
   Rscript ${params.R_bindir}/run_dada_on_trimmed.R ${params.R_bindir} ${params.trimmed_outdir}
   """             
+}
 
+process compare_observed_sequences_to_reference_sequences {
+  publishDir "${params.outdir}", mode: 'link'
 
+  input:
+  path(sequences) from post_dada_ch
+
+  output:
+  path("${sequences}.bn_refseq")
+
+  script:                                                                       
+  """                                                                           
+  blastn -db ${params.refseq_fasta} -task megablast -evalue 1e-10 -query $sequences -outfmt 6 -out ${sequences}.bn_refseq
+  """             
 }
 

@@ -1,0 +1,641 @@
+---
+title: CDC Tick Surveillance Bioinformatics Pipeline Notes
+output: html_document
+author: Mark Stenglein
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## CDC Tick Surveillance Pipeline Develoment Notes
+
+This R Markdown document describes notes from development of the CDC Tick Surveillance Bioinformatics Pipeline.
+
+The goal of this pipeline is to use amplicon sequencing to identify tick-associated microorganisms from ticks submitted as part of ongoing tick surveillance programs.
+
+The input is fastq files containing amplicon sequencing reads and fasta files containing representative amplicon sequences from targeted microorganisms. 
+
+
+
+### Files from Andrias
+
+Andrias provided a big zip file with a bunch of example datasets and fasta files of expected/targeted microbes or sequences.
+
+
+Create a sample subset dataset:
+```
+mdstengl@cctsi-104:~/analyses/CDC_tick_pipeline$ seqtk sample -s 111 65_S65_L001_R1_001.fastq 200 > 65_subset_R1.fastq
+mdstengl@cctsi-104:~/analyses/CDC_tick_pipeline$ seqtk sample -s 111 65_S65_L001_R2_001.fastq 200 > 65_subset_R2.fastq
+```
+
+Put the primer sequences in a fasta file:
+```
+mdstengl@cctsi-104:~/analyses/CDC_tick_pipeline$ cat primer_sequences.fasta 
+>1299_FlaF	
+GAGCTTGGAATGCARCCTGC
+>1300_FlaR	
+TCAAGTCTATTTTGRAAAGCAC
+>859_Esp-F	
+TACTCAGAGTGCTTCTCAATGT
+>860_Esp-R	
+GCATACCATCAGTTTTTTCAAC
+>1960panBabesia_F	
+GTAATTCCAGCTCCAATAGCGTA
+>1961panBabesia_R	
+TCTAAGAATTTCACCTCTGACAGT
+>2060-Isca_act_F	
+GCCATGTACGTGGCCATCCA
+>2061-Isca_act_R	
+GCTCGGTGAGGATCTTCAT
+```
+
+Look at this sample subset dataset in geneious.  Use "annotate from" feature in geneious to identify primers in the amplicons.  Primers imported as nt sequences and converted to oligos in Geneious from file `primer_sequences.fasta`. Some conclusions:
+
+- different amplicons different lengths
+- some amplicons completely sequenced (both primers present in each read)
+- some amplicons long enough that this is not true
+- primers should be trimmed
+- don't see any evidence of Illumina adapters, but should try trimming them anyway
+- some products very short: just a few bases between primers.  E.g. read pair M05507:78:000000000-D5F32:1:1102:12612:11358 2:N:0:65 is a product created from 1961panBabesia_R and 1299_FlaF
+- some products chimeras of unexpected primer combinations --> should do some kind of chimera detection and removal
+- pipeline could only consider 'well-behaved' amplicons?  what are the criteria for that? 
+- pipeline could only consider amplicons above some frequency threshhold.
+- version control primer sequences?
+
+Found this text online which discusses some of the issues surrounding amplicon analysis:
+
+[https://artic.network/quick-guide-to-tiling-amplicon-sequencing-bioinformatics.html](https://artic.network/quick-guide-to-tiling-amplicon-sequencing-bioinformatics.html) written by Nick Loman
+
+
+
+### Trimming options
+
+- cutadapt
+- pTrimer
+- align_trim.py from ARCTIC-type protocols
+- other
+
+### Read merging
+
+
+
+### Here is info on CDC's existing amplicon sequencing pipeline:
+
+> On 12/11/19 11:41 AM, Yao, Jiangwei (CDC/DDID/NCEZID/OD) (CTR) wrote:
+>   Hi. The workflow (Amplicon-Dereplication-BLASTN-Workflow-GF on the OAMD platform) we have deployed uses 2 modular steps to handle the fastq data. I tested it on a dataset from a previous tick genomic dataset we had and the outputs are attached.
+>   
+>   The first step uses the DADA2 package (https://benjjneb.github.io/dada2/index.html) to
+>   
+>       Filter the data based on quality
+>       Merge the forward and reverse reads
+>       Dereplicate the reads into the unique sequences and count them for each fastq pair. 
+>   
+>   The output of the DADA2 step is included:
+>   
+>       DADA2_OTU.csv contains the sequence variants, and the counts of that sequence for each of the files
+>       QC.csv contains the QC metrics (the total number of reads input, the number that passed filtering, then merging, etc). Highly useful for diagnosing potential problems.
+>       OTU.fasta contains the sequence variants in fasta format (for BLASTing or any other type of analysis you want to potentially run later).
+>   
+>   The second step is assigning the taxonomy from the sequence variants. The current module is BLASTing against the NCBI nt/nr database (using the OTU.fasta) and recording the top 5 hits. This is in the OTU.out file. We also have 16S, 18S, and ITS taxonomy assignment methods setup. We can modify or switch this module based on user need.
+>   
+>   This workflow is highly portable, runs quickly, and doesn’t require heavy hardware. The previous dataset ran on a 7 year laptop with 4gb memory in about 1 hour. It can be deployed as a Geneflow workflow, Singularity, R code, or Jupyter notebook.
+>   
+>   Based on the discussion, we will need to reformat the output for the reporting system. This should be straightforward to do. I’d be happy to do that or Mark can do it.
+>   
+>   
+>   Best regards,
+>   
+>   Jiangwei
+>   -----------------------------------
+>   Jiangwei Yao
+>   Senior Bioinformatics Scientist 
+>   Mobile – 901-351-8874
+>   Telework Days:  Thurs
+>   
+
+
+
+
+
+
+#### Trimming implementation for now
+
+I made a script that would trim adapter and primer sequences using the cutadapt tool.
+
+[Cutadapt](https://cutadapt.readthedocs.io/en/stable/guide.html) is well setup for trimming primers found in amplicon-derived sequences.  We want this trimming to have the following characteristics:
+
+- only keep read pairs with expected primer sequences at both ends.  
+- discard read pairs that have a mismatch of primer sequences (e.g. FlaF-F on one side and panBab-R on the other).  These could be from PCR chimeras or from mispriming with an atypical F/R pair
+- trim off Illumina adapter sequences, if present [Possibly discard any read pairs that do contain Illumina adapter sequences, which should've already been trimmed during demultiplexing?]
+- only keep read pairs that are greater than a specified minimum read length (100 bp for now)
+
+Cutadapt is well setup to accomplish this.  It is possible to have cutadapt search for "linked" read pairs in paired read data.  This trims off F and R primers from either the 5' and the 3' end of reads (for amplicons that are shorter than the read length).  It is possible to have cutadapt discard any reads that don't have the expected primers on both ends.  This is conservative, but it should get rid of a lot of noise.  
+
+To accomplish this, I have a script that looks for the amplicon sequencing primer pairs one at a time (there are 4 amplicons currently).  This is hardcoded as a series of calls to cutadapt in a bash script.  
+
+TODO: make this less hardcoded: for instance, read in a file of primer sequences and have cutadapt do this programatticaly.
+
+The script then runs cutadapt a final time to remove any read pairs with Illumina adapter sequences or that are shorter than some threshhold (e.g. 100 nt)
+
+This is the current version of the script:
+
+```
+mdstengl@cctsi-104:~/analyses/CDC_tick_pipeline$ cat remove_primer_and_adapter_sequences 
+#!/bin/bash -x
+
+#
+# This script removes primer and adapter sequences from paired-end read data
+#
+# What it does is:
+#
+# (1) Uses cutadapt to remove amplicon primer sequences from paired reads. 
+#     It only keeps read pairs with an expected F/R primer combination on the 5' and 3' ends.
+# 
+#     It also only keeps reads longer than a specified threshhold. 
+#
+#     outputs  <file_base>_R1_f.fastq <file_base>_R2_f.fastq
+#
+#
+# Input:
+#
+# This script takes as an argument two fastq file names
+# These should correspond to the read1 and read2 paired-end data.
+#
+#
+# Dependencies:
+# 
+#  - cutadapt >= v2.10
+#
+# Mark Stenglein
+#
+#  8/25/2020
+#
+
+f1=$1
+f2=$2
+
+# shortest amplicon = tick Actin @ 196 bp
+# TODO: make this a command line argument
+minimum_length=100
+
+# TODO: usage info text
+
+# Amplicon sequences
+# TODO: read these sequences from a file and construct arguments appropriately
+
+#      >1299_FlaF	
+#      GAGCTTGGAATGCARCCTGC
+#      >1300_FlaR	
+#      TCAAGTCTATTTTGRAAAGCAC
+#      >859_Esp-F	
+#      TACTCAGAGTGCTTCTCAATGT
+#      >860_Esp-R	
+#      GCATACCATCAGTTTTTTCAAC
+#      >1960panBabesia_F	
+#      GTAATTCCAGCTCCAATAGCGTA
+#      >1961panBabesia_R	
+#      TCTAAGAATTTCACCTCTGACAGT
+#      >2060-Isca_act_F	
+#      GCCATGTACGTGGCCATCCA
+#      >2061-Isca_act_R	
+#      GCTCGGTGAGGATCTTCAT
+#      
+#      Reverse complements of above:
+#
+#      >1299_FlaF
+#      GCAGGYTGCATTCCAAGCTC
+#      >1300_FlaR
+#      GTGCTTTYCAAAATAGACTTGA
+#      >859_Esp-F
+#      ACATTGAGAAGCACTCTGAGTA
+#      >860_Esp-R
+#      GTTGAAAAAACTGATGGTATGC
+#      >1960panBabesia_F
+#      TACGCTATTGGAGCTGGAATTAC
+#      >1961panBabesia_R
+#      ACTGTCAGAGGTGAAATTCTTAGA
+#      >2060-Isca_act_F
+#      TGGATGGCCACGTACATGGC
+#      >2061-Isca_act_R
+#      ATGAAGATCCTCACCGAGC
+#      
+# see this page for a discussion of trimming primers from paired-end amplicon data:
+# https://cutadapt.readthedocs.io/en/stable/recipes.html
+
+# FlaF
+flaF="-a flaF_R1=^GAGCTTGGAATGCARCCTGC...GTGCTTTYCAAAATAGACTTGA -A flaF_R2=^TCAAGTCTATTTTGRAAAGCAC...GCAGGYTGCATTCCAAGCTC"
+
+# Esp
+Esp="-a Esp_R1=^TACTCAGAGTGCTTCTCAATGT...GTTGAAAAAACTGATGGTATGC -A Esp_R2=^GCATACCATCAGTTTTTTCAAC...ACATTGAGAAGCACTCTGAGTA"
+
+# panBabesia
+Bab="-a Bab_R1=^GTAATTCCAGCTCCAATAGCGTA...ACTGTCAGAGGTGAAATTCTTAGA -A Bab_R2=^TCTAAGAATTTCACCTCTGACAGT...TACGCTATTGGAGCTGGAATTAC"
+
+# Isca
+Isc="-a Isca_R1=^GCCATGTACGTGGCCATCCA...ATGAAGATCCTCACCGAGC -A IscR2=^GCTCGGTGAGGATCTTCAT...TGGATGGCCACGTACATGGC"
+
+# TruSeq adapters: 
+# see: https://cutadapt.readthedocs.io/en/stable/guide.html#basic-usage
+truSeq="-a AGATCGGAAGAGCACACGTCTGAACTCCAGTCA -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
+
+# Trim primer pairs one at a time
+# Do it this way because otherwise cutadapt could use unintended combinations of F and R primers 
+# (if you listed all F and R primers at once, cutadapt could use them in unintended combinatorial fashions)
+
+# each of these cutadapt commands produces a file that contains only
+# those reads that had that particular F/R primer pair on the 5' and 3' ends
+#
+# note that it doesn't matter if the amplicon length is shorter than or longer than
+# the read length: cutadapt is smart enough to handle both cases.
+
+cutadapt $Esp --discard-untrimmed $f1 $f2 -o ${f1}.esp -p ${f2}.esp 
+cutadapt $flaF --discard-untrimmed $f1 $f2 -o ${f1}.fla -p ${f2}.fla 
+cutadapt $Bab --discard-untrimmed $f1 $f2 -o ${f1}.bab -p ${f2}.bab 
+cutadapt $Isc --discard-untrimmed $f1 $f2 -o ${f1}.isc -p ${f2}.isc 
+
+# merge the individual files
+# TODO: automate all this for an arbitrary # of primer pairs
+cat ${f1}.esp ${f1}.fla ${f1}.bab ${f1}.isc > ${f1}._f
+cat ${f2}.esp ${f2}.fla ${f2}.bab ${f2}.isc > ${f2}._f
+
+# finally, discard any read pairs that contain Illumina adapter sequences or are shorter than specified length
+# overwrite the merged files with new output
+cutadapt $truSeq --discard-trimmed --minimum-length $minimum_length -o ${f1}_f -p ${f2}_f ${f1}_f ${f2}_f
+```
+
+Could automate this more as part of a nextflow workflow.  For now, I think OK for development.
+
+
+### Test Dada2 Pipeline
+
+Dada2 is a pipeline that collapses amplicon sequences
+
+First, try running through it with one sample
+
+```{r test-dada-pipeline-one-sample}
+library(tidyverse)
+library(dada2); packageVersion("dada2")
+
+# Dada2 pipeline.  See: 
+# https://benjjneb.github.io/dada2/tutorial.html
+
+path <- "./trimmed" 
+list.files(path)
+
+fnFs <- sort(list.files(path, pattern="_R1_001.fastq", full.names = TRUE))
+fnRs <- sort(list.files(path, pattern="_R2_001.fastq", full.names = TRUE))
+
+# Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
+sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
+
+plotQualityProfile(fnFs[1:2])
+plotQualityProfile(fnRs[1:2])
+
+# Place filtered files in filtered/ subdirectory
+filtFs <- file.path(path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
+filtRs <- file.path(path, "filtered", paste0(sample.names, "_R_filt.fastq.gz"))
+
+names(filtFs) <- sample.names
+names(filtRs) <- sample.names
+
+?filterAndTrim
+# out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(90,90),
+                     # maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
+                     # compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
+
+# ****************
+# filterAndTrim options
+# ****************
+#
+# truncQ 	
+# (Optional). Default 2. Truncate reads at the first instance of a quality score less 
+# than or equal to truncQ.
+
+# truncLen 	
+# (Optional). Default 0 (no truncation). Truncate reads after truncLen bases. 
+# Reads shorter than this are discarded.
+
+# maxEE
+# (Optional). Default Inf (no EE filtering). After truncation, reads with higher than 
+# maxEE "expected errors" will be discarded. Expected errors are calculated from the 
+# nominal definition of the quality score: EE = sum(10^(-Q/10))
+
+out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, 
+                     maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
+                     compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
+head(out)
+
+errF <- learnErrors(filtFs, multithread=TRUE)
+errR <- learnErrors(filtRs, multithread=TRUE)
+
+# TODO: How does this compare to use pre-determined error profiles? 
+
+plotErrors(errF, nominalQ=TRUE)
+plotErrors(errR, nominalQ=TRUE)
+
+dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
+dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
+
+dadaFs[[1]]
+
+mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
+
+head(mergers[[1]])
+
+seqtab <- makeSequenceTable(mergers)
+dim(seqtab)
+
+table(nchar(getSequences(seqtab)))
+
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+dim(seqtab.nochim)
+sum(seqtab.nochim)/sum(seqtab)
+
+write.table(seqtab, "65_seqtab.txt", sep="\t")
+
+getN <- function(x) sum(getUniques(x))
+
+# this will work for one sample
+getN(dadaFs)
+getN(dadaRs)
+getN(mergers)
+getN(seqtab.nochim)
+
+# this works when >1 sample
+# TODO: leave for most cases...
+sum(getUniques(dadaFs))
+sapply(dadaFs, getN)
+track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+# If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
+colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+rownames(track) <- sample.names
+head(track)
+
+
+# output results...
+
+# convert seqtab to a tidy dataframe
+t <- as.data.frame(seqtab.nochim)
+t$dataset <- rownames(ts)
+
+# this is now a tidy formatted table with:
+# unique, merged sequences
+# their abundances in each dataset
+tidy_sequence_table <- pivot_longer(t, -dataset, names_to = "sequence", values_to = "abundance" )
+
+# pivot wider
+wide_sequence_table <- pivot_wider(tidy_sequence_table, names_from = sequence, values_from = abundance)
+write.table(wide_sequence_table, "wide_seqtab.tsv", sep="\t", quote=F)
+
+# sample 65 has Babesia and actin
+# looks like multiple highly similar actin sequences amplify (pseudogenes?) 
+
+# the task now is to assign each of these sequences to a refseq (or something else)
+
+
+
+sum(tst$abundance)
+```
+
+
+OK, so this produced an output file that contains amplicon sequences plus 
+use awk to convert this output to a fasta file:
+
+```
+mdstengl@cctsi-104:~/analyses/CDC_tick_pipeline$ awk  'NR > 1 {print ">" $1 "_" $2 "\n" $3}' 65_seqtab.tsv > 65_dada_seqs.fa
+```
+
+Run blast against ref seqs provided by Andrias to see what these are...
+
+```
+mdstengl@cctsi-104:~/analyses/CDC_tick_pipeline$ qbn 65_dada_seqs.fa reference_sequences_v_2020_9_2 | consolidate_blast_output
+1_3324	Bab_odo_1960_1961	100.000	247	0	0	1	247	24	270	2.97e-129	446
+2_1896	actin_Ix-dent	97.436	156	3	1	1	155	22	177	1.50e-73	260
+3_783	actin-Ix-scap	89.103	156	17	0	1	156	21	176	1.02e-56	205
+4_619	actin-Ix-scap	99.363	157	1	0	1	157	21	177	5.65e-79	279
+5_562	actin-Ix-scap	98.089	157	3	0	1	157	21	177	2.93e-76	269
+5_562	actin_Ix-dent	98.089	157	3	0	1	157	21	177	2.93e-76	269
+6_130	actin-Ix-scap	98.726	157	2	0	1	157	21	177	6.89e-78	275
+```
+
+**Interpretation:**  
+
+- Babesia sequence: the most abundant sequence (1_3324), with 3324 collapsed reads, is from Babesia odocoilei.  This matches a sequence from Andrias in the set of reference sequences he provided.  Blasting this sequence on the NCBI website also matches a whole bunch of Bab odo sequences w/ 100% id.   
+- Tick actin sequences:  There are 6 different sequences that map to Ixodes actin sequencs that are nearly identical.  
+   + One of these, **3_783** (783 mapping reads), maps only with 89% identity to an I scap actin sequence in the set of Andrias's refseqs.  But if you blast it on the NCBI website, it hits XM_029977298.1 (Ixodes scapularis actin-5C (LOC8027393), mRNA) with 97% identity.  This mRNA sequence is from an automated annotation of the ISE6 cell line.  It's the 2nd I scap genome assembly (the other was from the Wikel colony, Guila-Nuss et al).  **This sequence should be added to the set of reference sequences, probably.**
+   + The other ones share >96% pairwise nt identity. These all hit by blast on the NCBI website: XM_029994625 (Ixodes scapularis actin, clone 403 (LOC115332227), mRNA).  These also hit "Ix_dent" actin sequence in Andrias's set, but at a slightly lower percent identity. XM-029994625 also derives from the ISE6 assembly. **XM_029994625 should perhaps also get added to the set of refseqs?**
+   
+Nevertheless, these are all Ixodes actin sequences.   
+
+
+
+TODO: add the two actin sequences from the ISE6 assembly to other refseqs?
+TODO: Should record length of sequences too in fasta file
+TODO: run with custom blast output columns?
+TODO: make this all work in a nextflow context with a conda environment
+TODO: is the goal to identify what species of tick?
+
+
+
+
+9/2/2020
+
+** Questions for Andrias and Lynn:**
+- input to pipeline will be fastq files plus sample info (CSID, ...)
+- how will they supply sample sheet type info? 
+- Ixodes actin sequences?
+- Have they considered other barcoding sequences, like CO1?
+
+
+Multiple 
+#### Try adding additional RefSeqs
+
+Add these two sequences to Andrias's original set:
+```
+>Ix_scap_actin_XM_029994625.1:536-691 PREDICTED: Ixodes scapularis actin, clone 403 (LOC115332227), mRNA
+GCCGTGCTCTCCCTGTACGCCTCCGGTCGTACCACGGGTATCGTGCTCGACTCCGGCGACGGCGTCTCCCACACCGTCCC
+CATCTACGAAGGGTACGCCCTGCCCCACGCCATCCTCCGTCTGGACTTGGCCGGCCGGGACCTGACCGACTACCTG
+>Ix_scap_actin_XM_029977298.1:569-725 PREDICTED: Ixodes scapularis actin-5C (LOC8027393), mRNA
+GGCCGTGCTGTCCCTGTACGCGTCCGGCCGTACTACGGGCATCGTGCTCGACTCCGGCGATGGCGTCTCCCACACCGTGC
+CCATCTACGAGGGGTACGCCCTGCCGCACGCCATCCTCAGGCTGGACCTCGCCGGCCGGGACCTTACAGACTATCTC
+```
+
+Make a new blast db:
+```
+mdstengl@cctsi-104:~/analyses/CDC_tick_pipeline$ makeblastdb -dbtype nucl -in reference_sequences_v_2020_9_2.fasta -out reference_sequences_v_2020_9_2
+```
+
+Re-blast against local refseqs:
+```
+mdstengl@cctsi-104:~/analyses/CDC_tick_pipeline$ qbn 65_dada_seqs.fa reference_sequences_v_2020_9_2 | consolidate_blast_output 
+1_3324	Bab_odo_1960_1961	100.000	247	0	0	1	247	24	270	3.20e-129	446
+2_1896	Ix_scap_actin_XM_029994625.1:536-691	97.436	156	3	1	1	155	1	156	1.61e-73	260
+2_1896	actin_Ix-dent	97.436	156	3	1	1	155	22	177	1.61e-73	260
+3_783	Ix_scap_actin_XM_029977298.1:569-725	98.726	157	2	0	1	157	1	157	7.40e-78	275
+4_619	Ix_scap_actin_XM_029994625.1:536-691	100.000	156	0	0	2	157	1	156	4.99e-80	282
+5_562	Ix_scap_actin_XM_029994625.1:536-691	98.718	156	2	0	2	157	1	156	2.58e-77	273
+6_130	Ix_scap_actin_XM_029994625.1:536-691	99.359	156	1	0	2	157	1	156	2.12e-78	277
+```
+
+That looks better.  
+
+
+### Try with >1 sample
+
+```
+# in mdstengl@cctsi-104:~/analyses/CDC_tick_pipeline$ 
+cp files_from_Andrias/*001.fastq .
+ls *R1_001.fastq | sed s/_L001_R1_001.fastq// > ids.txt
+simple_scheduler -a 6 ./remove_primer_and_adapter_sequences_one_sample `cat ids.txt`
+```
+
+```
+mdstengl@cctsi-104:~/analyses/CDC_tick_pipeline$ cat remove_primer_and_adapter_sequences_one_sample 
+#!/bin/bash
+
+id=$1
+
+f1=${id}_L001_R1_001.fastq
+f2=${id}_L001_R2_001.fastq
+
+./remove_primer_and_adapter_sequences $f1 $f2
+```
+
+Try dada2 again
+
+```{r try_dada2_multiple_samples}
+library(tidyverse)
+library(dada2); packageVersion("dada2")
+
+# Dada2 pipeline.  See: 
+# https://benjjneb.github.io/dada2/tutorial.html
+
+path <- "./trimmed" 
+list.files(path)
+
+fnFs <- sort(list.files(path, pattern="_R1_001.fastq", full.names = TRUE))
+fnRs <- sort(list.files(path, pattern="_R2_001.fastq", full.names = TRUE))
+
+# Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
+sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
+
+plotQualityProfile(fnFs[1:3])
+plotQualityProfile(fnRs[1:3])
+
+# Place filtered files in filtered/ subdirectory
+filtFs <- file.path(path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
+filtRs <- file.path(path, "filtered", paste0(sample.names, "_R_filt.fastq.gz"))
+
+names(filtFs) <- sample.names
+names(filtRs) <- sample.names
+
+?filterAndTrim
+# out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(90,90),
+                     # maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
+                     # compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
+
+# ****************
+# filterAndTrim options
+# ****************
+#
+# truncQ 	
+# (Optional). Default 2. Truncate reads at the first instance of a quality score less 
+# than or equal to truncQ.
+
+# truncLen 	
+# (Optional). Default 0 (no truncation). Truncate reads after truncLen bases. 
+# Reads shorter than this are discarded.
+
+# maxEE
+# (Optional). Default Inf (no EE filtering). After truncation, reads with higher than 
+# maxEE "expected errors" will be discarded. Expected errors are calculated from the 
+# nominal definition of the quality score: EE = sum(10^(-Q/10))
+
+out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, 
+                     maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
+                     compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
+head(out)
+
+errF <- learnErrors(filtFs, multithread=TRUE)
+errR <- learnErrors(filtRs, multithread=TRUE)
+
+
+plotErrors(errF, nominalQ=TRUE)
+plotErrors(errR, nominalQ=TRUE)
+
+dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
+dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
+
+dadaFs[[1]]
+
+mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
+
+?mergePairs
+
+head(mergers[[1]])
+
+seqtab <- makeSequenceTable(mergers)
+dim(seqtab)
+
+table(nchar(getSequences(seqtab)))
+
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+dim(seqtab.nochim)
+sum(seqtab.nochim)/sum(seqtab)
+
+# write.table(seqtab, "65_seqtab.txt", sep="\t")
+
+getN <- function(x) sum(getUniques(x))
+
+# this will work for one sample
+# getN(dadaFs)
+# getN(dadaRs)
+# getN(mergers)
+# getN(seqtab.nochim)
+
+# this works when >1 sample
+# TODO: leave for most cases...
+sum(getUniques(dadaFs))
+sapply(dadaFs, getN)
+track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+# If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
+colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+rownames(track) <- sample.names
+head(track)
+
+# TODO: output for tracking purposes
+
+
+# convert to a data frame
+t <- as.data.frame(seqtab.nochim)
+
+# make a new column based on row names
+t$dataset <- rownames(ts)
+
+# this is now a tidy formatted table with:
+# unique, merged sequences
+# their abundances in each dataset
+tidy_sequence_table <- pivot_longer(t, -dataset, names_to = "sequence", values_to = "abundance" )
+
+# pivot wider
+wide_sequence_table <- pivot_wider(tidy_sequence_table, names_from = sequence, values_from = abundance)
+write.table(wide_sequence_table, "wide_seqtab.tsv", sep="\t", quote=F)
+
+# all the sequences in a vector
+sequences <- distinct(tidy_sequence_table, sequence)
+
+```
+
+
+9/30/2020
+TODO: 
+- assign sequences to one of the reference sequences
+ - what tool to use for this?   BLAST?   other?
+ - where to do this?  in R?  in a bash script or something?
+ - how to handle results?  
+- do something with non-matching sequences...
+
+
+
+
