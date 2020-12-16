@@ -252,7 +252,7 @@ process collect_cutadapt_output {
   // see: https://cutadapt.readthedocs.io/en/stable/guide.html#basic-usage
   def truseq_cutadapt = "-a AGATCGGAAGAGCACACGTCTGAACTCCAGTCA -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
 
-  // these will be the file names of the new concatenated outputs, before truseq trimming
+  // these will be the names of the new concatenated outputs, before truseq trimming
   def f1 = "${sample_id}.r1_individual_primers.fastq"
   def f2 = "${sample_id}.r2_individual_primers.fastq"
 
@@ -306,6 +306,14 @@ process post_trim_multiqc {
 }
 
 
+/* 
+  Run dada2 on trimmed read pairs to:
+
+ - perform error-correction on misscalled bases
+ -  , cluster, and tabulate the frequencies of particular 
+
+*/
+
 process run_dada_on_trimmed {
   publishDir "${params.outdir}", mode: 'link'
 
@@ -313,26 +321,47 @@ process run_dada_on_trimmed {
   val(all_sample_ids) from post_trim_ch.collect()
 
   output:
-  path("sequences.fasta") into post_dada_ch
+  path("observed_sequences.fasta") into post_dada_seq_ch
+  path("tidy_sequence_table.tsv") into post_dada_tidy_ch
 
   script:                                                                       
-  """                                                                           
+  """                                                                             
+  # This R file creates an output named observed_sequences.fasta containing all of the
+  # unique sequences observed in the amplicon dataset
+  # and a tidy_sequence_table.tsv, which includes all of the 
   Rscript ${params.R_bindir}/run_dada_on_trimmed.R ${params.R_bindir} ${params.trimmed_outdir}
   """             
 }
 
-process compare_observed_sequences_to_reference_sequences {
+process compare_observed_sequences_to_ref_seqs {
   publishDir "${params.outdir}", mode: 'link'
 
   input:
-  path(sequences) from post_dada_ch
+  path(sequences) from post_dada_seq_ch
+  path(tidy_table) from post_dada_tidy_ch
 
   output:
-  path("${sequences}.bn_refseq")
+  path("${sequences}.bn_refseq") into post_compare_ch
 
   script:                                                                       
   """                                                                           
   blastn -db ${params.refseq_fasta} -task megablast -evalue 1e-10 -query $sequences -outfmt 6 -out ${sequences}.bn_refseq
+  """             
+}
+
+process assign_observed_sequences_to_ref_seqs {
+  publishDir "${params.outdir}", mode: 'link'
+
+  input:
+  path(blast_output) from post_compare_ch
+  path(tidy_table) from post_dada_tidy_ch
+
+  output:
+  // path("${sequences}.bn_refseq")
+
+  script:                                                                       
+  """                                                                           
+  Rscript ${params.R_bindir}/assign_observed_seqs_to_ref_seqs.R ${params.R_bindir} $tidy_table $blast_output
   """             
 }
 

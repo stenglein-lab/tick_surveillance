@@ -120,9 +120,9 @@ track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, 
 # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
 colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
 rownames(track) <- sample.names
-head(track)
+# head(track)
 
-# TODO: output this table for tracking purposes
+# TODO: output the track table for tracking purposes 
 
 # convert to a data frame
 t <- as.data.frame(seqtab.nochim)
@@ -135,17 +135,14 @@ t$dataset <- rownames(t)
 # their abundances in each dataset
 tidy_sequence_table <- pivot_longer(t, -dataset, names_to = "sequence", values_to = "abundance" )
 
-# pivot wider
-wide_sequence_table <- pivot_wider(tidy_sequence_table, names_from = sequence, values_from = abundance)
-write.table(wide_sequence_table, "wide_seqtab.txt", sep="\t", quote=F, row.names = F)
+# create a unique sequence id (#) for each sequence: for keeping track of in further processing steps
+sequences <- tidy_sequence_table %>% group_by(sequence) %>% summarize () %>% mutate(sequence_number = row_number())
 
-sequence_df <- data.frame(seq_id=integer(),
-                 sequence=character(), 
-                 stringsAsFactors=FALSE) 
-# all the sequences in a vector
-sequences <- distinct(tidy_sequence_table, sequence)
-sequences <- sequences %>% mutate(sequence_number = row_number())
-# write.table(sequences, "sequences.txt", sep="\t", quote=F, row.names = F)
+# join these sequence #s back into the tidy table
+tidy_sequence_table <- left_join(tidy_sequence_table, sequences, by="sequence")
+
+# write out the tidy-formatted table
+write.table(tidy_sequence_table, "tidy_sequence_table.tsv", sep="\t", col.names=T)
 
 # this writes fasta from the sequences data frame 
 # see: https://bootstrappers.umassmed.edu/guides/main/r_writeFasta.html
@@ -160,15 +157,9 @@ writeFasta <- function(data, filename){
   close(fileConn)
 }
 
-writeFasta(sequences, "sequences.fasta")
+# write out the sequences in fasta format
+writeFasta(sequences, "observed_sequences.fasta")
 
-# 9/30/2020
-# TODO: 
-# - assign sequences to one of the reference sequences
- # - what tool to use for this?   BLAST?   other?
- # - where to do this?  in R?  in a bash script or something?
- # - how to handle results?  
-# - do something with non-matching sequences...
 
 
 
