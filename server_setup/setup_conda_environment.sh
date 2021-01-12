@@ -1,6 +1,6 @@
 #!/bin/bash 
 
-# This script runs the commands necessary to setup a linux server to run
+# This script sets up the conda environment containing dependencies for 
 # the CDC Tick Surveillance Pipeline
 #
 # Mark Stenglein
@@ -59,20 +59,4 @@ echo "conda environment setup complete."
 
 # activate this conda enviornment so can use update_blastdb.pl
 conda activate $HOME/tick_conda_environment
-
-# download the NCBI nt database
-echo "Downloading the NCBI nt database.  This will likely take at least several hours."
-echo "enter to continue"
-read x
-
-# update_blastdb.pl keeps dropping connection: not working
-# update_blastdb.pl --decompress --num_threads 12 nt 
-
-# setup the NCBI nt database
-./fetch_nt_database.sh
-
-# TODO: setup monthly updates of the nt database
-
-
-
 

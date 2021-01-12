@@ -15,22 +15,26 @@
 // --------------------------------
 // Directories for input and output
 // --------------------------------
-params.fastq_dir = "$baseDir/a_few_fastq/"
-params.initial_fastqc_dir = "$baseDir/initial_fastqc/" 
-params.post_trim_fastqc_dir = "$baseDir/post_trim_fastqc/" 
+params.fastq_dir = "$baseDir/fastq/"
 params.outdir = "$baseDir/results"                                                       
-params.trimmed_outdir = "$baseDir/trimmed_fastq"                                                       
+params.initial_fastqc_dir = "${params.outdir}/initial_fastqc/" 
+params.post_trim_fastqc_dir = "${params.outdir}/post_trim_fastqc/" 
+params.trimmed_outdir = "${params.outdir}/trimmed_fastq"                                                       
 
-// where are R scripts found...                                                 
+// Directory where R (and any other) scripts are.                                                 
 params.R_bindir="${baseDir}/scripts"  
 
 // -------------------
 // Reference sequences
 // -------------------
 params.refseq_dir = "${baseDir}/refseq"
+params.targets_refseq_fasta = "${params.refseq_dir}/target_reference_sequences.fasta"
+params.internal_ctrl_refseq_fasta = "${params.refseq_dir}/tick_actin_sequences.fasta"
+params.off_target_refseq_fasta = "${params.refseq_dir}/off_target_products.fasta"
 params.refseq_fasta = "${params.refseq_dir}/reference_sequences.fasta"
+
 // TODO: versioning of reference sequences
-params.refseq_version = "2020-12-01"
+params.refseq_version = "2021-01-08"
 
 params.primers = "${params.refseq_dir}/primers.csv"
 
@@ -70,11 +74,12 @@ Channel
     .into {samples_ch_qc; samples_ch_trim}
 
 /* 
- The primer sequences used to amplify surveillance targets, which will be trimmed 
- off of read pairs
 
- Only read pairs that have an expected matching pair of primer sequences
- will be retained.
+ This channel generates the  primer sequences that were 
+ used to amplify surveillance targets.  These primer sequences will be trimmed 
+ off of read pairs and used to identify legitimate PCR products, which will
+ contain an expected F/R primer pair at the ends. 
+
 */
 Channel                                                                         
     .fromPath(params.primers)                                                   
@@ -82,14 +87,17 @@ Channel
     .map{ row-> tuple(row.target, row.primer_r_name, row.primer_f_seq, row.primer_r_name, row.primer_r_seq) }
     .set { primers_ch }   
                                                                                 
-// this combinatorially combines the fastq file pairs with the primer sequences
-// to be trimmed, creating a new channel
+/*
+   this combinatorially mixes the fastq file pairs with the primer sequences
+   to be trimmed, creating a new channel with all possible combinations of
+   input fastq and primer pair
+*/
 primers_and_samples = primers_ch.combine(samples_ch_trim)   
 
 /*
-   Setup some initial indexes and dictionaries needed by downstream processes.
+   Setup indexes and dictionaries needed by downstream processes.
+
    Only do this once at beginning.
-   TODO: remove initial .dict file
 */
 process setup_indexes {
 
@@ -100,6 +108,27 @@ process setup_indexes {
 
   script:
   """
+  # make a concatenated file containing all the different types of reference sequences:
+  #
+  # (1) Actual microbes expected
+  # (2) Known off-target PCR products 
+  # (3) Internal control sequence(s): in this case, tick actin sequence
+  #
+  # We'll prepend the sequence names of the last 2 categories with labels to 
+  # make them identifiable in downstream analysis steps
+ 
+  # delete, then re-build the reference sequence file
+  rm -f ${params.refseq_fasta}
+  
+  # prepend sequence names with a label to identify them as an off-target product sequence
+  sed 's/^>/>OFF_TARGET_/' ${params.off_target_refseq_fasta}  >> ${params.refseq_fasta}
+
+  # prepend sequence names with a label to identify them as an internal positive ctrl sequence
+  sed 's/^>/>INTERNAL_CTRL_/' ${params.internal_ctrl_refseq_fasta}  >> ${params.refseq_fasta}
+
+  # don't prepend the target refseq names
+  cat ${params.targets_refseq_fasta} >> ${params.refseq_fasta}
+
   # Blast database of the reference sequences
   makeblastdb -dbtype nucl -in ${params.refseq_fasta} -out ${params.refseq_fasta}
   """
@@ -114,9 +143,9 @@ process setup_indexes {
 */                                                                              
 String.metaClass.complement = {                                                 
   def complements = [ A:'T', T:'A', U:'A', G:'C',                               
-                    C:'G', Y:'R', R:'Y', S:'S',                                 
-                    W:'W', K:'M', M:'K', B:'V',                                 
-                    D:'H', H:'D', V:'B', N:'N' ]                                
+                      C:'G', Y:'R', R:'Y', S:'S',                                 
+                      W:'W', K:'M', M:'K', B:'V',                                 
+                      D:'H', H:'D', V:'B', N:'N' ]                                
   delegate.toUpperCase().collect { base ->                                      
     complements[ base ] ?: 'X'                                                  
   }.join()                                                                      
@@ -146,6 +175,8 @@ process initial_qc {
 
 /*
  Use multiqc to merge initial fastqc reports
+
+ TODO: will this report old, accumulated fastqc reports if the pipeline is re-run without cleaning up the work directory?
 */
 process initial_multiqc {
   publishDir "${params.outdir}", mode:'link'
@@ -170,14 +201,19 @@ process initial_multiqc {
  matching read pairs will be output to a new file.  This avoid amplification products that
  were formed by unexpected primer combinations (since this is a multiplex PCR assay).  
 
- This trimming takes advantage of as described in:
+ This trimming uses cutadapt as described in:
 
  https://cutadapt.readthedocs.io/en/stable/recipes.html#trimming-amplicon-primers-from-both-ends-of-paired-end-reads
 
  This step also throws away read pairs shorter than ${params.post_trim_min_length} 
 
  This process will be run once per input fastq file pair per read pair
+
+ TODO: There is an assumption here that the primer sequences are entered in the correct 
+       orientation relative to the Illumina read1 and read2.  
+       Unit testing should include a check for that.
 */
+
 process trim_primer_seqs {                                                      
   label 'lowmem'
                                                                               
@@ -253,8 +289,8 @@ process collect_cutadapt_output {
   def truseq_cutadapt = "-a AGATCGGAAGAGCACACGTCTGAACTCCAGTCA -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
 
   // these will be the names of the new concatenated outputs, before truseq trimming
-  def f1 = "${sample_id}.r1_individual_primers.fastq"
-  def f2 = "${sample_id}.r2_individual_primers.fastq"
+  def f1 = "${sample_id}.R1_individual_primers.fastq"
+  def f2 = "${sample_id}.R2_individual_primers.fastq"
 
   """                                                                           
   # concatenate the individually-trimmed files (one for each amplicon target)
@@ -264,7 +300,6 @@ process collect_cutadapt_output {
   # one last cutadapt command to remove adapter sequences and too-short read pairs
   cutadapt $truseq_cutadapt --discard-trimmed --minimum-length ${params.post_trim_min_length} \
     -o ${sample_id}_R1_trimmed.fastq -p ${sample_id}_R2_trimmed.fastq ${f1} ${f2}
-
   """                                                                           
 }         
 
@@ -290,6 +325,12 @@ process post_trim_qc {
 
 /*
  Use multiqc to merge post-trimming fastq reports
+
+ This report should show, for instance, the absence of any remaining
+ Illumina adapter sequences. 
+
+ TODO: will this report old fastqc reports if the pipeline is re-run?
+
 */
 process post_trim_multiqc {
   publishDir "${params.outdir}", mode: 'link'
@@ -310,7 +351,10 @@ process post_trim_multiqc {
   Run dada2 on trimmed read pairs to:
 
  - perform error-correction on misscalled bases
- -  , cluster, and tabulate the frequencies of particular 
+ - merge read pairs
+ - cluster identical read pairs
+ - remove chimeric sequences
+ - tabulate the frequencies of particular unique sequences
 
 */
 
@@ -322,17 +366,22 @@ process run_dada_on_trimmed {
 
   output:
   path("observed_sequences.fasta") into post_dada_seq_ch
-  path("tidy_sequence_table.tsv") into post_dada_tidy_ch
+  path("sequence_abundance_table.tsv") into post_dada_tidy_ch
 
   script:                                                                       
   """                                                                             
   # This R file creates an output named observed_sequences.fasta containing all of the
   # unique sequences observed in the amplicon dataset
-  # and a tidy_sequence_table.tsv, which includes all of the 
+  # and a tidy_sequence_table.tsv, which lists the abundances of these
+  # sequences in each dataset
   Rscript ${params.R_bindir}/run_dada_on_trimmed.R ${params.R_bindir} ${params.trimmed_outdir}
   """             
 }
 
+/* 
+ This process aligns all of the unique sequences reported by dada2
+ to the set of expected reference sequences using blastn.
+*/
 process compare_observed_sequences_to_ref_seqs {
   publishDir "${params.outdir}", mode: 'link'
 
@@ -344,11 +393,22 @@ process compare_observed_sequences_to_ref_seqs {
   path("${sequences}.bn_refseq") into post_compare_ch
 
   script:                                                                       
+  // this is almost the default blastn output except gaps replaces gapopens, because seems more useful!
+  def blastn_columns = "qaccver saccver pident length mismatch gaps qstart qend sstart send evalue bitscore"
   """                                                                           
-  blastn -db ${params.refseq_fasta} -task megablast -evalue 1e-10 -query $sequences -outfmt 6 -out ${sequences}.bn_refseq
+  blastn -db ${params.refseq_fasta} -task megablast -evalue 1e-10 -query $sequences -outfmt "6 $blastn_columns" -out ${sequences}.bn_refseq.no_header
+  # prepend blast output with the column names so we don't have to manually name them later
+  echo $blastn_columns > blast_header.no_perl
+  echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
+  cat blast_header ${sequences}.bn_refseq.no_header > ${sequences}.bn_refseq
   """             
 }
 
+/*
+  This process takes the blast alignment information from the above process
+  and decides whether those sequence are sufficiently similar to the reference 
+  sequences to be assigned to them.
+*/
 process assign_observed_sequences_to_ref_seqs {
   publishDir "${params.outdir}", mode: 'link'
 
@@ -357,7 +417,9 @@ process assign_observed_sequences_to_ref_seqs {
   path(tidy_table) from post_dada_tidy_ch
 
   output:
-  // path("${sequences}.bn_refseq")
+  path("unassigned_sequences.fasta") into post_assign_to_refseq_ch
+  path("identified_targets.xlsx")
+  path("identified_targets.tsv")
 
   script:                                                                       
   """                                                                           
@@ -365,3 +427,38 @@ process assign_observed_sequences_to_ref_seqs {
   """             
 }
 
+
+/* 
+ This process aligns all of the unique sequences reported by dada2
+ to the set of expected reference sequences using blastn.
+*/
+process blast_unassigned_sequences {
+  publishDir "${params.outdir}", mode: 'link'
+
+  input:
+  path(unassigned_sequences) from post_assign_to_refseq_ch
+
+  output:
+  path("${unassigned_sequences}.bn_nt") into post_blast_unassigned_ch
+
+  script:                                                                       
+  // columns to include in blast output: standard ones plus taxonomy info
+  def blastn_columns = "qaccver saccver pident length mismatch gaps qstart qend sstart send evalue bitscore staxid ssciname scomname sblastname sskingdom"
+/*
+   	    staxid means Subject Taxonomy ID
+   	  ssciname means Subject Scientific Name
+   	  scomname means Subject Common Name
+   	sblastname means Subject Blast Name
+   	 sskingdom means Subject Super Kingdom
+*/
+
+  //TODO: configurable e-value
+  """                                                                           
+  blastn -db nt -task megablast -evalue 1e-10 -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
+  # prepend blast output with the column names so we don't have to manually name them later
+  echo $blastn_columns > blast_header.no_perl
+  # replace spaces with tabs
+  echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
+  cat blast_header ${unassigned_sequences}.bn_nt.no_header > ${unassigned_sequences}.bn_nt
+  """             
+}

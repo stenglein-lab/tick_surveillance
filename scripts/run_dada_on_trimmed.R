@@ -142,7 +142,7 @@ sequences <- tidy_sequence_table %>% group_by(sequence) %>% summarize () %>% mut
 tidy_sequence_table <- left_join(tidy_sequence_table, sequences, by="sequence")
 
 # write out the tidy-formatted table
-write.table(tidy_sequence_table, "tidy_sequence_table.tsv", sep="\t", col.names=T)
+write.table(tidy_sequence_table, "sequence_abundance_table.tsv", sep="\t", col.names=T, row.names=F)
 
 # this writes fasta from the sequences data frame 
 # see: https://bootstrappers.umassmed.edu/guides/main/r_writeFasta.html
