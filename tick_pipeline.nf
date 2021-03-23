@@ -15,7 +15,9 @@
 // --------------------------------
 // Directories for input and output
 // --------------------------------
-params.fastq_dir = "$baseDir/fastq/"
+params.input_dir = "$baseDir/input/"
+params.fastq_dir = "${params.input_dir}/fastq/"
+
 params.outdir = "$baseDir/results"                                                       
 params.initial_fastqc_dir = "${params.outdir}/initial_fastqc/" 
 params.post_trim_fastqc_dir = "${params.outdir}/post_trim_fastqc/" 
@@ -27,17 +29,20 @@ params.R_bindir="${baseDir}/scripts"
 // -------------------
 // Reference sequences
 // -------------------
+// TODO: check that appropriate refseq files exist (fasta, gb, etc.)
 params.refseq_dir = "${baseDir}/refseq"
 params.targets_refseq_fasta = "${params.refseq_dir}/target_reference_sequences.fasta"
 params.internal_ctrl_refseq_fasta = "${params.refseq_dir}/tick_actin_sequences.fasta"
 params.off_target_refseq_fasta = "${params.refseq_dir}/off_target_products.fasta"
 params.refseq_fasta = "${params.refseq_dir}/reference_sequences.fasta"
 
-// TODO: versioning of reference sequences
+// TODO (possibly): Force the user to specify a file (?)
+params.metadata_input_file = "${params.input_dir}/sample_metadata.xlsx"
+
+// TODO: versioning of reference sequences (?)
 params.refseq_version = "2021-01-08"
 
 params.primers = "${params.refseq_dir}/primers.csv"
-
 
 // ------------------
 // Trimming settings
@@ -45,30 +50,21 @@ params.primers = "${params.refseq_dir}/primers.csv"
 // shortest amplicon = tick Actin @ 196 bp
 params.post_trim_min_length = "100" 
 
+// ----------------------
+// Blast e-value cutoffs
+// ----------------------
+params.max_blast_refseq_evalue = "1e-10"
+params.max_blast_nt_evalue = "1e-10"
 
 
-
-// TODO: command line arg processing and validating 
-
-// TODO: check that appropriate refseq files exist (fasta, gb, etc.)
-
-// TODO: handle single end or paired end, possibly automatically
-
-// TODO: better control of concurrency in terms of processes
-
-// TODO: move scripts to a bin subdir
-
-// TODO: put all up on github
-
-// TODO: conda
-
-// TODO: BSQR fails in case of no mapping reads... deal with this possibility 
 
 /*
  These fastq files represent the main input to this workflow
  
  Expecting files with _R1 or _R2 in their names corresponding to paired-end reads
 */
+
+//TODO: handle gzipped fastq
 Channel
     .fromFilePairs("${params.fastq_dir}/*_R{1,2}*.fastq", size: 2, checkIfExists: true, maxDepth: 1)
     .into {samples_ch_qc; samples_ch_trim}
@@ -121,7 +117,7 @@ process setup_indexes {
   rm -f ${params.refseq_fasta}
   
   # prepend sequence names with a label to identify them as an off-target product sequence
-  sed 's/^>/>OFF_TARGET_/' ${params.off_target_refseq_fasta}  >> ${params.refseq_fasta}
+  # sed 's/^>/>OFF_TARGET_/' ${params.off_target_refseq_fasta}  >> ${params.refseq_fasta}
 
   # prepend sequence names with a label to identify them as an internal positive ctrl sequence
   sed 's/^>/>INTERNAL_CTRL_/' ${params.internal_ctrl_refseq_fasta}  >> ${params.refseq_fasta}
@@ -396,7 +392,7 @@ process compare_observed_sequences_to_ref_seqs {
   // this is almost the default blastn output except gaps replaces gapopens, because seems more useful!
   def blastn_columns = "qaccver saccver pident length mismatch gaps qstart qend sstart send evalue bitscore"
   """                                                                           
-  blastn -db ${params.refseq_fasta} -task megablast -evalue 1e-10 -query $sequences -outfmt "6 $blastn_columns" -out ${sequences}.bn_refseq.no_header
+  blastn -db ${params.refseq_fasta} -task megablast -evalue ${params.max_blast_refseq_evalue} -query $sequences -outfmt "6 $blastn_columns" -out ${sequences}.bn_refseq.no_header
   # prepend blast output with the column names so we don't have to manually name them later
   echo $blastn_columns > blast_header.no_perl
   echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
@@ -423,7 +419,7 @@ process assign_observed_sequences_to_ref_seqs {
 
   script:                                                                       
   """                                                                           
-  Rscript ${params.R_bindir}/assign_observed_seqs_to_ref_seqs.R ${params.R_bindir} $tidy_table $blast_output
+  Rscript ${params.R_bindir}/assign_observed_seqs_to_ref_seqs.R ${params.R_bindir} $tidy_table $blast_output ${params.metadata_input_file}
   """             
 }
 
@@ -440,6 +436,7 @@ process blast_unassigned_sequences {
 
   output:
   path("${unassigned_sequences}.bn_nt") into post_blast_unassigned_ch
+  path("${unassigned_sequences}") into post_blast_unassigned_seq_ch
 
   script:                                                                       
   // columns to include in blast output: standard ones plus taxonomy info
@@ -454,7 +451,7 @@ process blast_unassigned_sequences {
 
   //TODO: configurable e-value
   """                                                                           
-  blastn -db nt -task megablast -evalue 1e-10 -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
+  blastn -db nt -task megablast -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
   # prepend blast output with the column names so we don't have to manually name them later
   echo $blastn_columns > blast_header.no_perl
   # replace spaces with tabs
@@ -462,3 +459,22 @@ process blast_unassigned_sequences {
   cat blast_header ${unassigned_sequences}.bn_nt.no_header > ${unassigned_sequences}.bn_nt
   """             
 }
+
+process assign_non_ref_seqs {
+  publishDir "${params.outdir}", mode: 'link'
+
+  input:
+  path(blast_output) from post_blast_unassigned_ch
+  path(unassigned_sequences) from post_blast_unassigned_seq_ch
+
+  output:
+  // path("unassigned_sequences.fasta") into post_assign_to_refseq_ch
+  // path("identified_targets.xlsx")
+  // path("identified_targets.tsv")
+
+  script:                                                                       
+  """                                                                           
+  Rscript ${params.R_bindir}/assign_non_ref_seqs.R ${params.R_bindir} $unassigned_sequences $blast_output
+  """             
+}
+

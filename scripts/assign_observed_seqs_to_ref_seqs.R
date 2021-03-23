@@ -7,9 +7,11 @@
 
 library(tidyverse)
 library(openxlsx)
+library(readxl)
 library(DT)
 
 #
+
 # This code block sets up input arguments to either come from the command line
 # (if running from the pipeline, so not interactively) or to use expected default values 
 # (if running in interactive mode, for example in RStudio for troubleshooting
@@ -22,11 +24,14 @@ if (!interactive()) {
   r_bindir=args[1]
   tidy_table_path=args[2]
   blast_output_path=args[3]
+  sample_metadata_file=args[4]
+  dataset_ids=args[5]
 } else {
   # if running via RStudio
   r_bindir = "."
   tidy_table_path="../results/sequence_abundance_table.tsv"
   blast_output_path="../results/observed_sequences.fasta.bn_refseq"
+  sample_metadata_file="../input/sample_metadata.xlsx"
 }
 
 
@@ -64,6 +69,10 @@ blast_df_all <- blast_df_all %>% rename(query = qaccver,
                                         subject = saccver,
                                         percent_identity = pident,
                                         alignment_length = length)
+
+
+# read in the sample metadata file
+metadata_df <- read_excel(sample_metadata_file)
 
 # take the highest scoring blast hit for each query
 blast_df <- blast_df_all %>% group_by(query) %>% arrange(-bitscore, .by_group = T) %>% filter(row_number() == 1)
@@ -331,12 +340,57 @@ write.table(reporting_dataset, "identified_targets.tsv", quote=F, sep="\t", col.
 # write as excel
 # TODO: date in filename.  Unique run identifier?
 wb <- createWorkbook("identified_targets.xlsx")
-addWorksheet(wb, "identified_targets")
-writeData(wb, "identified_targets", reporting_dataset)
+addWorksheet(wb, "refseq_all")
+writeData(wb, "refseq_all", reporting_dataset)
 # TODO: save to results dir
+
+# collapse all hits for same target species in each dataset for 
+#  include as an additional tab 
+
+reporting_dataset_with_diversity_calcs <- reporting_dataset %>%
+	group_by(dataset, target_species) %>% 
+	mutate(
+	       # pi here is not the number pi, but the proportion of reads from the ith refseq
+	       # see: https://en.wikipedia.org/wiki/Diversity_index#Shannon_index
+	       pi = number_supporting_reads / sum(number_supporting_reads)) %>%
+  ungroup()
+
+reporting_dataset_by_spp <- reporting_dataset_with_diversity_calcs %>% 
+	group_by(dataset, target_species) %>% 
+  summarize(
+            total_number_supporting_reads = sum(number_supporting_reads),   
+            average_percent_alignment_identity = mean(percent_alignment_identity),
+            average_percent_sequence_aligned = mean(percent_sequence_aligned),
+            richness = n(),
+            # Shannon index: https://en.wikipedia.org/wiki/Diversity_index#Shannon_index
+            # note log() by default calculates natural log
+            Shannon_index = -sum(pi*log(pi)),
+            # here, evenness is Pielou's evenness index
+            # see: https://en.wikipedia.org/wiki/Species_evenness
+            # if_else because dividing by log(1) = 0 causes error, so 
+            # when richness = 1, evenness = 0 
+		        evenness = if_else(richness == 1, 0, Shannon_index / log(richness)), .groups="drop") %>%
+  select(-Shannon_index)
+
+addWorksheet(wb, "refseq_collapsed")
+writeData(wb, "refseq_collapsed", reporting_dataset_by_spp)
+
+
+# make a version with rows as datasets and columns as targets.
+# include all datasets 
+all_datasets <- sequence_abundance_table$dataset
+
+
+
 saveWorkbook(wb, "identified_targets.xlsx", overwrite = TRUE)
 
-# TODO: collapse all hits for same target species in each dataset for DT
+# TODO: all datasets, wide format, warning flag if something wrong!
+
+# TODO: write the sample metadata to this main output file as a tab
+
+
+
+
 
 # wider format for a table
 # reporting_dataset %>% select(-reference_sequence, -subject, -percent_alignment_identity, -percent_sequence_aligned) %>% pivot_wider(names_from = target_species, values_from = number_supporting_reads) 
@@ -344,9 +398,10 @@ saveWorkbook(wb, "identified_targets.xlsx", overwrite = TRUE)
 wide_df <- reporting_dataset %>% select(-percent_alignment_identity, -percent_sequence_aligned) %>% pivot_wider(names_from = target_species, values_from = number_supporting_reads) 
 ?pivot_wider
 
+
+
+
 # make a data.table
-
-
 # ------------------------------------------
 # data table with filtering, shading, etc.
 # ------------------------------------------

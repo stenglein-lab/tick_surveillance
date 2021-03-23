@@ -24,7 +24,7 @@ if (!interactive()) {
 } else {
   # if running via RStudio
   r_bindir = "."
-  trimmed_path = "../trimmed_fastq"
+  trimmed_path = "../results/trimmed_fastq"
 }
 
 # get lists of fastq files in trimmed directory 
@@ -32,6 +32,10 @@ fnFs <- sort(list.files(trimmed_path, pattern="_R1_trimmed.fastq", full.names = 
 fnRs <- sort(list.files(trimmed_path, pattern="_R2_trimmed.fastq", full.names = TRUE))
 
 # Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
+# for instance, 1_S1_L001_R1.fastq 
+#
+# NOTE: it is possible that this assumption is not good if the fastq were to be named
+#       differently than expected
 sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
 
 # This will place dada-filtered files in dada_filtered/ subdirectory
@@ -63,6 +67,15 @@ out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs,
                      maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
                      compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
 
+
+# only keep file pairs for which the filtered files exist
+# see: https://github.com/benjjneb/dada2/issues/375
+# exists is a logical vector based on whether the R1 and R2 files exist
+exists <- file.exists(filtFs) & file.exists(filtRs)
+# use exists logical vector to subset filtered file names
+filtFs <- filtFs[exists]
+filtRs <- filtRs[exists]
+
 # Estimate error rates: actual error rate as a function of quality score for each type   
 # of base substitution.
 #
@@ -80,6 +93,7 @@ errR <- learnErrors(filtRs, multithread=TRUE)
 # plotErrors(errF, nominalQ=TRUE)
 # plotErrors(errR, nominalQ=TRUE)
 
+
 # Ru 
 dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
 dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
@@ -87,8 +101,6 @@ dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
 # dadaFs[[1]]
 
 mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
-
-# ?mergePairs
 
 # head(mergers[[1]])
 
@@ -122,7 +134,22 @@ colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "n
 rownames(track) <- sample.names
 # head(track)
 
-# TODO: output the track table for tracking purposes 
+# COULD_DO: output the track table for tracking purposes : how many reads were collapsed/filtered at each step by dada
+
+#
+# Handle empty datasets.  These should be reported as datasets with abundances of 0 for all sequences.
+#
+# These could correspond to datasets that were truly empty after sequencing or had no reads after filtering.
+#
+# Add rows with all 0s for datasets that had no reads after filtering 
+# this corresponds to the FALSE values in the exists vector
+empty_sample_names <- sample.names[!exists]
+# create a matrix with all 0s
+new_rows_with_zeros <- matrix(0L, nrow = length(empty_sample_names), ncol = ncol(seqtab.nochim)) 
+# name them according to their original names
+row.names(new_rows_with_zeros) <- empty_sample_names
+# concatenate this new all-zeros table onto the end of the data seqtab
+seqtab.nochim <- rbind(seqtab.nochim, new_rows_with_zeros)
 
 # convert to a data frame
 t <- as.data.frame(seqtab.nochim)
@@ -132,7 +159,7 @@ t$dataset <- rownames(t)
 
 # this is now a tidy formatted table with:
 # unique, merged sequences
-# their abundances in each dataset
+# and their abundances in each dataset
 tidy_sequence_table <- pivot_longer(t, -dataset, names_to = "sequence", values_to = "abundance" )
 
 # create a unique sequence id (#) for each sequence: for keeping track of in further processing steps
