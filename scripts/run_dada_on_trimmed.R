@@ -28,8 +28,8 @@ if (!interactive()) {
 }
 
 # get lists of fastq files in trimmed directory 
-fnFs <- sort(list.files(trimmed_path, pattern="_R1_trimmed.fastq", full.names = TRUE))
-fnRs <- sort(list.files(trimmed_path, pattern="_R2_trimmed.fastq", full.names = TRUE))
+fnFs <- sort(list.files(trimmed_path, pattern="_R1_trimmed.fastq.gz", full.names = TRUE))
+fnRs <- sort(list.files(trimmed_path, pattern="_R2_trimmed.fastq.gz", full.names = TRUE))
 
 # Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
 # for instance, 1_S1_L001_R1.fastq 

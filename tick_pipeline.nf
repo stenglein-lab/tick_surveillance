@@ -18,18 +18,18 @@
 params.input_dir = "$baseDir/input/"
 params.fastq_dir = "${params.input_dir}/fastq/"
 
+// Directory where R (and any other) scripts are.                                                 
+params.script_dir="${baseDir}/scripts"  
+
 params.outdir = "$baseDir/results"                                                       
 params.initial_fastqc_dir = "${params.outdir}/initial_fastqc/" 
 params.post_trim_fastqc_dir = "${params.outdir}/post_trim_fastqc/" 
 params.trimmed_outdir = "${params.outdir}/trimmed_fastq"                                                       
 
-// Directory where R (and any other) scripts are.                                                 
-params.R_bindir="${baseDir}/scripts"  
-
 // -------------------
 // Reference sequences
 // -------------------
-// TODO: check that appropriate refseq files exist (fasta, gb, etc.)
+// TODO: check that appropriate refseq files exist
 params.refseq_dir = "${baseDir}/refseq"
 params.targets_refseq_fasta = "${params.refseq_dir}/target_reference_sequences.fasta"
 params.internal_ctrl_refseq_fasta = "${params.refseq_dir}/tick_actin_sequences.fasta"
@@ -37,10 +37,12 @@ params.off_target_refseq_fasta = "${params.refseq_dir}/off_target_products.fasta
 params.refseq_fasta = "${params.refseq_dir}/reference_sequences.fasta"
 
 // TODO (possibly): Force the user to specify a file (?)
-params.metadata_input_file = "${params.input_dir}/sample_metadata.xlsx"
+params.metadata = "${params.input_dir}/sample_metadata.xlsx"
 
 // TODO: versioning of reference sequences (?)
+params.pipeline_version = "2021-04-22"
 params.refseq_version = "2021-01-08"
+params.primers_version = "2021-01-08"
 
 params.primers = "${params.refseq_dir}/primers.csv"
 
@@ -56,17 +58,237 @@ params.post_trim_min_length = "100"
 params.max_blast_refseq_evalue = "1e-10"
 params.max_blast_nt_evalue = "1e-10"
 
+// these will output usage info
+params.help = false
+params.h = false
+
+
+/*
+   Pipeline usage output message.
+
+   This will provide usage information in case of a parameter failure
+*/
+def usageMessage() {
+
+  log.info """
+
+  # Tick-borne pathogen surveillance bioinformatics pipeline
+
+  For more information on this pipeline, see:
+
+
+  ## Pipeline usage:
+  
+  The typical command for running the pipeline is as follows:
+
+    nextflow run tick_pipeline.nf 
+  
+  To resume the pipeline (if it stops for some reason or you modify the pipeline scripts): 
+
+    nextflow run tick_pipeline.nf -resume
+
+
+  ## Pipeline inputs and assumptions:
+
+  For a description of this pipeline's assumptions, input formats, see:
+
+    1. Paired end fastq (or compressed fastq) files in the input/fastq folder.  
+       These files should have filenames that end in .fastq or .fastq.gz.
+       These files name's should contain the text R1 and R2, corresponding 
+       to the 2 paired reads. 
+
+    2. An optional sample metadata file 
+
+
+   To document:
+
+    - Expected type of fastq input 
+    - Format of primer input 
+    - Primer sequences and their orientation.
+    - Format of target reference sequences (species name)...
+    - Internal control reference sequences
+    - Known off target sequences
+    - Known off target sequences
+    - Versioning of references?
+    - NT database info (use RefSeq instead of nt?)
+  
+  Pipeline parameters: 
+
+  All of the following parameters have default values that can be optionally
+  overridden at run time by including the parameter on the command line. For
+  example:
+
+   nextflow run tick_pipeline.nf --input_dir a_different_input_directory
+
+
+    Pipeline input:
+
+    --input_dir                    Input directory. 
+                                   [default: ${params.input_dir}] 
+
+    --fastq_dir                    Input directory for fastq files. 
+                                   [default: ${params.fastq_dir}] 
+
+    --script_dir                   Directory containing auxiliary pipeline scripts.
+                                   [default: ${params.script_dir}] 
+
+    --refseq_dir                   Directory containing target reference sequences.
+                                   [default: ${params.refseq_dir}] 
+
+
+    --primers                      File containing primers used to amplify 
+                                   surveillance targets in csv format.
+                                   [default: ${params.primers}] 
+
+    --metadata                     File containing sample metadata
+                                   in Excel format.
+                                   [default: ${params.metadata}] 
+
+    --targets_refseq_fasta         File containing the target reference sequences
+                                   in fasta format.  
+                                   [default: ${params.targets_refseq_fasta}] 
+
+    --internal_ctrl_refseq_fasta   File containing the internal positive control 
+                                   reference sequences in fasta format. 
+                                   [default: ${params.targets_refseq_fasta}] 
+
+    --off_target_refseq_fasta      File containing known off-target amplicon
+                                   sequences in fasta format.  Observed sequences
+                                   matching these will be removed from analysis.
+                                   [default: ${params.targets_refseq_fasta}] 
+
+    Pipeline output:
+
+    --outdir                       Output directory into which to place 
+                                   result files 
+                                   [default: ${params.outdir}] 
+
+    --initial_fastqc_dir           Output directory into which to place 
+                                   initial (pre quality-trimming) fastqc 
+                                   report files
+                                   [default: ${params.initial_fastqc_dir}] 
+
+    --post_trim_fastqc_dir         Output directory into which to place 
+                                   post-trimming fastqc report files
+                                   [default: ${params.post_trim_fastqc_dir}] 
+
+    --trimmed_outdir               Output directory into which to place 
+                                   post-trimming fastqc files
+                                   [default: ${params.trimmed_outdir}] 
+
+
+    Configurable parameters for trimming and assignment:
+
+    --post_trim_min_length         Reads shorter than this after primer trimming
+                                   will be discarded from further analysis.
+                                   [default: ${params.post_trim_min_length}] 
+
+    --max_blast_refseq_evalue      The maximum blastn E-value for observed
+                                   sequences to be considered for possible
+                                   assignment to a reference sequence.  
+                                   Having an blastn E-value below this is 
+                                   necessary but not sufficient to be assigned.
+                                   [default: ${params.max_blast_refseq_evalue}] 
+
+    --max_blast_non_refseq_evalue  The maximum blastn E-value for non-reference
+                                   sequences to be considered for possible
+                                   assignment to a Genbank sequence.  
+                                   Having an blastn E-value below this is 
+                                   necessary but not sufficient to be assigned.
+                                   [default: ${params.max_blast_non_refseq_evalue}] 
+
+    Pipeline help and usage information:
+
+    --help                         Output this usage statement and terminate.
+    --h                            Output this usage statement and terminate. 
+
+        """
+
+  // do this extra call to log.info because groovy strips off trailing newlines 
+  // from usage message, which makes for slightly less nice looking output.
+  log.info """
+  """
+}
+
+/* 
+  Pipeline informational output message
+*/
+// This 
+def infoMessage() {
+
+  // how to best handle this versioning?
+  // via github?
+
+  log.info """
+
+    Pipeline version:             ${params.pipeline_version}
+    Reference sequences version:  ${params.pipeline_version}
+    Primers version:              ${params.primers_version}
+
+  """
+}
+
+/*
+  Print usage information if necessary and exit.
+*/
+if (params.help || params.h) {
+    usageMessage()
+    exit 0
+}
+
+
+/* 
+  Check input parameters 
+*/
+def check_params () {
+
+  // check_reference_sequences()
+  // check_primers()
+
+/*
+  if (!$params.input_dir.exists()) {
+    log.info """
+      Error: input directory $params.input_dir does not exist
+    """
+    usageMessage()
+  }
+*/
+
+  // must specify one and only one of these 2 host mapping 
+/* 
+  if (!params.host_bt_index_map_file && !params.host_bt_index){
+    log.info """
+      Error: you may specify one of these two parameters:
+        1. host_bt_index_map_file ($params.host_bt_index_map_file) and 
+        2. host_bt_index ($params.host_bt_index) 
+    """
+    helpMessage()
+  }
+*/
+
+}
+
+
+/* 
+  Check parameters and input
+*/
+check_params()
 
 
 /*
  These fastq files represent the main input to this workflow
  
  Expecting files with _R1 or _R2 in their names corresponding to paired-end reads
+
+  
 */
 
-//TODO: handle gzipped fastq
 Channel
-    .fromFilePairs("${params.fastq_dir}/*_R{1,2}*.fastq", size: 2, checkIfExists: true, maxDepth: 1)
+    .fromFilePairs(["${params.fastq_dir}/*_R{1,2}*.fastq", 
+                    "${params.fastq_dir}/*_R{1,2}*.fastq.gz"],
+                   size: 2, 
+                   checkIfExists: true, 
+                   maxDepth: 1)
     .into {samples_ch_qc; samples_ch_trim}
 
 /* 
@@ -159,7 +381,7 @@ process initial_qc {
   output:
   val(sample_id) into post_initial_qc_ch
   val(sample_id) into write_datasets_ch
-  // TODO: count
+  // TODO: count (?)
 
   script:
   """
@@ -208,6 +430,7 @@ process initial_multiqc {
  TODO: There is an assumption here that the primer sequences are entered in the correct 
        orientation relative to the Illumina read1 and read2.  
        Unit testing should include a check for that.
+
 */
 
 process trim_primer_seqs {                                                      
@@ -221,7 +444,7 @@ process trim_primer_seqs {
         val(sample_id), path(initial_fastq) from primers_and_samples
                                                                               
   output:                                                                     
-  tuple val(sample_id), path("*.R1_${target}.fastq"), path("*.R2_${target}.fastq") into primer_trimmed_ch_ungrouped
+  tuple val(sample_id), path("*.R1_${target}.fastq.gz"), path("*.R2_${target}.fastq.gz") into primer_trimmed_ch_ungrouped
                                                                               
   script:                                                                     
   def primer_f_rc = primer_f.reverse().complement()                           
@@ -243,7 +466,7 @@ process trim_primer_seqs {
   # "Use --discard-untrimmed to throw away all read pairs in which R1 
   # doesn’t start with FWDPRIMER or in which R2 does not start with REVPRIMER"
   #
-  cutadapt $primer_args --discard-untrimmed  --minimum-length ${params.post_trim_min_length} $f1 $f2 -o ${sample_id}.R1_${target}.fastq -p ${sample_id}.R2_${target}.fastq
+  cutadapt $primer_args --discard-untrimmed  --minimum-length ${params.post_trim_min_length} $f1 $f2 -o ${sample_id}.R1_${target}.fastq.gz -p ${sample_id}.R2_${target}.fastq.gz
   """                                                                         
 }
                                                                                 
@@ -276,25 +499,30 @@ process collect_cutadapt_output {
                                                                                 
   output:                                                                       
   val(sample_id) into post_trim_ch
-  tuple val(sample_id), path("*_trimmed.fastq") into post_trim_qc_ch
+  tuple val(sample_id), path("*_trimmed.fastq.gz") into post_trim_qc_ch
                                                                                 
   script:                                                                       
 
   // cutadapt parameters to trim TruSeq-style adapters
   // see: https://cutadapt.readthedocs.io/en/stable/guide.html#basic-usage
   def truseq_cutadapt = "-a AGATCGGAAGAGCACACGTCTGAACTCCAGTCA -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
+  // def nextera_cutadapt = "-a CTGTCTCTTATACACATCT -A CTGTCTCTTATACACATCT -a TGTCTCTTATACACAT -A TGTCTCTTATACACAT"
+  // CTGTCTCTTATACA
+  // this shortened version of the Nextera adapter found in some amplicons
+  def nextera_cutadapt = "-a CTGTCTCTTATACA -A CTGTCTCTTATACA"
 
   // these will be the names of the new concatenated outputs, before truseq trimming
-  def f1 = "${sample_id}.R1_individual_primers.fastq"
-  def f2 = "${sample_id}.R2_individual_primers.fastq"
+  def f1 = "${sample_id}.R1_individual_primers.fastq.gz"
+  def f2 = "${sample_id}.R2_individual_primers.fastq.gz"
 
   """                                                                           
   # concatenate the individually-trimmed files (one for each amplicon target)
+  # note that cat will concatenate .gz files just fine
   cat $individual_r1 > $f1
   cat $individual_r2 > $f2
 
   # one last cutadapt command to remove adapter sequences and too-short read pairs
-  cutadapt $truseq_cutadapt --discard-trimmed --minimum-length ${params.post_trim_min_length} \
+  cutadapt $nextera_cutadapt --discard-trimmed --minimum-length ${params.post_trim_min_length} \
     -o ${sample_id}_R1_trimmed.fastq -p ${sample_id}_R2_trimmed.fastq ${f1} ${f2}
   """                                                                           
 }         
@@ -370,7 +598,7 @@ process run_dada_on_trimmed {
   # unique sequences observed in the amplicon dataset
   # and a tidy_sequence_table.tsv, which lists the abundances of these
   # sequences in each dataset
-  Rscript ${params.R_bindir}/run_dada_on_trimmed.R ${params.R_bindir} ${params.trimmed_outdir}
+  Rscript ${params.script_dir}/run_dada_on_trimmed.R ${params.script_dir} ${params.trimmed_outdir}
   """             
 }
 
@@ -419,7 +647,7 @@ process assign_observed_sequences_to_ref_seqs {
 
   script:                                                                       
   """                                                                           
-  Rscript ${params.R_bindir}/assign_observed_seqs_to_ref_seqs.R ${params.R_bindir} $tidy_table $blast_output ${params.metadata_input_file}
+  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $tidy_table $blast_output ${params.metadata}
   """             
 }
 
@@ -453,8 +681,7 @@ process blast_unassigned_sequences {
   """                                                                           
   blastn -db nt -task megablast -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
   # prepend blast output with the column names so we don't have to manually name them later
-  echo $blastn_columns > blast_header.no_perl
-  # replace spaces with tabs
+  # the perl inline command here is to replace spaces with tabs
   echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
   cat blast_header ${unassigned_sequences}.bn_nt.no_header > ${unassigned_sequences}.bn_nt
   """             
@@ -474,7 +701,7 @@ process assign_non_ref_seqs {
 
   script:                                                                       
   """                                                                           
-  Rscript ${params.R_bindir}/assign_non_ref_seqs.R ${params.R_bindir} $unassigned_sequences $blast_output
+  Rscript ${params.script_dir}/assign_non_ref_seqs.R ${params.script_dir} $unassigned_sequences $blast_output
   """             
 }
 
