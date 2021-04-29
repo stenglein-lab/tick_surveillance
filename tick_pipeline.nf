@@ -283,6 +283,13 @@ check_params_and_input()
  Expecting files with _R1 or _R2 in their names corresponding to paired-end reads
 */
 
+/*
+  The commented out Channel factor below requires nextflow version >0.31
+  but as of 4/30/2021 only v0.30 is available on anaconda.org
+  so wait till this is available and switch to this simpler syntax
+  that will allow gzipped or uncompressed fastq
+*/
+/* 
 Channel
     .fromFilePairs(["${params.fastq_dir}/*_R{1,2}*.fastq", 
                     "${params.fastq_dir}/*_R{1,2}*.fastq.gz"],
@@ -290,6 +297,36 @@ Channel
                    checkIfExists: true, 
                    maxDepth: 1)
     .into {samples_ch_qc; samples_ch_trim}
+*/ 
+
+/*
+  Two channels that will be combined to accomodate compressed or uncomrpressed fastq 
+  See comment above about v0.31
+*/ 
+Channel
+    .fromFilePairs("${params.fastq_dir}/*_R{1,2}*.fastq", 
+                   size: 2, 
+                   // checkIfExists: true, 
+                   maxDepth: 1)
+    .into {samples_ch_qc_uncompressed; samples_ch_trim_uncompressed}
+
+Channel
+    .fromFilePairs("${params.fastq_dir}/*_R{1,2}*.fastq.gz", 
+                   size: 2, 
+                   // checkIfExists: true, 
+                   maxDepth: 1)
+    .into {samples_ch_qc_compressed; samples_ch_trim_compressed}
+
+
+// mix (merge) uncompressed or compressed output
+samples_ch_qc_uncompressed
+ .mix(samples_ch_qc_compressed)
+ .set{samples_ch_qc}
+
+samples_ch_trim_uncompressed
+ .mix(samples_ch_trim_compressed)
+ .set{samples_ch_trim}
+
 
 /*
  These fastq files represent testing inputs to the workflow
@@ -320,6 +357,7 @@ Channel
 
 */
 
+/*
 Channel
     .fromFilePairs(["${params.test_dir}/*_R{1,2}*.fastq", 
                     "${params.test_dir}/*_R{1,2}*.fastq.gz"],
@@ -327,6 +365,7 @@ Channel
                    checkIfExists: true, 
                    maxDepth: 1)
     .into {test_ch_trim}
+*/
 
 /* 
 
@@ -565,7 +604,7 @@ process collect_cutadapt_output {
 
   # one last cutadapt command to remove adapter sequences and too-short read pairs
   cutadapt $nextera_cutadapt --discard-trimmed --minimum-length ${params.post_trim_min_length} \
-    -o ${sample_id}_R1_trimmed.fastq -p ${sample_id}_R2_trimmed.fastq ${f1} ${f2}
+    -o ${sample_id}_R1_trimmed.fastq.gz -p ${sample_id}_R2_trimmed.fastq.gz ${f1} ${f2}
   """                                                                           
 }         
 
