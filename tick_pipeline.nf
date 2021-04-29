@@ -36,19 +36,27 @@ params.internal_ctrl_refseq_fasta = "${params.refseq_dir}/tick_actin_sequences.f
 params.off_target_refseq_fasta = "${params.refseq_dir}/off_target_products.fasta"
 params.refseq_fasta = "${params.refseq_dir}/reference_sequences.fasta"
 
+// ---------------
+// Sample metadata
+// ---------------
 // TODO (possibly): Force the user to specify a file (?)
 params.metadata = "${params.input_dir}/sample_metadata.xlsx"
 
-// TODO: versioning of reference sequences (?)
+
+// --------
+// Versions
+// --------
+// TODO: versioning of pipeline, reference sequences, etc: how to best do (?)
 params.pipeline_version = "2021-04-22"
 params.refseq_version = "2021-01-08"
 params.primers_version = "2021-01-08"
 
+// ---------
+// Trimming 
+// ---------
+// the primers that will be trimmed off of the ends of amplicons
 params.primers = "${params.refseq_dir}/primers.csv"
 
-// ------------------
-// Trimming settings
-// ------------------
 // shortest amplicon = tick Actin @ 196 bp
 params.post_trim_min_length = "100" 
 
@@ -57,6 +65,9 @@ params.post_trim_min_length = "100"
 // ----------------------
 params.max_blast_refseq_evalue = "1e-10"
 params.max_blast_nt_evalue = "1e-10"
+
+// Run testing or not
+params.do_testing = true
 
 // these will output usage info
 params.help = false
@@ -76,6 +87,7 @@ def usageMessage() {
 
   For more information on this pipeline, see:
 
+   https://github.com/stenglein-lab/tick_surveillance/tree/master/documentation
 
   ## Pipeline usage:
   
@@ -222,7 +234,7 @@ def infoMessage() {
   log.info """
 
     Pipeline version:             ${params.pipeline_version}
-    Reference sequences version:  ${params.pipeline_version}
+    Reference sequences version:  ${params.refseq_version}
     Primers version:              ${params.primers_version}
 
   """
@@ -240,10 +252,12 @@ if (params.help || params.h) {
 /* 
   Check input parameters 
 */
-def check_params () {
+def check_params_and_input () {
 
+  // check_input_fastq()
   // check_reference_sequences()
   // check_primers()
+  // check_metadata()
 
 /*
   if (!$params.input_dir.exists()) {
@@ -254,33 +268,19 @@ def check_params () {
   }
 */
 
-  // must specify one and only one of these 2 host mapping 
-/* 
-  if (!params.host_bt_index_map_file && !params.host_bt_index){
-    log.info """
-      Error: you may specify one of these two parameters:
-        1. host_bt_index_map_file ($params.host_bt_index_map_file) and 
-        2. host_bt_index ($params.host_bt_index) 
-    """
-    helpMessage()
-  }
-*/
-
 }
 
 
 /* 
   Check parameters and input
 */
-check_params()
+check_params_and_input()
 
 
 /*
  These fastq files represent the main input to this workflow
  
  Expecting files with _R1 or _R2 in their names corresponding to paired-end reads
-
-  
 */
 
 Channel
@@ -291,6 +291,43 @@ Channel
                    maxDepth: 1)
     .into {samples_ch_qc; samples_ch_trim}
 
+/*
+ These fastq files represent testing inputs to the workflow
+ 
+ These will be special pre-created fastq files with pre-defined names
+ that test the pipeline's functioning by producing expected outputs
+ that will be checked in downstream processes.
+
+ These are 
+ 
+ Empty dataset (no reads):
+ TEST_empty_R1.fastq.gz TEST_empty_R2.fastq.gz
+
+ 1000 tick actin reads:
+ TEST_tick_R1.fastq.gz TEST_tick_R2.fastq.gz
+
+ 1000 random human reads:
+ Dataset should drop out because no tick actin
+ TEST_human_R1.fastq.gz TEST_human_R2.fastq.gz
+
+ 1000 each Tick actin & Borrelia hermsii reads:
+ Should NOT be assigned to B. burgdorferi
+ TEST_hermsii_R1.fastq.gz TEST_hermsii_R2.fastq.gz
+
+ 1000 each Tick actin & Borrelia burgdorferi reads:
+ Should be assigned to B. burgdorferi
+ TEST_burgdorferi_R1.fastq.gz TEST_burgdorferi_R2.fastq.gz
+
+*/
+
+Channel
+    .fromFilePairs(["${params.test_dir}/*_R{1,2}*.fastq", 
+                    "${params.test_dir}/*_R{1,2}*.fastq.gz"],
+                   size: 2, 
+                   checkIfExists: true, 
+                   maxDepth: 1)
+    .into {test_ch_trim}
+
 /* 
 
  This channel generates the  primer sequences that were 
@@ -300,7 +337,7 @@ Channel
 
 */
 Channel                                                                         
-    .fromPath(params.primers)                                                   
+    .fromPath(params.primers, checkIfExists: true)                                                   
     .splitCsv(header:true)                                                      
     .map{ row-> tuple(row.target, row.primer_r_name, row.primer_f_seq, row.primer_r_name, row.primer_r_seq) }
     .set { primers_ch }   
@@ -310,7 +347,12 @@ Channel
    to be trimmed, creating a new channel with all possible combinations of
    input fastq and primer pair
 */
-primers_and_samples = primers_ch.combine(samples_ch_trim)   
+if (params.do_testing) {
+  primers_and_samples = primers_ch.combine(samples_ch_trim)   
+} 
+else {
+  primers_and_samples = primers_ch.combine(samples_ch_trim)   
+}
 
 /*
    Setup indexes and dictionaries needed by downstream processes.
