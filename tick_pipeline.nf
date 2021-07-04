@@ -31,23 +31,23 @@ params.trimmed_outdir = "${params.outdir}/trimmed_fastq"
 // -------------------
 // TODO: check that appropriate refseq files exist
 params.refseq_dir = "${baseDir}/refseq"
-params.targets_refseq_fasta = "${params.refseq_dir}/target_reference_sequences.fasta"
-params.internal_ctrl_refseq_fasta = "${params.refseq_dir}/tick_actin_sequences.fasta"
-params.off_target_refseq_fasta = "${params.refseq_dir}/off_target_products.fasta"
 params.refseq_fasta = "${params.refseq_dir}/reference_sequences.fasta"
+params.targets = "${params.refseq_dir}/targets.csv"
+params.off_target_refseq_fasta = "${params.refseq_dir}/off_target_products.fasta"
 
 // ---------------
 // Sample metadata
 // ---------------
 // TODO (possibly): Force the user to specify a file (?)
 params.metadata = "${params.input_dir}/sample_metadata.xlsx"
+params.metadata = "${params.input_dir}/Group2_metadata.xlsx"
 
 
 // --------
 // Versions
 // --------
 // TODO: versioning of pipeline, reference sequences, etc: how to best do (?)
-params.pipeline_version = "2021-04-22"
+params.pipeline_version = "2021-05-19"
 params.refseq_version = "2021-01-08"
 params.primers_version = "2021-01-08"
 
@@ -147,6 +147,9 @@ def usageMessage() {
     --refseq_dir                   Directory containing target reference sequences.
                                    [default: ${params.refseq_dir}] 
 
+    --targets                      File containing information about the target
+                                   and internal control sequences in csv format.
+                                   [default: ${params.targets}] 
 
     --primers                      File containing primers used to amplify 
                                    surveillance targets in csv format.
@@ -156,18 +159,14 @@ def usageMessage() {
                                    in Excel format.
                                    [default: ${params.metadata}] 
 
-    --targets_refseq_fasta         File containing the target reference sequences
-                                   in fasta format.  
-                                   [default: ${params.targets_refseq_fasta}] 
-
-    --internal_ctrl_refseq_fasta   File containing the internal positive control 
-                                   reference sequences in fasta format. 
-                                   [default: ${params.targets_refseq_fasta}] 
+    --refseq_fasta                 File containing the target and internal control
+                                   reference sequences in fasta format.  
+                                   [default: ${params.refseq_fasta}] 
 
     --off_target_refseq_fasta      File containing known off-target amplicon
                                    sequences in fasta format.  Observed sequences
                                    matching these will be removed from analysis.
-                                   [default: ${params.targets_refseq_fasta}] 
+                                   [default: ${params.off_target_refseq_fasta}] 
 
     Pipeline output:
 
@@ -378,7 +377,7 @@ Channel
 Channel                                                                         
     .fromPath(params.primers, checkIfExists: true)                                                   
     .splitCsv(header:true)                                                      
-    .map{ row-> tuple(row.target, row.primer_r_name, row.primer_f_seq, row.primer_r_name, row.primer_r_seq) }
+    .map{ row-> tuple(row.primer_name, row.primer_r_name, row.primer_f_seq, row.primer_r_name, row.primer_r_seq ) }
     .set { primers_ch }   
                                                                                 
 /*
@@ -386,12 +385,7 @@ Channel
    to be trimmed, creating a new channel with all possible combinations of
    input fastq and primer pair
 */
-if (params.do_testing) {
-  primers_and_samples = primers_ch.combine(samples_ch_trim)   
-} 
-else {
-  primers_and_samples = primers_ch.combine(samples_ch_trim)   
-}
+primers_and_samples = primers_ch.combine(samples_ch_trim)   
 
 /*
    Setup indexes and dictionaries needed by downstream processes.
@@ -407,27 +401,6 @@ process setup_indexes {
 
   script:
   """
-  # make a concatenated file containing all the different types of reference sequences:
-  #
-  # (1) Actual microbes expected
-  # (2) Known off-target PCR products 
-  # (3) Internal control sequence(s): in this case, tick actin sequence
-  #
-  # We'll prepend the sequence names of the last 2 categories with labels to 
-  # make them identifiable in downstream analysis steps
- 
-  # delete, then re-build the reference sequence file
-  rm -f ${params.refseq_fasta}
-  
-  # prepend sequence names with a label to identify them as an off-target product sequence
-  # sed 's/^>/>OFF_TARGET_/' ${params.off_target_refseq_fasta}  >> ${params.refseq_fasta}
-
-  # prepend sequence names with a label to identify them as an internal positive ctrl sequence
-  sed 's/^>/>INTERNAL_CTRL_/' ${params.internal_ctrl_refseq_fasta}  >> ${params.refseq_fasta}
-
-  # don't prepend the target refseq names
-  cat ${params.targets_refseq_fasta} >> ${params.refseq_fasta}
-
   # Blast database of the reference sequences
   makeblastdb -dbtype nucl -in ${params.refseq_fasta} -out ${params.refseq_fasta}
   """
@@ -519,13 +492,13 @@ process trim_primer_seqs {
                                                                               
   input:                                                                      
   val("indexes_complete") from post_index_setup_ch
-  tuple val(target), 
+  tuple val(primer_name), 
         val(primer_f_name), val(primer_f), 
         val(primer_r_name), val(primer_r), 
         val(sample_id), path(initial_fastq) from primers_and_samples
                                                                               
   output:                                                                     
-  tuple val(sample_id), path("*.R1_${target}.fastq.gz"), path("*.R2_${target}.fastq.gz") into primer_trimmed_ch_ungrouped
+  tuple val(sample_id), path("*.R1_${primer_name}.fastq.gz"), path("*.R2_${primer_name}.fastq.gz") into primer_trimmed_ch_ungrouped
                                                                               
   script:                                                                     
   def primer_f_rc = primer_f.reverse().complement()                           
@@ -536,7 +509,7 @@ process trim_primer_seqs {
   // setup arguments for trimming this particular pair of primers
   // see: https://cutadapt.readthedocs.io/en/stable/recipes.html#trimming-amplicon-primers-from-both-ends-of-paired-end-reads
   
-  def primer_args = "-a " + target + "_F=^" + primer_f_rc + "..." + primer_r + " -A " + target + "_R=^" + primer_r_rc + "..."  + primer_f
+  def primer_args = "-a " + primer_name + "_F=^" + primer_f_rc + "..." + primer_r + " -A " + primer_name + "_R=^" + primer_r_rc + "..."  + primer_f
                                                                               
   """                                                                         
   # the --discard-untrimmed option means that the output of this command will contain
@@ -547,7 +520,7 @@ process trim_primer_seqs {
   # "Use --discard-untrimmed to throw away all read pairs in which R1 
   # doesn’t start with FWDPRIMER or in which R2 does not start with REVPRIMER"
   #
-  cutadapt $primer_args --discard-untrimmed  --minimum-length ${params.post_trim_min_length} $f1 $f2 -o ${sample_id}.R1_${target}.fastq.gz -p ${sample_id}.R2_${target}.fastq.gz
+  cutadapt $primer_args --discard-untrimmed  --minimum-length ${params.post_trim_min_length} $f1 $f2 -o ${sample_id}.R1_${primer_name}.fastq.gz -p ${sample_id}.R2_${primer_name}.fastq.gz
   """                                                                         
 }
                                                                                 
@@ -701,7 +674,7 @@ process compare_observed_sequences_to_ref_seqs {
   // this is almost the default blastn output except gaps replaces gapopens, because seems more useful!
   def blastn_columns = "qaccver saccver pident length mismatch gaps qstart qend sstart send evalue bitscore"
   """                                                                           
-  blastn -db ${params.refseq_fasta} -task megablast -evalue ${params.max_blast_refseq_evalue} -query $sequences -outfmt "6 $blastn_columns" -out ${sequences}.bn_refseq.no_header
+  blastn -db ${params.refseq_fasta} -task blastn -evalue ${params.max_blast_refseq_evalue} -query $sequences -outfmt "6 $blastn_columns" -out ${sequences}.bn_refseq.no_header
   # prepend blast output with the column names so we don't have to manually name them later
   echo $blastn_columns > blast_header.no_perl
   echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
@@ -728,7 +701,7 @@ process assign_observed_sequences_to_ref_seqs {
 
   script:                                                                       
   """                                                                           
-  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $tidy_table $blast_output ${params.metadata}
+  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $tidy_table $blast_output ${params.metadata} ${params.targets}
   """             
 }
 
