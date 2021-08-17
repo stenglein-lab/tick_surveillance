@@ -64,6 +64,9 @@ writeFasta <- function(data, filename){
 # each sequence in all the datasets
 sequence_abundance_table <- read.delim(tidy_table_path, sep="\t", header=T)
 
+# make sure the dataset names have character values, in case they have integer names (1, 2, ...)
+sequence_abundance_table$dataset <- as.character(sequence_abundance_table$dataset)
+
 # make a dataframe containing the sequences and their sequence number (which matches the blast query column)
 # and add a column listing their length
 sequences <- sequence_abundance_table %>% 
@@ -116,6 +119,9 @@ metadata_df <- metadata_df %>% mutate(
     Pathogen.testing.Sample.No. == "NTC" ~ "NTC",
     Pathogen.testing.Sample.No. == "PC"  ~ "PC",
     TRUE                                 ~ NA_character_ ))
+
+# Make sure the Index column is character data, in case Indexes have integer values (1, 2, etc.)
+metadata_df$Index <- as.character(metadata_df$Index)
 
 # assign datasets to batches
 if ( ! "batch" %in% colnames(metadata_df)) {
