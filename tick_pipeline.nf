@@ -377,7 +377,7 @@ Channel
 Channel                                                                         
     .fromPath(params.primers, checkIfExists: true)                                                   
     .splitCsv(header:true)                                                      
-    .map{ row-> tuple(row.primer_name, row.primer_r_name, row.primer_f_seq, row.primer_r_name, row.primer_r_seq ) }
+    .map{ row -> tuple(row.primer_name.trim(), row.primer_r_name.trim(), row.primer_f_seq.trim(), row.primer_r_name.trim(), row.primer_r_seq.trim() ) }
     .set { primers_ch }   
                                                                                 
 /*
