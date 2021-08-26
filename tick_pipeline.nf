@@ -40,7 +40,7 @@ params.off_target_refseq_fasta = "${params.refseq_dir}/off_target_products.fasta
 // ---------------
 // TODO (possibly): Force the user to specify a file (?)
 params.metadata = "${params.input_dir}/sample_metadata.xlsx"
-params.metadata = "${params.input_dir}/Group2_metadata.xlsx"
+// params.metadata = "${params.input_dir}/Group2_metadata.xlsx"
 
 
 // --------
@@ -60,11 +60,19 @@ params.primers = "${params.refseq_dir}/primers.csv"
 // shortest amplicon = tick Actin @ 196 bp
 params.post_trim_min_length = "100" 
 
-// ----------------------
-// Blast e-value cutoffs
-// ----------------------
+// ----------------------------------------------
+// Blast e-value cutoffs and other configuration
+// ----------------------------------------------
 params.max_blast_refseq_evalue = "1e-10"
 params.max_blast_nt_evalue = "1e-10"
+
+// Should BLAST of unassigned sequences be remote (use -remote option)
+// This will cause blastn to run much slower but will not require
+// the installation of a local database.
+//
+// This is the option that should default to unless a local database
+// is specified and verified to exist.
+params.remote_blast_nt = true
 
 // Run testing or not
 params.do_testing = true
@@ -274,6 +282,14 @@ def check_params_and_input () {
   Check parameters and input
 */
 check_params_and_input()
+
+/* 
+  Check for existence of metadata file
+*/
+Channel
+    .fromPath("${params.metadata}", 
+                   checkIfExists: true) 
+    .into {post_metadata_check_ch}
 
 
 /*
@@ -691,6 +707,7 @@ process assign_observed_sequences_to_ref_seqs {
   publishDir "${params.outdir}", mode: 'link'
 
   input:
+  path(metadata) from post_metadata_check_ch
   path(blast_output) from post_compare_ch
   path(tidy_table) from post_dada_tidy_ch
 
@@ -701,7 +718,7 @@ process assign_observed_sequences_to_ref_seqs {
 
   script:                                                                       
   """                                                                           
-  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $tidy_table $blast_output ${params.metadata} ${params.targets}
+  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $tidy_table $blast_output $metadata ${params.targets}
   """             
 }
 
@@ -731,14 +748,43 @@ process blast_unassigned_sequences {
    	 sskingdom means Subject Super Kingdom
 */
 
-  //TODO: configurable e-value
-  """                                                                           
-  blastn -db nt -task megablast -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
-  # prepend blast output with the column names so we don't have to manually name them later
-  # the perl inline command here is to replace spaces with tabs
-  echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
-  cat blast_header ${unassigned_sequences}.bn_nt.no_header > ${unassigned_sequences}.bn_nt
-  """             
+  if (params.remote_blast_nt) {
+
+    // remote blastn: slower but doesn't require locally installed nt database
+
+    """
+
+    # run remote blastn
+    blastn -db nt -task megablast -remote -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
+
+    # prepend blast output with the column names so we don't have to manually name them later
+    # the perl inline command here is to replace spaces with tabs
+    echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
+
+    # merge custom header line with actual blast output
+    cat blast_header ${unassigned_sequences}.bn_nt.no_header > ${unassigned_sequences}.bn_nt
+
+    """
+
+  }
+  else {
+
+    // local blastn: faster but requires locally installed nt database
+
+    """
+
+    # run local blastn
+    blastn -db nt -task megablast -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
+
+    # prepend blast output with the column names so we don't have to manually name them later
+    # the perl inline command here is to replace spaces with tabs
+    echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
+
+    # merge custom header line with actual blast output
+    cat blast_header ${unassigned_sequences}.bn_nt.no_header > ${unassigned_sequences}.bn_nt
+
+    """             
+  }
 }
 
 process assign_non_ref_seqs {
