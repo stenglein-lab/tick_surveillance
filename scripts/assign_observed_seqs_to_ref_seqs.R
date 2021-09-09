@@ -289,7 +289,7 @@ dataset_test_lognormal <- dataset_df %>%
   filter(batch == "D")
 
 # test if distribution is actually lognormal
-shapiro.test(dataset_test_lognormal$per_sample_internal_ctrl_reads)
+# shapiro.test(dataset_test_lognormal$per_sample_internal_ctrl_reads)
 
 
 # calculate the # of tick actin mapping reads in real tick (non-control) datasets
