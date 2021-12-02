@@ -73,6 +73,7 @@ read x
 
 # TODO: setup monthly updates of the nt database
 
-
+# if you want to create PDF DAG visualizations of the pipeline, you'll need to have graphviz installed:
+# sudo apt install graphviz
 
 

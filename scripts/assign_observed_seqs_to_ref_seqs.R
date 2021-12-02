@@ -16,7 +16,7 @@ library(DT)
 # or development).  
 #
 
-# if running from Rscript
+# if running from Rscript (called from the pipeline)
 if (!interactive()) {
   args = commandArgs(trailingOnly=TRUE)
   # TODO: check CLAs
@@ -32,7 +32,8 @@ if (!interactive()) {
   tidy_table_path = "../results/sequence_abundance_table.tsv"
   blast_output_path = "../results/observed_sequences.fasta.bn_refseq"
   # sample_metadata_file = "../input/sample_metadata.xlsx"
-  sample_metadata_file = "../input/Group2_metadata.xlsx"
+  # sample_metadata_file = "../input/Group2_metadata.xlsx"
+  sample_metadata_file = "../input/AK_metadata.xlsx"
   targets_csv_file = "../refseq/targets.csv"
   output_dir = "../results/"
 }
@@ -82,14 +83,14 @@ sequences <- sequence_abundance_table %>%
 # read in the output file from blastn
 blast_df_all <- read.delim(blast_output_path, sep="\t", header=T)
 
-# rename some of the oddly-named columns
+# rename some of the oddly-named columns 
 blast_df_all <- blast_df_all %>% rename(query = qaccver,
                                         subject = saccver,
                                         percent_identity = pident,
                                         alignment_length = length)
 
 # take the highest scoring blast hit for each query
-# TODO: what if a sequence hits multiple refseqs equally well?  
+# TODO: what if a sequence hits multiple refseqs equally well? 
 blast_df <- blast_df_all %>% group_by(query) %>% arrange(-bitscore, .by_group = T) %>% filter(row_number() == 1)
 
 # merge the sequence info and the blast output
@@ -106,6 +107,9 @@ blast_df <- blast_df %>% mutate(percent_query_aligned = 100 * alignment_length /
 
 # read in the sample metadata file
 metadata_df <- read_excel(sample_metadata_file)
+
+# keep track of original metadata names
+original_metadata_names <- names(metadata_df)
 
 # fix the metadata names using tidyverse make.names function
 names(metadata_df) <- make.names(names(metadata_df),unique = TRUE)
@@ -131,6 +135,7 @@ if ( ! "batch" %in% colnames(metadata_df)) {
   batch_pattern <- "(\\S+)-"
   
   # check that we can identify such a pattern
+  # if we can't cease running and report an error
   if (!all(str_detect(metadata_df$Index, batch_pattern))){
     stop ('There is no "batch" column in the metadata file and the "Index" column does not contain batch information in the expected format. Exiting.')
   }
@@ -147,7 +152,8 @@ targets_df$internal_control <- as.logical(targets_df$internal_control)
 targets_df$reported <- as.logical(targets_df$reported)
 
 # join target info onto blast_df info
-blast_df <- left_join(blast_df, targets_df, by=c("subject" = "ref_sequence_name"))
+blast_df_orig <- blast_df
+blast_df <- left_join(blast_df_orig, targets_df, by=c("subject" = "ref_sequence_name"))
 
 #
 #  Are the sequences similar enough, based on a blastn alignment to the closest
@@ -231,20 +237,20 @@ sparse_sat <- filter(sequence_abundance_table, abundance > 0)
 # join sparse SAT with blast_df 
 # sparse_sat_with_blast <- left_join(sparse_sat, blast_df, by=c("sequence_number" = "query"))  %>% filter(!is.na(subject))
 
+
+
 # inner_join duplicates metadata rows for datasets with >1 target
-dataset_df <- inner_join(metadata_df, sparse_sat, by=c("Index" = "dataset")) %>% select(-sequence)
+metadata_indexes <- metadata_df %>% select(Index, control_type, batch)
+# dataset_df <- left_join(metadata_indexes, sparse_sat, by=c("Index" = "dataset")) %>% select(-sequence)
+dataset_df <- full_join(metadata_indexes, sparse_sat, by=c("Index" = "dataset")) %>% select(-sequence)
 
 dataset_df <- left_join(dataset_df, blast_df, by=c("sequence_number" = "query")) %>% filter(assigned_to_target == T)
 
 
 
-# ----------------------------------------------------------------------------
-# filter out datasets that don't contain a sufficient # of reads aligning to the 
-# internal control positive control sequence
-# ----------------------------------------------------------------------------
-
 # ---------------------------------------------------------------------
-# filter criterion: minimum # of reads mapping to internal pos. control
+# QC criterion: minimum # of reads mapping to internal pos. control
+# this corresponds to the Acceptable DNA column in the reporting data
 # ---------------------------------------------------------------------
 
 # first, determine how many reads map to the internal control (tick actin) in
@@ -252,7 +258,7 @@ dataset_df <- left_join(dataset_df, blast_df, by=c("sequence_number" = "query"))
 # do this separately for each batch of datasets (each plate unless specified otherwise)
 extraction_control_dataset_summaries <- filter(dataset_df, control_type == "EC" & internal_control) 
 
-
+#
 # calculate average (mean) tick actin-mapping reads in each batch
 #
 extraction_control_batch_averages <- extraction_control_dataset_summaries %>%
@@ -280,13 +286,13 @@ extraction_control_batch_averages <- left_join(batches, extraction_control_batch
 # lognormally distributed
 #
 # test if distribution is actually lognormal
-dataset_test_lognormal <- dataset_df %>%
-  filter(is.na(control_type) & internal_control) %>%
-  group_by(batch, Index) %>%
-  summarize(per_sample_internal_ctrl_reads = log10(sum(abundance))) %>%
+# dataset_test_lognormal <- dataset_df %>%
+  # filter(is.na(control_type) & internal_control) %>%
+  # group_by(batch, Index) %>%
+  # summarize(per_sample_internal_ctrl_reads = log10(sum(abundance))) %>%
   # summarize(per_sample_internal_ctrl_reads = (sum(abundance))) %>%
-  ungroup() %>%
-  filter(batch == "D")
+  # ungroup() %>%
+  # filter(batch == "D")
 
 # test if distribution is actually lognormal
 # shapiro.test(dataset_test_lognormal$per_sample_internal_ctrl_reads)
@@ -347,6 +353,11 @@ tick_df <- filter(dataset_df, internal_control & control_type == "EC")
 # -------------------------------------------------------
 # collapse unique sequences to level of targeted species
 # -------------------------------------------------------
+
+# fill out the dataframe with any species listed in the targets file but 
+# not present in the data (species for which there are no reads in any dataset)
+# dataset_df <
+
 # collapse all hits for same target species in each dataset 
 dataset_by_spp <- dataset_df %>% group_by(Index, species) %>%
   mutate(
@@ -361,7 +372,14 @@ dataset_by_spp <- dataset_df %>% group_by(Index, species) %>%
 # make calls
 # ----------
 dataset_df_calls <- dataset_by_spp %>% 
-  mutate(pos_neg_call = if_else(internal_control, (abundance > minimum_internal_control_reads), (abundance > minimum_non_control_reads)))
+  mutate(pos_neg_call = case_when((internal_control & (log10(abundance) >= minimum_internal_control_reads)) ~ "Positive", 
+                                  (!internal_control & (abundance >= minimum_non_control_reads)) ~ "Positive", 
+                                  TRUE ~ "Negative"))
+
+# dataset_df_calls is a sparse dataset at this point
+# it only contains rows corresponding to datasets that had any reads matching one of the targets 
+# need to complete 
+
 
 dataset_df_summary <- dataset_df_calls %>% 
   select(-sequence_number, -subject, -mismatch, -gaps, -qstart, -qend, -sstart, -send, 
@@ -373,19 +391,27 @@ dataset_df_summary <- dataset_df_calls %>%
          -percent_query_aligned,
          -minimum_non_control_reads, -richness, -reported, -internal_control)
 
+
+# fill out dataset_df_summary with missing datasets and species from targets
+i1 <- dataset_df_summary$Index
+i2 <- metadata_df$Index
+
+
+
 reporting_dataset <- dataset_df_summary %>% 
   pivot_wider(names_from=species, 
               values_from=c(pos_neg_call, abundance, percent_identity), 
-              names_sep = " ")
+              names_sep = "_")
 
+?pivot_wider
 
 # write data as plain-text
-write.table(reporting_dataset, "identified_targets.tsv", quote=F, sep="\t", col.names=T, row.names=F)
+write.table(reporting_dataset, paste0(output_dir, "identified_targets.tsv"), quote=F, sep="\t", col.names=T, row.names=F)
 
 # write as excel
 # TODO: date in filename.  Unique run identifier?
 
-wb <- createWorkbook("identified_targets.xlsx")
+wb <- createWorkbook(paste0(output_dir, "identified_targets.xlsx"))
 
 addWorksheet(wb, "summary")
 writeData(wb, "summary", reporting_dataset)
@@ -393,11 +419,80 @@ writeData(wb, "summary", reporting_dataset)
 addWorksheet(wb, "all_data_table")
 writeData(wb, "all_data_table", dataset_df)
 
-saveWorkbook(wb, "identified_targets.xlsx", overwrite = TRUE)
+saveWorkbook(wb, paste0(output_dir, "identified_targets.xlsx"), overwrite = TRUE)
 
 # TODO: all datasets, wide format, warning flag if something wrong!
 
 # TODO: write the sample metadata to this main output file as a tab
+
+
+# output date in format specified by CDC surveillance folks
+surv_cols <- c("ID", "Submission No", "Vial ID", "Pathogen Testing ID", 
+               "CSID", "No Samples in Testing Pool", "Extraction SOP Number", 
+               "Extraction SOP Version", "Acceptable DNA", 
+               "Borrelia sp", "Borrelia burgdorferi sensu stricto", 
+               "Borrelia mayonii", "Borrelia miyamotoi", 
+               "Borrelia Other species name", 
+               "Anaplasma phagocytophilum (strain not differentiated)", 
+               "Babesia microti", "Ehrlichia muris eauclairensis", 
+               "Powassan virus (lineage I)", "DeerTick virus (Powassan virus lineage II)", 
+               "Attempted to Sequence", "Successfully Sequenced", "In-house Tick Molecular ID", 
+               "In-house Blood Meal ID", "In-house Tick Host Molecular ID", 
+               "In-house Vertebrate Molecular ID", "Notes")
+
+# R/tidyverse happier with these column names without spaces or characters like "-" or "(" or ")"
+surv_cols_ok_names <- 
+             c("ID", "Submission_No", "Vial_ID", "Pathogen_Testing_ID", 
+               "CSID", "No_Samples_in_Testing_Pool", "Extraction_SOP_Number", 
+               "Extraction_SOP_Version", "Acceptable_DNA", 
+               "Borrelia_sp", "Borrelia_burgdorferi_sensu_stricto", 
+               "Borrelia_mayonii", "Borrelia_miyamotoi", 
+               "Borrelia_Other_species_name", 
+               "Anaplasma_phagocytophilum_strain_not_differentiated", 
+               "Babesia_microti", "Ehrlichia_muris_eauclairensis", 
+               "Powassan_virus_lineage_I", "DeerTick_virus_Powassan_virus_lineage_II", 
+               "Attempted_to_Sequence", "Successfully_Sequenced", "In_house_Tick_Molecular_ID", 
+               "In_house_Blood_Meal_ID", "In_house_Tick_Host_Molecular_ID", 
+               "In_house_Vertebrate_Molecular_ID", "Notes")
+
+# how big should the DF be?
+num_surv_cols <- length(surv_cols_ok_names)
+num_surv_rows <- nrow(reporting_dataset)  
+
+# map results to CDC formatted columns
+
+# create an empty DF
+surv_df <- data.frame(mat = matrix(ncol = num_surv_cols, nrow = num_surv_rows), stringsAsFactors = F)
+
+# name the columns
+colnames(surv_df) <- surv_cols_ok_names
+
+# --------------------
+# populate the columns
+# --------------------
+
+# acceptable DNA (reads mapping to tick actin)
+surv_df$Acceptable_DNA <- replace_na(reporting_dataset$pos_neg_call_Ixodes_scapularis, "Negative")
+# swith Pos/Neg -> True/False
+surv_df$Acceptable_DNA <- recode(surv_df$Acceptable_DNA, Positive = "TRUE", Negative="FALSE")
+
+# Borrelia spp
+
+# Borrelia burgdorferi
+surv_df$Borrelia_burgdorferi_sensu_stricto <- replace_na(reporting_dataset$pos_neg_call_Borrelia_burgdorferi, "Negative")
+
+# Borrelia mayonii
+surv_df$Borrelia_mayonii <- replace_na(reporting_dataset$pos_neg_call_Borrelia_mayonii, "Negative")
+
+# Borrelia miyamotoi
+surv_df$Borrelia_miyamotoi <- replace_na(reporting_dataset$pos_neg_call_Borrelia_miyamotoi, "Negative")
+
+
+
+
+
+
+
 
 
 # make a data.table

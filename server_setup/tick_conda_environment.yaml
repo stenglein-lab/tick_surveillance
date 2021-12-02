@@ -13,3 +13,4 @@ dependencies:
   - r-dt=0.17 
   - bioconductor-dada2=1.18.*
   - blast=2.10.*
+  - xs-sim=1.0.*

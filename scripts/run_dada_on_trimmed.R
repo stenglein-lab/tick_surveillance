@@ -31,16 +31,20 @@ if (!interactive()) {
 fnFs <- sort(list.files(trimmed_path, pattern="_R1_trimmed.fastq.gz", full.names = TRUE))
 fnRs <- sort(list.files(trimmed_path, pattern="_R2_trimmed.fastq.gz", full.names = TRUE))
 
-# Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
-# for instance, 1_S1_L001_R1.fastq 
-#
-# NOTE: it is possible that this assumption is not good if the fastq were to be named
-#       differently than expected
-sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
+# extract sample names from fastq file names
+# so that sample names will match execpted values provided to sample sheet 
+# when demultiplexing
+
+# remove _R[12]_trimmed.fastq.gz from file names to make better sample names
+sample.names <- str_replace(basename(fnFs), "_R[12]_trimmed.fastq.gz", "")
+# remove _S1_L001  etc. from file names to make better sample names
+sample.names <- str_replace(sample.names, "_S\\S+_L[01]{3}", "")
+
 
 # This will place dada-filtered files in dada_filtered/ subdirectory
 filtFs <- file.path(trimmed_path, "dada_filtered", paste0(sample.names, "_F_filt.fastq.gz"))
 filtRs <- file.path(trimmed_path, "dada_filtered", paste0(sample.names, "_R_filt.fastq.gz"))
+
 
 names(filtFs) <- sample.names
 names(filtRs) <- sample.names
@@ -89,9 +93,17 @@ filtRs <- filtRs[exists]
 errF <- learnErrors(filtFs, multithread=TRUE)
 errR <- learnErrors(filtRs, multithread=TRUE)
 
+errF$err_out
+
 # Could save this as output...
-# plotErrors(errF, nominalQ=TRUE)
-# plotErrors(errR, nominalQ=TRUE)
+plotErrors(errF, nominalQ=TRUE)
+plotErrors(errR, nominalQ=TRUE)
+
+# save the error profile for bases with a Q-score of 35
+# q35_errors <- errF$err_out[,36]
+# q35_errors
+# write.table(q35_errors, "q35_errors.txt", sep="\t")
+
 
 
 # Ru 
