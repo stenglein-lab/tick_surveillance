@@ -39,7 +39,8 @@ my $usage = <<USAGE;
 		 default: no errors
 
    [-f]          File with a single reference sequence in FASTA format
-[-q]          Average quality score for simulated fatq
+
+   [-q]          Average quality score for simulated fatq
                  default: $quality_score
 
    [-n]          Number of reads to simulate

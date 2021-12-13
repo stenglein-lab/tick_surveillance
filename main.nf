@@ -56,6 +56,9 @@ params.simulated_fastq_dir = "${params.refseq_dir}/simulated_fastq/"
 params.simulated_error_profile_file = "${baseDir}/refseq/q35_errors.txt"
 params.simulated_read_length = 250
 
+// the # of read pairs in simulated datasets
+params.simulated_dataset_sizes = [1,10,100]
+
 
 // --------
 // Versions
@@ -398,7 +401,7 @@ process setup_indexes {
 
 
 // the sizes of control datasets to make
-control_dataset_sizes_ch  = Channel.from(1, 10, 100)
+control_dataset_sizes_ch  = Channel.of(${params.simulated_dataset_sizes}) 
 
 /* 
   generate simulated fastq reads for each reference sequence 
@@ -439,20 +442,32 @@ Channel
     .into {samples_ch_qc; samples_ch_trim_pre_type}
 
 
-def simulated_sample_type = "simulated_internal_control"
-def real_sample_type = "experimental_sample"
 
-Channel.from(simulated_sample_type)
+/*
+  Define different dataset types:
+
+  - simulated internal control datasets 
+  - actual experimental datasets
+
+  These different types of datasets will be handled differently by 
+  different parts of the pipeline.  Internal control datasets will
+  not be reported on to the same extent as actual datasets, for instance.
+
+*/
+
+def simulated_dataset_type = "simulated_internal_control"
+def real_dataset_type = "experimental_sample"
+
+// create channels repeating the different dataset types
+Channel.of(simulated_dataset_type)
   .set {control_type_ch}
 
-Channel.from(real_sample_type)
-  .set {sample_type_ch}
-
+Channel.of(real_dataset_type)
+  .set {samples_type_ch}
 
 simulated_fastq_ch = control_type_ch.combine(simulated_fastq_ch_pre_type)
 
 samples_ch_trim = samples_type_ch.combine(samples_ch_trim_pre_type)
-
 
 
 /* 
@@ -557,10 +572,10 @@ process trim_primer_seqs {
                                                                               
   input:                                                                      
   val("indexes_complete") from post_index_setup_ch
-  tuple val(primers), val (sample_type), val(sample_id), path(initial_fastq) from primers_and_samples
+  tuple val(primers), val (dataset_type), val(sample_id), path(initial_fastq) from primers_and_samples
 
   output:                                                                     
-  tuple val(sample_type), val(sample_id), path("*.R1_${primers.primer_name}.fastq.gz"), path("*.R2_${primers.primer_name}.fastq.gz") into primer_trimmed_ch_ungrouped
+  tuple val(dataset_type), val(sample_id), path("*.R1_${primers.primer_name}.fastq.gz"), path("*.R2_${primers.primer_name}.fastq.gz") into primer_trimmed_ch_ungrouped
                                                                               
   script:                                                                     
   def primer_f_rc = primers.primer_f_seq.reverse().complement()                           
@@ -611,12 +626,12 @@ process collect_cutadapt_output {
                                                                                 
   input:
   // the groupTuple() operator here will consolidate tuples with a shared sample_id
-  tuple val(sample_type), val(sample_id), path(individual_r1), path(individual_r2) from primer_trimmed_ch_ungrouped.groupTuple(by: 1)
+  tuple val(dataset_type), val(sample_id), path(individual_r1), path(individual_r2) from primer_trimmed_ch_ungrouped.groupTuple(by: 1)
                                                                                 
   output:                                                                       
   val(sample_id) into post_trim_ch
-  val(sample_type), val(sample_id) into post_trim_sample_ch
-  tuple val(sample_type), val(sample_id), path("*_trimmed.fastq.gz") into post_trim_qc_ch
+  val(dataset_type), val(sample_id) into post_trim_sample_ch
+  tuple val(dataset_type), val(sample_id), path("*_trimmed.fastq.gz") into post_trim_qc_ch
                                                                                 
   script:                                                                       
 
@@ -654,13 +669,13 @@ process post_trim_qc {
   label 'lowmem'
 
   input:
-  tuple val(sample_type), val(sample_id), path(input_fastq) from post_trim_qc_ch
+  tuple val(dataset_type), val(sample_id), path(input_fastq) from post_trim_qc_ch
 
   output:
   val(sample_id) into post_trim_multiqc_ch
 
   when:
-  sample_type == real_sample_type
+  dataset_type == real_dataset_type
 
   script:
 
