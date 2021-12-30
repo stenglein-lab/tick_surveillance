@@ -3,7 +3,7 @@
 /*
     CDC Tick Surveillance Amplicon Sequencing Analysis Pipeline
 
-    October 22, 2020 
+    December 13, 2021
 
     Mark Stenglein
 */
@@ -11,40 +11,6 @@
 
 // TODO: command line options and parameter checking
 
-
-// --------------------------------
-// Directories for input and output
-// --------------------------------
-params.input_dir = "$baseDir/input/"
-params.fastq_dir = "${params.input_dir}/fastq/"
-
-// Directory where R (and any other) scripts are.                                                 
-params.script_dir="${baseDir}/scripts"  
-
-params.outdir = "$baseDir/results"                                                       
-params.initial_fastqc_dir = "${params.outdir}/initial_fastqc/" 
-params.post_trim_fastqc_dir = "${params.outdir}/post_trim_fastqc/" 
-params.trimmed_outdir = "${params.outdir}/trimmed_fastq"                                                       
-
-
-// the Local installation of NCBI nt database
-params.local_nt_database ="/scicomp/reference/ncbi-blast/current/nt"
-
-
-// -------------------
-// Reference sequences
-// -------------------
-// TODO: check that appropriate refseq files exist
-params.refseq_dir = "${baseDir}/refseq"
-params.targets = "${params.refseq_dir}/targets.tsv"
-params.off_target_refseq_fasta = "${params.refseq_dir}/off_target_products.fasta"
-
-// ---------------
-// Sample metadata
-// ---------------
-// TODO (possibly) Force the user to specify a file (?)
-params.metadata = "${params.input_dir}/sample_metadata.xlsx"
-// params.metadata = "${params.input_dir}/Group2_metadata.xlsx"
 
 // ------------------------------------
 // Simulated internal-control datasets
@@ -378,6 +344,14 @@ process combine_refseq_fasta {
 process setup_indexes {
   publishDir "${params.refseq_dir}", mode: 'link'                                   
 
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "bioconda::blast=2.12.*" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/blast:2.12.0--pl5262h3289130_0"
+  } else {
+      container "quay.io/biocontainers/blast:2.12.0--pl5262h3289130_0"
+  }
+
   input:
   path (refseq_fasta) from refseq_fasta_ch
 
@@ -401,7 +375,9 @@ process setup_indexes {
 
 
 // the sizes of control datasets to make
-control_dataset_sizes_ch  = Channel.of(${params.simulated_dataset_sizes}) 
+// TODO: how to make this parameterized but not with a list type 
+// control_dataset_sizes_ch  = Channel.of(params.simulated_dataset_sizes) 
+control_dataset_sizes_ch  = Channel.of(1,10,100)
 
 /* 
   generate simulated fastq reads for each reference sequence 
@@ -515,6 +491,14 @@ String.metaClass.complement = {
 process initial_qc {
   label 'lowmem'
 
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "bioconda::fastqc=0.11.9" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/fastqc:0.11.9--0"
+  } else {
+      container "quay.io/biocontainers/fastqc:0.11.9--0"
+  }
+
   input:
   tuple val(sample_id), path(initial_fastq) from samples_ch_qc
 
@@ -536,6 +520,14 @@ process initial_qc {
 */
 process initial_multiqc {
   publishDir "${params.outdir}", mode:'link'
+
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "bioconda::multiqc=1.11" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/multiqc:1.11--pyhdfd78af_0"
+  } else {
+      container "quay.io/biocontainers/multiqc:1.11--pyhdfd78af_0"
+  }
 
   input:
   val(all_sample_ids) from post_initial_qc_ch.collect()
@@ -569,6 +561,14 @@ process initial_multiqc {
 
 process trim_primer_seqs {                                                      
   label 'lowmem'
+
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "bioconda::cutadapt=3.5" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+    container "https://depot.galaxyproject.org/singularity/cutadapt:3.5--py39h38f01e4_0"
+  } else {
+    container "quay.io/biocontainers/cutadapt:3.5--py39h38f01e4_0"
+  }
                                                                               
   input:                                                                      
   val("indexes_complete") from post_index_setup_ch
@@ -624,13 +624,21 @@ process trim_primer_seqs {
 process collect_cutadapt_output {                                               
   publishDir "${params.trimmed_outdir}", mode:'link'                                    
                                                                                 
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "bioconda::cutadapt=3.5" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+    container "https://depot.galaxyproject.org/singularity/cutadapt:3.5--py39h38f01e4_0"
+  } else {
+    container "quay.io/biocontainers/cutadapt:3.5--py39h38f01e4_0"
+  }
+
   input:
   // the groupTuple() operator here will consolidate tuples with a shared sample_id
-  tuple val(dataset_type), val(sample_id), path(individual_r1), path(individual_r2) from primer_trimmed_ch_ungrouped.groupTuple(by: 1)
+  tuple val(dataset_type), val(sample_id), path(individual_r1), path(individual_r2) from primer_trimmed_ch_ungrouped.groupTuple(by: [0,1])
                                                                                 
   output:                                                                       
   val(sample_id) into post_trim_ch
-  val(dataset_type), val(sample_id) into post_trim_sample_ch
+  tuple val(dataset_type), val(sample_id) into post_trim_sample_ch
   tuple val(dataset_type), val(sample_id), path("*_trimmed.fastq.gz") into post_trim_qc_ch
                                                                                 
   script:                                                                       
@@ -663,10 +671,53 @@ process collect_cutadapt_output {
 }         
 
 /*
+  Write a file containing types of each individual datasets
+*/
+process write_one_dataset_type {
+
+  input:
+  tuple val(dataset_type), val(sample_id) from post_trim_sample_ch
+
+  output:
+  path ("${sample_id}.dataset_type.txt") into one_dataset_type_ch
+  
+  script:
+  """
+  printf "%s\t%s\n" $sample_id $dataset_type > "${sample_id}.dataset_type.txt"
+  """
+}
+
+/*
+  Combine files containing types of individual datasets into one merged file
+*/
+process write_dataset_type {
+  publishDir "${params.outdir}", mode:'link'
+
+  input:
+  path (dataset_types) from one_dataset_type_ch.collect()
+
+  output:
+  path ("dataset_types.txt") into dataset_types_ch
+  
+  script:
+  """
+  cat $dataset_types > dataset_types.txt
+  """
+}
+
+/*
  Use fastqc to do QC on post-trimmed fastq
 */
 process post_trim_qc {
   label 'lowmem'
+
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "bioconda::fastqc=0.11.9" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/fastqc:0.11.9--0"
+  } else {
+      container "quay.io/biocontainers/fastqc:0.11.9--0"
+  }
 
   input:
   tuple val(dataset_type), val(sample_id), path(input_fastq) from post_trim_qc_ch
@@ -697,6 +748,14 @@ process post_trim_qc {
 process post_trim_multiqc {
   publishDir "${params.outdir}", mode: 'link'
 
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "bioconda::multiqc=1.11" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/multiqc:1.11--pyhdfd78af_0"
+  } else {
+      container "quay.io/biocontainers/multiqc:1.11--pyhdfd78af_0"
+  }
+
   input:
   val(all_sample_ids) from post_trim_multiqc_ch.collect()
 
@@ -723,19 +782,56 @@ process post_trim_multiqc {
 process run_dada_on_trimmed {
   publishDir "${params.outdir}", mode: 'link'
 
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "bioconda::bioconductor-dada2=1.22.*" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/bioconductor-dada2%3A1.22.0--r41h399db7b_0"
+  } else {
+      container "quay.io/biocontainers/bioconductor-dada2:1.22.0--r41h399db7b_0"
+  }
+
   input:
   val(all_sample_ids) from post_trim_ch.collect()
+
+  output:
+  path("dada_seqtab.txt") into post_dada_run_ch
+
+  script:                                                                       
+  """                                                                             
+  # Run dada2 using trimmed fastq as input and create a tabular output of results
+  Rscript ${params.script_dir}/run_dada_on_trimmed.R ${params.script_dir} ${params.trimmed_outdir}
+  """             
+}
+
+
+/* 
+  Tidy up dada2 output and write out observed sequences (ASVs) in fasta format
+*/
+
+process tidy_dada_output {
+  publishDir "${params.outdir}", mode: 'link'
+
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "conda-forge::r-base=4.1.* conda-forge::r-tidyverse=1.3.* conda-foge::r-openxlsx=4.2.*" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+  } else {                                                                      
+      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+  }        
+
+  input:
+  path(dada_output) from post_dada_run_ch
 
   output:
   tuple path("observed_sequences.fasta"), path("sequence_abundance_table.tsv") into post_dada_ch
 
   script:                                                                       
   """                                                                             
-  # This R file creates an output named observed_sequences.fasta containing all of the
+  # This R script creates an output named observed_sequences.fasta containing all of the
   # unique sequences observed in the amplicon dataset
   # and a sequence_abundance_table.tsv, which lists the abundances of these
   # sequences in each dataset
-  Rscript ${params.script_dir}/run_dada_on_trimmed.R ${params.script_dir} ${params.trimmed_outdir}
+  Rscript ${params.script_dir}/tidy_dada_output.R ${params.script_dir} $dada_output
   """             
 }
 
@@ -745,6 +841,14 @@ process run_dada_on_trimmed {
 */
 process compare_observed_sequences_to_ref_seqs {
   publishDir "${params.outdir}", mode: 'link'
+
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "bioconda::blast=2.12.*" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/blast:2.12.0--pl5262h3289130_0"
+  } else {
+      container "quay.io/biocontainers/blast:2.12.0--pl5262h3289130_0"
+  }
 
   input:
   tuple path(sequences), path(abundance_table) from post_dada_ch
@@ -773,8 +877,19 @@ process compare_observed_sequences_to_ref_seqs {
 process assign_observed_sequences_to_ref_seqs {
   publishDir "${params.outdir}", mode: 'link'
 
+
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "conda-forge::r-base=4.1.* conda-forge::r-tidyverse=1.3.* conda-foge::r-openxlsx=4.2.*" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+  } else {                                                                      
+      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+  }        
+  
+
   input:
   path(metadata) from post_metadata_check_ch
+  path(dataset_types) from dataset_types_ch
   tuple path(abundance_table), path(blast_output) from post_compare_ch
 
   output:
@@ -784,7 +899,7 @@ process assign_observed_sequences_to_ref_seqs {
 
   script:                                                                       
   """                                                                           
-  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $abundance_table $blast_output $metadata ${params.targets}
+  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $abundance_table $blast_output $metadata ${params.targets} $dataset_types
   """             
 }
 
@@ -796,6 +911,14 @@ process assign_observed_sequences_to_ref_seqs {
 */
 process blast_unassigned_sequences {
   publishDir "${params.outdir}", mode: 'link'
+
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "bioconda::blast=2.12.*" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/blast:2.12.0--pl5262h3289130_0"
+  } else {
+      container "quay.io/biocontainers/blast:2.12.0--pl5262h3289130_0"
+  }
 
   input:
   path(unassigned_sequences) from post_assign_to_refseq_ch
@@ -860,6 +983,14 @@ process blast_unassigned_sequences {
 */
 process assign_non_ref_seqs {
   publishDir "${params.outdir}", mode: 'link'
+
+  // conda / singularity info for this process
+  conda (params.enable_conda ? "conda-forge::r-base=4.1.* conda-forge::r-tidyverse=1.3.* conda-foge::r-openxlsx=4.2.*" : null)
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+  } else {                                                                      
+      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+  }        
 
   input:
   path(blast_output) from post_blast_unassigned_ch

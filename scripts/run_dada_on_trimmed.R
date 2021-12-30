@@ -5,7 +5,6 @@
 # https://benjjneb.github.io/dada2/tutorial.html
 #
 
-library(tidyverse)
 library(dada2)
 
 #
@@ -21,10 +20,12 @@ if (!interactive()) {
   # TODO: check CLAs
   r_bindir=args[1]
   trimmed_path=args[2]
+  outdir="./"
 } else {
-  # if running via RStudio
+  # if running via RStudio (for development or troubleshooting)
   r_bindir = "."
   trimmed_path = "../results/trimmed_fastq"
+  outdir="../results/"
 }
 
 # get lists of fastq files in trimmed directory 
@@ -36,10 +37,9 @@ fnRs <- sort(list.files(trimmed_path, pattern="_R2_trimmed.fastq.gz", full.names
 # when demultiplexing
 
 # remove _R[12]_trimmed.fastq.gz from file names to make better sample names
-sample.names <- str_replace(basename(fnFs), "_R[12]_trimmed.fastq.gz", "")
+sample.names <- gsub("_R[12]_trimmed.fastq.gz", "", basename(fnFs))
 # remove _S1_L001  etc. from file names to make better sample names
-sample.names <- str_replace(sample.names, "_S\\S+_L[01]{3}", "")
-
+sample.names <- gsub("_S\\S+_L[01]{3}", "", sample.names)
 
 # This will place dada-filtered files in dada_filtered/ subdirectory
 filtFs <- file.path(trimmed_path, "dada_filtered", paste0(sample.names, "_F_filt.fastq.gz"))
@@ -104,55 +104,26 @@ plotErrors(errR, nominalQ=TRUE)
 # q35_errors
 # write.table(q35_errors, "q35_errors.txt", sep="\t")
 
-
-
-# Ru 
+# Run dada function to identify ASVs
 dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
 dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
 
-# dadaFs[[1]]
-
+# merge paired reads
 mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
 
-# head(mergers[[1]])
-
+# create a table of dada2 results
 seqtab <- makeSequenceTable(mergers)
-# dim(seqtab)
 
-# table(nchar(getSequences(seqtab)))
-
+# remove chimeras
 seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
-# dim(seqtab.nochim)
-# sum(seqtab.nochim)/sum(seqtab)
 
-# write.table(seqtab, "65_seqtab.txt", sep="\t")
-
-getN <- function(x) sum(getUniques(x))
-
-# this will work for one sample
-# getN(dadaFs)
-# getN(dadaRs)
-# getN(mergers)
-# getN(seqtab.nochim)
-
-# this works when >1 sample
-# TODO: leave for most cases...
-# sum(getUniques(dadaFs))
-sapply(dadaFs, getN)
-track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
-
-# If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
-colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
-rownames(track) <- sample.names
-# head(track)
-
-# COULD_DO: output the track table for tracking purposes : how many reads were collapsed/filtered at each step by dada
 
 #
 # Handle empty datasets.  These should be reported as datasets with abundances of 0 for all sequences.
 #
 # These could correspond to datasets that were truly empty after sequencing or had no reads after filtering.
 #
+
 # Add rows with all 0s for datasets that had no reads after filtering 
 # this corresponds to the FALSE values in the exists vector
 empty_sample_names <- sample.names[!exists]
@@ -169,37 +140,7 @@ t <- as.data.frame(seqtab.nochim)
 # make a new column based on row names
 t$dataset <- rownames(t)
 
-# this is now a tidy formatted table with:
-# unique, merged sequences
-# and their abundances in each dataset
-tidy_sequence_table <- pivot_longer(t, -dataset, names_to = "sequence", values_to = "abundance" )
-
-# create a unique sequence id (#) for each sequence: for keeping track of in further processing steps
-sequences <- tidy_sequence_table %>% group_by(sequence) %>% summarize () %>% mutate(sequence_number = row_number())
-
-# join these sequence #s back into the tidy table
-tidy_sequence_table <- left_join(tidy_sequence_table, sequences, by="sequence")
-
-# write out the tidy-formatted table
-write.table(tidy_sequence_table, "sequence_abundance_table.tsv", sep="\t", col.names=T, row.names=F)
-
-# this writes fasta from the sequences data frame 
-# see: https://bootstrappers.umassmed.edu/guides/main/r_writeFasta.html
-writeFasta <- function(data, filename){
-  fastaLines = c()
-  for (rowNum in 1:nrow(data)){
-    fastaLines = c(fastaLines, as.character(paste(">", data[rowNum,"sequence_number"], sep = "")))
-    fastaLines = c(fastaLines,as.character(data[rowNum,"sequence"]))
-  }
-  fileConn<-file(filename)
-  writeLines(fastaLines, fileConn)
-  close(fileConn)
-}
-
-# write out the sequences in fasta format
-writeFasta(sequences, "observed_sequences.fasta")
-
-
-
+# write the output to a table
+write.table(t, paste0(outdir, "dada_seqtab.txt"), sep="\t", col.names=T, quote=F)
 
 
