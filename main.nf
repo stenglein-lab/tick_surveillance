@@ -392,6 +392,9 @@ process simulate_refseq_fastq {
   output:                                                                        
   tuple val ("${target.ref_sequence_name}_${dataset_size}"), path ("${target.ref_sequence_name}_${dataset_size}*.fastq") into simulated_fastq_ch_pre_type
 
+  when:
+  false
+
   script:                                                                       
 
   // this is how the simulated_fastq will be named
@@ -812,7 +815,7 @@ process tidy_dada_output {
   publishDir "${params.outdir}", mode: 'link'
 
   // conda / singularity info for this process
-  conda (params.enable_conda ? "conda-forge::r-base=4.1.* conda-forge::r-tidyverse=1.3.* conda-foge::r-openxlsx=4.2.*" : null)
+  conda (params.enable_conda ? "conda-forge::r-base=4.1.* conda-forge::r-tidyverse=1.3.* conda-forge::r-openxlsx=4.2.*" : null)
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "library://stenglein-lab/r_tools/r_tools:1.0.0"
   } else {                                                                      
@@ -879,7 +882,7 @@ process assign_observed_sequences_to_ref_seqs {
 
 
   // conda / singularity info for this process
-  conda (params.enable_conda ? "conda-forge::r-base=4.1.* conda-forge::r-tidyverse=1.3.* conda-foge::r-openxlsx=4.2.*" : null)
+  conda (params.enable_conda ? "conda-forge::r-base=4.1.* conda-forge::r-tidyverse=1.3.* conda-forge::r-openxlsx=4.2.*" : null)
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "library://stenglein-lab/r_tools/r_tools:1.0.0"
   } else {                                                                      
