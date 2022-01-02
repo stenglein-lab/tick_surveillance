@@ -508,7 +508,6 @@ process trim_primer_seqs {
 
   // setup arguments for trimming this particular pair of primers
   // see: https://cutadapt.readthedocs.io/en/stable/recipes.html#trimming-amplicon-primers-from-both-ends-of-paired-end-reads
-  // def primer_args = "-a " + primers.primer_name + "_F=" + primers.primer_f_seq + "..." + primer_r_rc + " -A " + primers.primer_name  + "_R=" + primers.primer_r_seq + "..."  + primer_f_rc
   def primer_args = "-a " + primers.primer_f_seq + "..." + primer_r_rc + " -A " + primers.primer_r_seq + "..."  + primer_f_rc
                                                                               
   """                                                                         
@@ -520,7 +519,7 @@ process trim_primer_seqs {
   # "Use --discard-untrimmed to throw away all read pairs in which R1 
   # doesn’t start with FWDPRIMER or in which R2 does not start with REVPRIMER"
   #
-  cutadapt $primer_args --discard-untrimmed  --minimum-length ${params.post_trim_min_length} $f1 $f2 -o ${sample_id}.R1_${primers.primer_name}.fastq.gz -p ${sample_id}.R2_${primers.primer_name}.fastq.gz
+  cutadapt $primer_args --discard-untrimmed  -e ${params.amplicon_primers_max_error_fraction} --minimum-length ${params.post_trim_min_length} $f1 $f2 -o ${sample_id}.R1_${primers.primer_name}.fastq.gz -p ${sample_id}.R2_${primers.primer_name}.fastq.gz
   """                                                                         
 }
                                                                                 
