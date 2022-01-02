@@ -11,60 +11,6 @@
 
 // TODO: command line options and parameter checking
 
-
-// ------------------------------------
-// Simulated internal-control datasets
-// ------------------------------------
-params.simulated_fastq_dir = "${params.refseq_dir}/simulated_fastq/"
-
-// simulated internal control datasets
-// background probability of errors for simulating fastq
-params.simulated_error_profile_file = "${baseDir}/refseq/q35_errors.txt"
-params.simulated_read_length = 250
-
-// the # of read pairs in simulated datasets
-params.simulated_dataset_sizes = [1,10,100]
-
-
-// --------
-// Versions
-// --------
-// TODO: versioning of pipeline, reference sequences, etc: how to best do (?)
-params.pipeline_version = "2021-05-19"
-params.refseq_version = "2021-01-08"
-params.primers_version = "2021-01-08"
-
-// ---------
-// Trimming 
-// ---------
-// the primers that will be trimmed off of the ends of amplicons
-params.primers = "${params.refseq_dir}/primers.tsv"
-
-// shortest amplicon = tick Actin @ 196 bp
-params.post_trim_min_length = "100" 
-
-// to trim Tru-seq style adapters need 10 bp of overlap
-// this to avoid false-positive trimming
-params.adapters_min_overlap = 10
-
-
-// ----------------------------------------------
-// Blast e-value cutoffs and other configuration
-// ----------------------------------------------
-params.max_blast_refseq_evalue = "1e-10"
-params.max_blast_nt_evalue = "1e-10"
-
-// Should BLAST of unassigned sequences be remote (use -remote option)
-// This will cause blastn to run much slower but will not require
-// the installation of a local database.
-//
-// This is the option that should default to unless a local database
-// is specified and verified to exist.
-params.remote_blast_nt = true
-
-// Run testing or not
-params.do_testing = true
-
 // these will output usage info
 params.help = false
 params.h = false
@@ -105,7 +51,7 @@ def usageMessage() {
        These files name's should contain the text R1 and R2, corresponding 
        to the 2 paired reads. 
 
-    2. An optional sample metadata file 
+    2. A sample metadata file 
 
 
    To document:
@@ -288,8 +234,6 @@ Channel
                                                                                 
 /* 
   Read in the targets tsv-format file that describes the expected target sequences. 
-
-  Use this to generate internal control datasets. 
 */
 Channel
     .fromPath(params.targets, checkIfExists: true)
@@ -310,7 +254,7 @@ process generate_refseq_fastas {
   path ("${targets.ref_sequence_name}.fasta") into refseq_fastas_ch
   tuple path ("${targets.ref_sequence_name}.fasta"), val (targets) into refseq_fastas_simulate_ch
 
-  // makes fasta formatted records for each targets 
+  // makes fasta formatted records for each target
   script:                                                                       
   """
   printf ">%s\n%s\n" $targets.ref_sequence_name $targets.sequence > ${targets.ref_sequence_name}.fasta
@@ -363,6 +307,7 @@ process setup_indexes {
   // blast database
   path ("${refseq_fasta}") into refseq_blast_db_ch
 
+
   script:
   """
   # Blast database of the reference sequences
@@ -377,7 +322,7 @@ process setup_indexes {
 // the sizes of control datasets to make
 // TODO: how to make this parameterized but not with a list type 
 // control_dataset_sizes_ch  = Channel.of(params.simulated_dataset_sizes) 
-control_dataset_sizes_ch  = Channel.of(1,10,100)
+control_dataset_sizes_ch  = Channel.of(0, 1, 10, 100)
 
 /* 
   generate simulated fastq reads for each reference sequence 
@@ -390,10 +335,10 @@ process simulate_refseq_fastq {
   tuple val (dataset_size), path(ref_fasta), val(target) from control_dataset_sizes_ch.combine(refseq_fastas_simulate_ch)
 
   output:                                                                        
-  tuple val ("${target.ref_sequence_name}_${dataset_size}"), path ("${target.ref_sequence_name}_${dataset_size}*.fastq") into simulated_fastq_ch_pre_type
+  tuple val ("${target.ref_sequence_name}_${dataset_size}"), path ("${target.ref_sequence_name}_${dataset_size}*.fastq") into simulated_fastq_ch
 
   when:
-  false
+  params.use_simulated_test_datasets
 
   script:                                                                       
 
@@ -406,6 +351,7 @@ process simulate_refseq_fastq {
   """
 }
 
+// TODO: signal to proceed once datasets generated
 
 /*
  These fastq files represent the main input to this workflow
@@ -416,37 +362,9 @@ process simulate_refseq_fastq {
 Channel
     .fromFilePairs("${params.fastq_dir}/*_R{1,2}*.fastq*", 
                    size: 2, 
-                   checkIfExists: true, 
+                   // checkIfExists: true, 
                    maxDepth: 1)
-    .into {samples_ch_qc; samples_ch_trim_pre_type}
-
-
-
-/*
-  Define different dataset types:
-
-  - simulated internal control datasets 
-  - actual experimental datasets
-
-  These different types of datasets will be handled differently by 
-  different parts of the pipeline.  Internal control datasets will
-  not be reported on to the same extent as actual datasets, for instance.
-
-*/
-
-def simulated_dataset_type = "simulated_internal_control"
-def real_dataset_type = "experimental_sample"
-
-// create channels repeating the different dataset types
-Channel.of(simulated_dataset_type)
-  .set {control_type_ch}
-
-Channel.of(real_dataset_type)
-  .set {samples_type_ch}
-
-simulated_fastq_ch = control_type_ch.combine(simulated_fastq_ch_pre_type)
-
-samples_ch_trim = samples_type_ch.combine(samples_ch_trim_pre_type)
+    .into {samples_ch_qc; samples_ch_trim}
 
 
 /* 
@@ -468,9 +386,11 @@ Channel
    to be trimmed, creating a new channel with all possible combinations of
    input fastq and primer pair
 */
-primers_and_samples = primers_ch.combine(samples_ch_trim.concat(simulated_fastq_ch))   
 
+// primers_and_samples = primers_ch.combine(samples_ch_trim)
+// primers_and_samples = primers_ch.combine(samples_ch_trim.concat(simulated_fastq_ch))
 
+primers_and_samples = params.use_simulated_test_datasets ?  primers_ch.combine(simulated_fastq_ch) : primers_ch.combine(samples_ch_trim)
 
 /*                                                                              
    A function to return the complement of a DNA sequence                        
@@ -575,10 +495,10 @@ process trim_primer_seqs {
                                                                               
   input:                                                                      
   val("indexes_complete") from post_index_setup_ch
-  tuple val(primers), val (dataset_type), val(sample_id), path(initial_fastq) from primers_and_samples
+  tuple val(primers), val(sample_id), path(initial_fastq) from primers_and_samples
 
   output:                                                                     
-  tuple val(dataset_type), val(sample_id), path("*.R1_${primers.primer_name}.fastq.gz"), path("*.R2_${primers.primer_name}.fastq.gz") into primer_trimmed_ch_ungrouped
+  tuple val(sample_id), path("*.R1_${primers.primer_name}.fastq.gz"), path("*.R2_${primers.primer_name}.fastq.gz") into primer_trimmed_ch_ungrouped
                                                                               
   script:                                                                     
   def primer_f_rc = primers.primer_f_seq.reverse().complement()                           
@@ -588,7 +508,8 @@ process trim_primer_seqs {
 
   // setup arguments for trimming this particular pair of primers
   // see: https://cutadapt.readthedocs.io/en/stable/recipes.html#trimming-amplicon-primers-from-both-ends-of-paired-end-reads
-  def primer_args = "-a " + primers.primer_name + "_F=" + primers.primer_f_seq + "..." + primer_r_rc + " -A " + primers.primer_name  + "_R=" + primers.primer_r_seq + "..."  + primer_f_rc
+  // def primer_args = "-a " + primers.primer_name + "_F=" + primers.primer_f_seq + "..." + primer_r_rc + " -A " + primers.primer_name  + "_R=" + primers.primer_r_seq + "..."  + primer_f_rc
+  def primer_args = "-a " + primers.primer_f_seq + "..." + primer_r_rc + " -A " + primers.primer_r_seq + "..."  + primer_f_rc
                                                                               
   """                                                                         
   # the --discard-untrimmed option means that the output of this command will contain
@@ -637,12 +558,12 @@ process collect_cutadapt_output {
 
   input:
   // the groupTuple() operator here will consolidate tuples with a shared sample_id
-  tuple val(dataset_type), val(sample_id), path(individual_r1), path(individual_r2) from primer_trimmed_ch_ungrouped.groupTuple(by: [0,1])
+  tuple val(sample_id), path(individual_r1), path(individual_r2) from primer_trimmed_ch_ungrouped.groupTuple()
                                                                                 
   output:                                                                       
   val(sample_id) into post_trim_ch
-  tuple val(dataset_type), val(sample_id) into post_trim_sample_ch
-  tuple val(dataset_type), val(sample_id), path("*_trimmed.fastq.gz") into post_trim_qc_ch
+  val(sample_id) into post_trim_sample_ch
+  tuple val(sample_id), path("*_trimmed.fastq.gz") into post_trim_qc_ch
                                                                                 
   script:                                                                       
 
@@ -673,40 +594,6 @@ process collect_cutadapt_output {
   """                                                                           
 }         
 
-/*
-  Write a file containing types of each individual datasets
-*/
-process write_one_dataset_type {
-
-  input:
-  tuple val(dataset_type), val(sample_id) from post_trim_sample_ch
-
-  output:
-  path ("${sample_id}.dataset_type.txt") into one_dataset_type_ch
-  
-  script:
-  """
-  printf "%s\t%s\n" $sample_id $dataset_type > "${sample_id}.dataset_type.txt"
-  """
-}
-
-/*
-  Combine files containing types of individual datasets into one merged file
-*/
-process write_dataset_type {
-  publishDir "${params.outdir}", mode:'link'
-
-  input:
-  path (dataset_types) from one_dataset_type_ch.collect()
-
-  output:
-  path ("dataset_types.txt") into dataset_types_ch
-  
-  script:
-  """
-  cat $dataset_types > dataset_types.txt
-  """
-}
 
 /*
  Use fastqc to do QC on post-trimmed fastq
@@ -723,13 +610,10 @@ process post_trim_qc {
   }
 
   input:
-  tuple val(dataset_type), val(sample_id), path(input_fastq) from post_trim_qc_ch
+  tuple val(sample_id), path(input_fastq) from post_trim_qc_ch
 
   output:
   val(sample_id) into post_trim_multiqc_ch
-
-  when:
-  dataset_type == real_dataset_type
 
   script:
 
@@ -892,7 +776,6 @@ process assign_observed_sequences_to_ref_seqs {
 
   input:
   path(metadata) from post_metadata_check_ch
-  path(dataset_types) from dataset_types_ch
   tuple path(abundance_table), path(blast_output) from post_compare_ch
 
   output:
@@ -902,7 +785,7 @@ process assign_observed_sequences_to_ref_seqs {
 
   script:                                                                       
   """                                                                           
-  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $abundance_table $blast_output $metadata ${params.targets} $dataset_types
+  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $abundance_table $blast_output $metadata ${params.targets} 
   """             
 }
 
