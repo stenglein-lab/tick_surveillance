@@ -322,7 +322,7 @@ process setup_indexes {
 // the sizes of control datasets to make
 // TODO: how to make this parameterized but not with a list type 
 // control_dataset_sizes_ch  = Channel.of(params.simulated_dataset_sizes) 
-control_dataset_sizes_ch  = Channel.of(0, 1, 10, 100)
+control_dataset_sizes_ch  = Channel.of(0, 100, 1000)
 
 /* 
   generate simulated fastq reads for each reference sequence 
@@ -346,8 +346,8 @@ process simulate_refseq_fastq {
   def fastq_prefix =  "${target.ref_sequence_name}_${dataset_size}"
   
   """
-  # ${params.script_dir}/simulate_fastq.pl -n $dataset_size -f $ref_fasta -pre $fastq_prefix -l ${params.simulated_read_length} -e ${params.simulated_error_profile_file}
-  ${params.script_dir}/simulate_fastq.pl -n $dataset_size -f $ref_fasta -pre $fastq_prefix -l ${params.simulated_read_length} 
+  ${params.script_dir}/simulate_fastq.pl -n $dataset_size -f $ref_fasta -pre $fastq_prefix -l ${params.simulated_read_length} -e ${params.simulated_error_profile_file}
+  # ${params.script_dir}/simulate_fastq.pl -n $dataset_size -f $ref_fasta -pre $fastq_prefix -l ${params.simulated_read_length} 
   """
 }
 
@@ -747,7 +747,7 @@ process compare_observed_sequences_to_ref_seqs {
   // this is almost the default blastn output except gaps replaces gapopens, because seems more useful!
   def blastn_columns = "qaccver saccver pident length mismatch gaps qstart qend sstart send evalue bitscore"
   """                                                                           
-  blastn -db ${params.refseq_dir}/${refseq_blast_db} -task blastn -evalue ${params.max_blast_refseq_evalue} -query $sequences -outfmt "6 $blastn_columns" -out ${sequences}.bn_refseq.no_header
+  blastn -db ${refseq_blast_db} -task blastn -evalue ${params.max_blast_refseq_evalue} -query $sequences -outfmt "6 $blastn_columns" -out ${sequences}.bn_refseq.no_header
   # prepend blast output with the column names so we don't have to manually name them later
   echo $blastn_columns > blast_header.no_perl
   echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
