@@ -11,10 +11,10 @@
 
 // TODO: command line options and parameter checking
 
-// these will output usage info
+// running the pipeline with these params set will output usage info
+// e.g. nextflow run main.nf --h
 params.help = false
 params.h = false
-
 
 /*
    Pipeline usage output message.
@@ -173,8 +173,7 @@ def usageMessage() {
 // This 
 def infoMessage() {
 
-  // how to best handle this versioning?
-  // via github?
+  // tie this versioning to github tags/releases
 
   log.info """
 
@@ -305,7 +304,9 @@ process setup_indexes {
   val ("indexes_complete") into post_index_setup_ch
   
   // blast database
-  path ("${refseq_fasta}") into refseq_blast_db_ch
+  // have to pass paths to both the blast db prefix/name and paths to the additional 
+  // files composing the blast db so they will be available to downstream process
+  tuple path ("$refseq_fasta"), path ("${refseq_fasta}.*") into refseq_blast_db_ch
 
 
   script:
@@ -738,14 +739,15 @@ process compare_observed_sequences_to_ref_seqs {
 
   input:
   tuple path(sequences), path(abundance_table) from post_dada_ch
-  path(refseq_blast_db) from refseq_blast_db_ch
+  tuple path(refseq_blast_db), path (refseq_blast_db_files) from refseq_blast_db_ch
 
   output:
   tuple path(abundance_table), path("${sequences}.bn_refseq") into post_compare_ch
 
   script:                                                                       
-  // this is almost the default blastn output except gaps replaces gapopens, because seems more useful!
-  def blastn_columns = "qaccver saccver pident length mismatch gaps qstart qend sstart send evalue bitscore"
+  // this is similar to the default blastn output except gaps replaces gapopens, because seems more useful!
+  // also include other useful columns like query length, subject length, etc
+  def blastn_columns = "qaccver saccver pident length mismatch gaps qlen slen bitscore"
   """                                                                           
   blastn -db ${refseq_blast_db} -task blastn -evalue ${params.max_blast_refseq_evalue} -query $sequences -outfmt "6 $blastn_columns" -out ${sequences}.bn_refseq.no_header
   # prepend blast output with the column names so we don't have to manually name them later

@@ -130,10 +130,9 @@ reporting_dataset <- reporting_dataset %>%
 write.table(reporting_dataset, paste0(output_path, "non_reference_sequence_assignments.tsv"), quote=F, sep="\t", col.names=T, row.names=F)
 
 # write as excel
-# TODO: date in filename.  Unique run identifier?
+# TODO: put date in filename.  Unique run identifier?
 wb <- createWorkbook("non_reference_sequence_assignments.xlsx")
 addWorksheet(wb, "non_refseq_hits")
 writeData(wb, "non_refseq_hits", reporting_dataset)
-# TODO: save to results dir
 saveWorkbook(wb, paste0(output_path, "non_reference_sequence_assignments.xlsx"), overwrite = TRUE)
 

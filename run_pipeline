@@ -1,3 +1,5 @@
 #!/bin/bash -x
 
-nextflow run main.nf -resume --metadata input/AK_metadata.xlsx -profile singularity
+nextflow run main.nf -resume --metadata input/AK_metadata.xlsx -profile singularity,local
+# nextflow run main.nf -resume --metadata input/AK_metadata.xlsx -profile singularity,local,test
+# nextflow run main.nf -resume --metadata input/AK_metadata.xlsx -profile conda
