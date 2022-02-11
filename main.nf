@@ -287,8 +287,7 @@ process combine_refseq_fasta {
 process setup_indexes {
   publishDir "${params.refseq_dir}", mode: 'link'                                   
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "bioconda::blast=2.12.*" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/blast:2.12.0--pl5262h3289130_0"
   } else {
@@ -415,8 +414,7 @@ String.metaClass.complement = {
 process initial_qc {
   label 'lowmem'
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "bioconda::fastqc=0.11.9" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/fastqc:0.11.9--0"
   } else {
@@ -445,8 +443,7 @@ process initial_qc {
 process initial_multiqc {
   publishDir "${params.outdir}", mode:'link'
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "bioconda::multiqc=1.11" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/multiqc:1.11--pyhdfd78af_0"
   } else {
@@ -486,8 +483,7 @@ process initial_multiqc {
 process trim_primer_seqs {                                                      
   label 'lowmem'
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "bioconda::cutadapt=3.5" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
     container "https://depot.galaxyproject.org/singularity/cutadapt:3.5--py39h38f01e4_0"
   } else {
@@ -548,8 +544,7 @@ process trim_primer_seqs {
 process collect_cutadapt_output {                                               
   publishDir "${params.trimmed_outdir}", mode:'link'                                    
                                                                                 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "bioconda::cutadapt=3.5" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
     container "https://depot.galaxyproject.org/singularity/cutadapt:3.5--py39h38f01e4_0"
   } else {
@@ -601,8 +596,7 @@ process collect_cutadapt_output {
 process post_trim_qc {
   label 'lowmem'
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "bioconda::fastqc=0.11.9" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/fastqc:0.11.9--0"
   } else {
@@ -635,8 +629,7 @@ process post_trim_qc {
 process post_trim_multiqc {
   publishDir "${params.outdir}", mode: 'link'
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "bioconda::multiqc=1.11" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/multiqc:1.11--pyhdfd78af_0"
   } else {
@@ -669,8 +662,7 @@ process post_trim_multiqc {
 process run_dada_on_trimmed {
   publishDir "${params.outdir}", mode: 'link'
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "bioconda::bioconductor-dada2=1.22.*" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/bioconductor-dada2%3A1.22.0--r41h399db7b_0"
   } else {
@@ -698,8 +690,7 @@ process run_dada_on_trimmed {
 process tidy_dada_output {
   publishDir "${params.outdir}", mode: 'link'
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "conda-forge::r-base=4.1.* conda-forge::r-tidyverse=1.3.* conda-forge::r-openxlsx=4.2.*" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "library://stenglein-lab/r_tools/r_tools:1.0.0"
   } else {                                                                      
@@ -729,8 +720,7 @@ process tidy_dada_output {
 process compare_observed_sequences_to_ref_seqs {
   publishDir "${params.outdir}", mode: 'link'
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "bioconda::blast=2.12.*" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/blast:2.12.0--pl5262h3289130_0"
   } else {
@@ -766,8 +756,7 @@ process assign_observed_sequences_to_ref_seqs {
   publishDir "${params.outdir}", mode: 'link'
 
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "conda-forge::r-base=4.1.* conda-forge::r-tidyverse=1.3.* conda-forge::r-openxlsx=4.2.*" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "library://stenglein-lab/r_tools/r_tools:1.0.0"
   } else {                                                                      
@@ -781,7 +770,7 @@ process assign_observed_sequences_to_ref_seqs {
 
   output:
   path("unassigned_sequences.fasta") into post_assign_to_refseq_ch
-  path("identified_targets.xlsx")
+  path("sequencing_report.xlsx")
   path("identified_targets.tsv")
 
   script:                                                                       
@@ -799,8 +788,7 @@ process assign_observed_sequences_to_ref_seqs {
 process blast_unassigned_sequences {
   publishDir "${params.outdir}", mode: 'link'
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "bioconda::blast=2.12.*" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/blast:2.12.0--pl5262h3289130_0"
   } else {
@@ -825,43 +813,29 @@ process blast_unassigned_sequences {
    	 sskingdom means Subject Super Kingdom
 */
 
+  def blast_db_params = ""
   if (params.remote_blast_nt) {
-
     // remote blastn: slower but doesn't require locally installed nt database
-
-    """
-
-    # run remote blastn
-    blastn -db nt -task megablast -remote -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
-
-    # prepend blast output with the column names so we don't have to manually name them later
-    # the perl inline command here is to replace spaces with tabs
-    echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
-
-    # merge custom header line with actual blast output
-    cat blast_header ${unassigned_sequences}.bn_nt.no_header > ${unassigned_sequences}.bn_nt
-
-    """
-
+    blast_db_params = "-db nt -remote"
   }
   else {
-
     // local blastn: faster but requires locally installed nt database
-
-    """
-
-    # run local blastn
-    blastn -db nt -task megablast -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
-
-    # prepend blast output with the column names so we don't have to manually name them later
-    # the perl inline command here is to replace spaces with tabs
-    echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
-
-    # merge custom header line with actual blast output
-    cat blast_header ${unassigned_sequences}.bn_nt.no_header > ${unassigned_sequences}.bn_nt
-
-    """             
+    blast_db_params = "-db ${params.local_nt_database}"
   }
+
+
+  """
+  # run blastn
+  blastn $blast_db_params -task megablast -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
+
+  # prepend blast output with the column names so we don't have to manually name them later
+  # the perl inline command here is to replace spaces with tabs
+  echo $blastn_columns | perl -p -e 's/ /\t/g' > blast_header 
+
+  # merge custom header line with actual blast output
+  cat blast_header ${unassigned_sequences}.bn_nt.no_header > ${unassigned_sequences}.bn_nt
+
+  """
 }
 
 /*
@@ -871,8 +845,7 @@ process blast_unassigned_sequences {
 process assign_non_ref_seqs {
   publishDir "${params.outdir}", mode: 'link'
 
-  // conda / singularity info for this process
-  conda (params.enable_conda ? "conda-forge::r-base=4.1.* conda-forge::r-tidyverse=1.3.* conda-foge::r-openxlsx=4.2.*" : null)
+  // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "library://stenglein-lab/r_tools/r_tools:1.0.0"
   } else {                                                                      

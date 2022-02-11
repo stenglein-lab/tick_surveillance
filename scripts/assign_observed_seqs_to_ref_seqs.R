@@ -315,6 +315,7 @@ dataset_df_calls <- dataset_by_spp %>%
   select(Index, species, abundance, pos_neg_call)
 
 
+
 # ------------------------------------
 # fill in missing samples and targets
 # ------------------------------------
@@ -333,9 +334,32 @@ df_species_observed  <- filter(dataset_df_calls, pos_neg_call == "Positive") %>%
 df_species_not_observed <- as.data.frame(df_species$species[!(df_species$species %in% df_species_observed$species)])
 colnames(df_species_not_observed) <- c("species")
 
-# make zeroed out rows with species not observed
+# make zeroed out rows for species not observed
 num_extra_spp <- nrow(df_species_not_observed)
-extra_spp_rows <- head(dataset_df_calls, num_extra_spp)
+
+new=1
+if (new) {
+# create data frame rows for species that didn't appear in any dataset
+# what if we don't have any calls?  
+# situation possible with just a few datasets
+if (nrow(dataset_df_calls) == 0){ 
+  extra_spp_rows_one <- data.frame(Index = character(),
+                                   species = character(),
+                                   abundance = integer(),
+                                   pos_neg_call = character(),
+                                   stringsAsFactors=FALSE)
+} else {
+  # get the first row of the dataset_df_calls data frame as a place holder for the unobserved species
+  extra_spp_rows_one <- head(dataset_df_calls, 1)
+}
+
+# replicate this row as many times as their are extra species
+extra_spp_rows <- slice_sample(extra_spp_rows_one, n=num_extra_spp, replace=T)
+} else {
+  extra_spp_rows <- head(dataset_df_calls, num_extra_spp)
+}
+
+# fill in a negative call for each unobserved species
 extra_spp_rows$species <- df_species_not_observed$species
 extra_spp_rows$abundance <- rep(0L, num_extra_spp)
 extra_spp_rows$pos_neg_call <- rep("Negative", num_extra_spp)
