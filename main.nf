@@ -192,7 +192,6 @@ if (params.help || params.h) {
     exit 0
 }
 
-
 /* 
   Check input parameters 
 */
@@ -203,15 +202,20 @@ def check_params_and_input () {
   // check_primers()
   // check_metadata()
 
-/*
-  if (!$params.input_dir.exists()) {
-    log.info """
-      Error: input directory $params.input_dir does not exist
-    """
-    usageMessage()
-  }
-*/
-
+  // This list includes a list of files or paths that are required 
+  // to exist.  Check that they exist and fail if not.  
+  checkPathParamList = [
+    params.input_dir, 
+    params.fastq_dir, 
+    params.script_dir, 
+    params.refseq_dir, 
+    params.targets, 
+    params.metadata, 
+    params.primers 
+  ]
+  log.info("Checking for required input paths and files...")
+  for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true) } }
+  
 }
 
 
@@ -219,7 +223,6 @@ def check_params_and_input () {
   Check parameters and input
 */
 check_params_and_input()
-
 
 
 /* 
@@ -364,7 +367,7 @@ Channel
                    size: 2, 
                    // checkIfExists: true, 
                    maxDepth: 1)
-    .into {samples_ch_qc; samples_ch_trim}
+    .into {samples_ch_qc; samples_ch_trim; sample_ids_ch}
 
 
 /* 
@@ -407,6 +410,49 @@ String.metaClass.complement = {
     complements[ base ] ?: 'X'                                                  
   }.join()                                                                      
 }                                                                               
+
+/*
+ Output sample IDs into a file
+*/
+process output_sample_ids {
+  label 'lowmem'
+
+  input:
+  tuple val(sample_id), path(initial_fastq) from sample_ids_ch
+
+  output:
+  val(sample_id) into tabulate_sample_ids_ch
+
+  script:
+  """
+  # this doesn't actually do anything but the process wants a script block
+  echo $sample_id
+  """
+}
+
+/*
+ Output sample IDs into a file
+*/
+tabulate_sample_ids_ch
+  .collectFile(name: 'sample_ids.txt', newLine: true)
+  .set{ sample_ids_file_ch }
+
+/*
+process tabulate_sample_ids {
+  publishDir "${params.outdir}", mode:'link'
+
+  input:
+  cat(all_sample_ids) from tabulate_sample_ids_ch.collect()
+
+  output:
+  path("sample_ids.txt") into sample_ids_file_ch
+
+  script:
+  """
+  cat $all_sample_ids > "sample_ids.txt"
+  """
+}
+*/
 
 /*
  Run fastqc on input fastq 
@@ -748,6 +794,31 @@ process compare_observed_sequences_to_ref_seqs {
 }
 
 /*
+  This process validates that the metadata file exists
+*/
+process validate_metadata_file {
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+  } else {                                                                      
+      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+  }        
+  
+  input:
+  path(metadata) from post_metadata_check_ch
+  path(sample_ids) from sample_ids_file_ch
+
+  output:
+  path(metadata) into validated_metadata_ch
+
+  script:
+  """
+  Rscript ${params.script_dir}/validate_metadata.R ${params.script_dir} $metadata $sample_ids
+  """
+}
+
+/*
   This process takes the blast alignment information from the above process
   and decides whether those sequence are sufficiently similar to the reference 
   sequences to be assigned to them.
@@ -765,7 +836,7 @@ process assign_observed_sequences_to_ref_seqs {
   
 
   input:
-  path(metadata) from post_metadata_check_ch
+  path(metadata) from validated_metadata_ch
   tuple path(abundance_table), path(blast_output) from post_compare_ch
 
   output:
