@@ -1,14 +1,18 @@
 #
-# This script assigns observed sequences to a set of reference sequences based
-# on blast alignments
+# This script:
 #
-# Mark Stenglein 12/11/2020
+#   1. Assigns observed sequences to a set of reference sequences based
+#      on blast alignments 
+#   2. Populates a surveillance reporting table
+#   3. Creates additional, more detailed output
+#
+# Mark Stenglein 04/14/2022
 #
 
 library(tidyverse)
 library(openxlsx)
 library(readxl)
-library(DT)
+# library(DT)
 
 # This code block sets up input arguments to either come from the command line
 # (if running from the pipeline, so not interactively) or to use expected default values 
@@ -24,14 +28,16 @@ if (!interactive()) {
   blast_output_path = args[3]
   sample_metadata_file = args[4]
   targets_tsv_file = args[5]
+  surveillance_columns_file = args[6]
   output_dir = "./"
 } else {
-  # if running via RStudio
+  # else if running via RStudio
   r_bindir  =  "."
   tidy_table_path = "../results/sequence_abundance_table.tsv"
   blast_output_path = "../results/observed_sequences.fasta.bn_refseq"
   sample_metadata_file = "../input/AK_metadata.xlsx"
   targets_tsv_file = "../refseq/targets.tsv"
+  surveillance_columns_file = "../refseq/surveillance_columns.txt"
   output_dir = "../results/"
 }
 
@@ -48,8 +54,7 @@ writeFasta <- function(data, filename){
   fileConn<-file(filename)
   writeLines(fastaLines, fileConn)
   close(fileConn)
-
-  }
+}
 
 
 # ------------------
@@ -151,9 +156,9 @@ if ( ! "batch" %in% colnames(metadata_df)) {
   metadata_df <- metadata_df %>% mutate(batch = "1")
 }
 
-# ---------------------
-# target information
-# ---------------------
+# --------------------------
+# Read in target information
+# --------------------------
 targets_df <- read.delim(targets_tsv_file, sep="\t", header=T)
 targets_df$internal_control <- as.logical(targets_df$internal_control)
 
@@ -166,8 +171,14 @@ targets_df <- targets_df %>% rename(target_sequence_incl_primers = sequence)
 targets_df$reporting <- na_if(targets_df$reporting, "")
 
 # join target info with blast info
-# TODO: is this join necessary?   
+# This is necessary because the targets file contains info about minimum percent
+# identity for an alingment between an observed an expected sequence, etc. 
 blast_df <- left_join(blast_df, targets_df, by=c("subject" = "ref_sequence_name"))
+
+# ----------------------------
+# Read in surveillance columns
+# ----------------------------
+surveillance_columns <- read.delim(surveillance_columns_file, sep="\t", header=T, stringsAsFactors = F)
 
 # --------------------------------------------------------------------------
 # logic for saying that one of the observed sequences is close enough 
@@ -179,14 +190,14 @@ assign_blast_hits_to_refseqs <- function() {
   # (it modifies the global blast_df variable instead of creating a new variable 
   # with the same name in the function scope)
   blast_df <<- blast_df %>%  mutate(
-
+    
     # assigned_to_target will be TRUE if this particular sequence
     # aligns to the relevant reference sequence above the thresholds
     # the min_percent_identity and min_percent_aligned come from the targets_tsv_file
     # so can be assigned separately for each target
-    assigned_to_target = if_else( (percent_identity > min_percent_identity & 
-                                     percent_query_aligned > min_percent_aligned &
-                                     percent_of_alignment_gaps < max_percent_gaps),
+    assigned_to_target = if_else( (percent_identity >= min_percent_identity & 
+                                     percent_query_aligned >= min_percent_aligned &
+                                     percent_of_alignment_gaps <= max_percent_gaps),
                                   TRUE, 
                                   FALSE))
 }  
@@ -207,10 +218,8 @@ assigned_plot <- ggplot(blast_df) +
   xlab("% of query aligned to reference sequence") +
   ylab("% identity between query and reference sequence") 
 
-# render the plot
-# TODO: output this as a plot/report ?
-assigned_plot
-
+# render the plot and output to PDF
+ggsave(paste0(output_dir, "/assigned_targets_plot.pdf"), plot = assigned_plot, width=7, height=5, units="in")
 
 
 # --------------------------------------------------------------------------------------
@@ -247,7 +256,7 @@ dataset_df <- left_join(dataset_df, blast_df, by=c("sequence_number" = "query"))
 
 # calculate the # of tick actin mapping reads in real tick (non-control) datasets
 non_control_dataset_batch_averages <- dataset_df %>%
-  filter(internal_control) %>%
+  filter(internal_control == TRUE) %>%
   group_by(batch, Index) %>%
   mutate(per_sample_internal_ctrl_reads = log10(sum(abundance))) %>%
   ungroup() %>%
@@ -262,30 +271,11 @@ dataset_df <- left_join(dataset_df, non_control_dataset_batch_averages, by="batc
 dataset_df <- dataset_df %>%
   mutate(minimum_internal_control_log_reads =
            mean_batch_internal_ctrl_reads - (3 * sd_batch_internal_ctrl_reads),
-         # right now, set minimum # of reads for real targets at 10...
+         # set minimum # of reads for real targets at 10...
+         # this could be parameterized or defined on a per-target basis
          minimum_non_control_reads = 10)
 
-
-# -------------------------------------------------------
-# collapse unique sequences to level of targeted species
-# -------------------------------------------------------
-
-# collapse all hits for same target species in each dataset 
-dataset_by_spp <- dataset_df %>% 
-  group_by(Index, species) %>%
-  mutate(
-    abundance = sum(abundance),   
-    percent_identity = mean(percent_identity),
-    percent_query_aligned = mean(percent_query_aligned),
-    richness = n(),
-  ) %>%
-  filter(row_number() == 1) %>%
-  ungroup() %>%
-  # get rid of unneeded columns
-  select(Index, batch, species, abundance, percent_identity, 
-         percent_query_aligned, richness, internal_control, 
-         minimum_internal_control_log_reads, minimum_non_control_reads)
-
+# create a plot of internal control (tick actin) reads in individual datasets
 tick_reads_p <- dataset_df %>% 
   filter(internal_control) %>% 
   group_by(batch, Index, species) %>%
@@ -301,138 +291,148 @@ tick_reads_p <- dataset_df %>%
   xlab("Batch") +
   ggtitle("Number of tick-mapping reads in individual tick or control datasets\n")
 
-tick_reads_p
+# plot output to PDF
+ggsave(paste0(output_dir, "/tick_reads_per_dataset.pdf"), plot = tick_reads_p,  width=7, height=5, units="in")
 
 
-# ----------
-# make calls
-# ----------
-dataset_df_calls <- dataset_by_spp %>% 
+# ----------------------------------------
+# Generate and output surveillance table
+# ----------------------------------------
+
+# create maps of surveillance columns -> targets and vice versa
+surv_to_target_map <- list()
+targets_to_surv_df <- data.frame(target = character(),
+                                 surveillance_column = character())
+
+for (row in 1:nrow(targets_df)) {
+  target <- filter(targets_df, row_number() == row) %>% pull(ref_sequence_name)
+  
+  # what reporting columns are defined in the targets file?
+  reporting_columns <- filter(targets_df, row_number() == row) %>% 
+    pull(reporting_columns) %>% 
+    str_split(pattern = ',', simplify = T)
+  
+  # collect targets for each reporting column into a named list
+  for (col in reporting_columns) {
+    if (!is.na(col)) {
+      # double check that any surveillance column names defined in the targets file are also defined in the surveillance columns file
+      if (!(col %in% surveillance_columns$column_name)) {
+        message (paste0("ERROR: surveillance column ", col ," in target file (", targets_tsv_file , ")",
+                        " not present in surveillance columns file (", surveillance_columns_file ,")"))
+        quit(status = 1)
+      }
+      
+      # map targets to surveillance columns
+      targets_to_surv_df[nrow(targets_to_surv_df) + 1,] <- c(target, col)
+      
+      # map surveillance columns to targets
+      existing_targets <- surv_to_target_map[[col]]
+      if (is.null(existing_targets)) {
+        # first target for this column
+        surv_to_target_map[[col]] <- target
+      } else {
+        # already at least one target for this column
+        surv_to_target_map[[col]] <- c(existing_targets, target)
+      }
+    }
+  }
+}
+
+
+
+# -------------------------------------------------------
+# collapse unique sequences to level of targeted species
+# -------------------------------------------------------
+
+# collapse all hits for same target species in each dataset 
+# this will get output in the main excel output as a separate tab
+dataset_by_spp <- dataset_df %>% 
+  group_by(Index, species) %>%
+  mutate(
+    abundance = sum(abundance),   
+    percent_identity = mean(percent_identity),
+    percent_query_aligned = mean(percent_query_aligned),
+    richness = n(),
+  ) %>%
+  filter(row_number() == 1) %>%
+  ungroup() %>%
+  # get rid of unneeded columns
+  select(Index, batch, species, abundance, percent_identity, 
+         percent_query_aligned, richness, internal_control, 
+         minimum_internal_control_log_reads, minimum_non_control_reads)
+
+# join in surveillance column info
+dataset_with_surv_df <- left_join(dataset_df, targets_to_surv_df, by=c("subject" = "target"))
+
+# collapse all hits for same surveillance column in each dataset 
+dataset_by_surv_column <- dataset_with_surv_df %>% 
+  group_by(Index, surveillance_column) %>%
+  mutate(
+    abundance = sum(abundance),   
+    percent_identity = mean(percent_identity),
+    percent_query_aligned = mean(percent_query_aligned),
+    richness = n(),
+  ) %>%
+  filter(row_number() == 1) %>%
+  ungroup() %>%
+  # get rid of unneeded columns
+  select(Index, batch, species, abundance, percent_identity, 
+         percent_query_aligned, richness, internal_control, 
+         minimum_internal_control_log_reads, minimum_non_control_reads, surveillance_column)
+
+
+# ------------------------------
+# make positive / negative calls
+# ------------------------------
+dataset_df_calls <- dataset_by_surv_column %>% 
   mutate(pos_neg_call = case_when((internal_control & (log10(abundance) >= minimum_internal_control_log_reads)) ~ "Positive", 
                                   (!internal_control & (abundance >= minimum_non_control_reads)) ~ "Positive", 
                                   TRUE ~ "Negative"),
          .groups="drop") %>%
-  select(Index, species, abundance, pos_neg_call)
-
-
-
-# ------------------------------------
-# fill in missing samples and targets
-# ------------------------------------
-
-# dataset_df_calls is a sparse dataset at this point
-# it only contains rows corresponding to datasets that had any reads matching one of the targets 
-# so we need to fill in the missing datasets: those datasets with no assigned targets
-# and those species that were not observed in any dataset
-
-# fill out the dataframe with any species listed in the targets file but 
-# not present in the data (species for which there are no reads in any dataset)
-df_species <- targets_df %>% group_by(species)  %>% summarize()
-
-df_species_observed  <- filter(dataset_df_calls, pos_neg_call == "Positive") %>% group_by(species) %>% summarize() %>% filter(!is.na(species))
-
-df_species_not_observed <- as.data.frame(df_species$species[!(df_species$species %in% df_species_observed$species)])
-colnames(df_species_not_observed) <- c("species")
-
-# make zeroed out rows for species not observed
-num_extra_spp <- nrow(df_species_not_observed)
-
-new=1
-if (new) {
-# create data frame rows for species that didn't appear in any dataset
-# what if we don't have any calls?  
-# situation possible with just a few datasets
-if (nrow(dataset_df_calls) == 0){ 
-  extra_spp_rows_one <- data.frame(Index = character(),
-                                   species = character(),
-                                   abundance = integer(),
-                                   pos_neg_call = character(),
-                                   stringsAsFactors=FALSE)
-} else {
-  # get the first row of the dataset_df_calls data frame as a place holder for the unobserved species
-  extra_spp_rows_one <- head(dataset_df_calls, 1)
-}
-
-# replicate this row as many times as their are extra species
-extra_spp_rows <- slice_sample(extra_spp_rows_one, n=num_extra_spp, replace=T)
-} else {
-  extra_spp_rows <- head(dataset_df_calls, num_extra_spp)
-}
-
-# fill in a negative call for each unobserved species
-extra_spp_rows$species <- df_species_not_observed$species
-extra_spp_rows$abundance <- rep(0L, num_extra_spp)
-extra_spp_rows$pos_neg_call <- rep("Negative", num_extra_spp)
-
-# add on these extra rows corresponding to 0 counts for species not observed in data
-dataset_df_calls <- rbind(dataset_df_calls, extra_spp_rows)
-
-# add in samples that had no data (no positive calls).  do this by left_join() to metadata
-dataset_df_reporting <- left_join(metadata_key, dataset_df_calls) %>% select(-c(batch, abundance))
-
-# pivot to a wider format for reporting
-reporting_dataset <- dataset_df_reporting %>% 
-  pivot_wider(names_from=species, 
-              values_from=c(pos_neg_call),
-              names_sep = "_")
-
-# pivot to a wider format for reporting
-# add in samples that had no data (no positive calls).  do this by left_join() to metadata
-dataset_df_reporting_abundances <- left_join(metadata_key, dataset_df_calls) %>% select(-c(batch, pos_neg_call))
-
-reporting_dataset_abundances <- dataset_df_reporting_abundances %>% 
-  pivot_wider(names_from=species, 
-              values_from=c(abundance),
-              names_sep = "_")
+  select(Index, surveillance_column, abundance, pos_neg_call)
 
 # ----------------------------
 # create a surveillance table
 # ----------------------------
 
-# output date in format specified by CDC surveillance folks
-# R/tidyverse happier with these column names without spaces or characters like "-" or "(" or ")"
-surv_cols_ok_names <- 
-             c("Index", 
-               "ID", "Submission_No", "Vial_ID", "Pathogen_Testing_ID", 
-               "CSID", "No_Samples_in_Testing_Pool", "Extraction_SOP_Number", 
-               "Extraction_SOP_Version", "Acceptable_DNA", 
-               "Borrelia_sp", "Borrelia_burgdorferi_sensu_stricto", 
-               "Borrelia_mayonii", "Borrelia_miyamotoi", 
-               "Borrelia_Other_species_name", 
-               "Anaplasma_phagocytophilum_strain_not_differentiated", 
-               "Babesia_microti", "Ehrlichia_muris_eauclairensis", 
-               "Powassan_virus_lineage_I", "DeerTick_virus_Powassan_virus_lineage_II", 
-               "Attempted_to_Sequence", "Successfully_Sequenced", "In_house_Tick_Molecular_ID", 
-               "In_house_Blood_Meal_ID", "In_house_Tick_Host_Molecular_ID", 
-               "In_house_Vertebrate_Molecular_ID", "Notes")
+# columns in this table are defined in the surveillance_columns.txt file (param --surveillance_columns)
 
 # how big should the DF be?
-num_surv_cols <- length(surv_cols_ok_names)
-num_surv_rows <- nrow(reporting_dataset)  
+num_surv_cols <- nrow(surveillance_columns)
+num_surv_rows <- nrow(metadata_key)  
 
 # create an empty DF
 surv_df <- data.frame(mat = matrix(ncol = num_surv_cols, nrow = num_surv_rows), stringsAsFactors = F)
 
 # name the columns
-colnames(surv_df) <- surv_cols_ok_names
+colnames(surv_df) <- t(surveillance_columns$column_name)
+
+# prepopulate the columns with any default values
+#
+# convert default values from surveillance column file to a named list for easy access to values
+# see: https://stackoverflow.com/questions/33418288/how-to-convert-a-matrix-to-dictionary-like-a-list
+surv_default_text <- as.list(t(surveillance_columns[, "default_text"]))
+names(surv_default_text) <- t(surveillance_columns[, "column_name"])
+
+# prepopulate the columns with any default value text
+for (name in names(surv_default_text)){
+  surv_df[name] <- surv_default_text[name]
+}
 
 # -----------------------------------------------
 # populate the columns in the surveillance table
 # -----------------------------------------------
 
-# --------
-# metadata
-# --------
-
-# Illumina Index
-surv_df$Index <- reporting_dataset$Index
+# ------------------------------------------------------------
+# metadata columns populated from metadata input to pipeline
+# ------------------------------------------------------------
 
 # Pull in metadata from the metadata dataframe (from excel input)
 populate_surveillance_metadata <- function(surv_df, meta_df, column_names) {
   
   for (column_name in column_names) {
-    if (!(column_name %in% colnames(meta_df))) {
-      message (paste0("WARNING: column ", column_name, " not present in metadata file: ", sample_metadata_file, ".  Will not populate column in surveillance report table."))
+    if (!(column_name %in% colnames(surv_df))) {
+      message (paste0("INFO: metadata column ", column_name, " not present in surveillance table. Will not populate column in surveillance report table."))
       next
     }
     surv_df[column_name] <- meta_df[column_name]
@@ -440,102 +440,57 @@ populate_surveillance_metadata <- function(surv_df, meta_df, column_names) {
   return (surv_df)
 }
 
-metadata_columns <-  c("ID", "Submission_No", "Vial_ID", "Pathogen_Testing_ID", 
-                       "CSID", "No_Samples_in_Testing_Pool", "Extraction_SOP_Number", 
-                       "Extraction_SOP_Version")
-
+# call the function to populate surveillance table metadata
+metadata_columns <-  colnames(metadata_df)
 surv_df <- populate_surveillance_metadata(surv_df, metadata_df, metadata_columns)
-               
-# ------------------------
-# Positive/Negative Calls
-# ------------------------
 
-# acceptable DNA (reads mapping to tick actin)
-surv_df$Acceptable_DNA <- replace_na(reporting_dataset$Ixodes_scapularis, "Negative")
-# swith Pos/Neg -> True/False for Acceptable DNA column
-surv_df$Acceptable_DNA <- recode(surv_df$Acceptable_DNA, Positive = "TRUE", Negative="FALSE")
-
-# Borrelia burgdorferi
-surv_df$Borrelia_burgdorferi_sensu_stricto <- replace_na(reporting_dataset$Borrelia_burgdorferi, "Negative")
-
-# Borrelia mayonii
-surv_df$Borrelia_mayonii <- replace_na(reporting_dataset$Borrelia_mayonii, "Negative")
-
-# Borrelia miyamotoi
-surv_df$Borrelia_miyamotoi <- replace_na(reporting_dataset$Borrelia_miyamotoi, "Negative")
-
-# Anaplasma phagocytophilum
-surv_df$Anaplasma_phagocytophilum_strain_not_differentiated <- replace_na(reporting_dataset$Anaplasma_phagocytophilum, "Negative")
-
-# Babesia microti
-surv_df$Babesia_microti <- replace_na(reporting_dataset$Babesia_microti, "Negative")
-
-# EMLA
-# Ehrlichia_muris_eauclairensis", 
-surv_df$Ehrlichia_muris_eauclairensis <- replace_na(reporting_dataset$Ehrlichia_EMLA, "Negative")
-
-# Deal with other Borrelia spp
-borrelia_sp_df <- reporting_dataset %>% 
-  select(Borrelia_andersoni, Borrelia_bissettii) %>%
-  mutate(
-    
-    # Positive for other Borrelia spp?
-    Borrelia_sp = case_when(
-    # if either of these spp are positive then other Borrelia_sp is also pos.
-    Borrelia_andersoni == "Positive" ~ "Positive",
-    Borrelia_bissettii  == "Positive" ~ "Positive",
-    TRUE ~ "Negative" ),
-    
-    # specify other Borrelia spp names
-    # this is awkward.  Consider improving 
-    Borrelia_Other_species_name = case_when(
-    Borrelia_andersoni == "Positive" & Borrelia_bissettii == "Positive" ~ "Borrelia andersonii,Borrelia bissettiae",
-
-    Borrelia_andersoni == "Positive" ~ "Borrelia andersonii",
-    Borrelia_bissettii  == "Positive" ~ "Borrelia bissettiae",
-    TRUE ~ NA_character_)
-  ) 
-
-# assign to columns in main surveillance df
-surv_df$Borrelia_sp <- replace_na(borrelia_sp_df$Borrelia_sp, "Negative")
-surv_df$Borrelia_Other_species_name <- borrelia_sp_df$Borrelia_Other_species_name
-
-# not tested columns for POWV
-surv_df$Powassan_virus_lineage_I <- rep("Not Tested", num_surv_rows)
-surv_df$DeerTick_virus_Powassan_virus_lineage_II <- rep("Not Tested", num_surv_rows)
-
-
-# make a version of the surveillance dataframe with abundance info instead of +/- calls
+# make a copy of the surveillance table that will have abundance info instead of pos/neg calls
 surv_df_abundances <- surv_df
+# replace "Negative" values in abundances table with empty text
+surv_df_abundances [surv_df_abundances == "Negative"] <- ""
 
-# acceptable DNA (reads mapping to tick actin)
-surv_df_abundances$Acceptable_DNA <- replace_na(reporting_dataset_abundances$Ixodes_scapularis, 0)
+# Populate surveillance tables with observed positive calls and abundances
+populate_surveillance_calls <- function(surv_df, surv_df_abundances, dataset_df_calls, column_names) {
+  
+  for (column_name in column_names) {
+    # fill in value from dataset_df_calls
+    for (each_index in surv_df$Index) {
+      # pull out possible hits for this Index (dataset) and this column
+      this_call <- dataset_df_calls %>% filter(each_index == Index & surveillance_column == column_name) %>% select(abundance, pos_neg_call)
+      num_hits <- nrow(this_call)
+      if (num_hits > 1){
+        message (paste0("ERROR: more than one hit for index", each_index, " and column: ", this_column))
+        quit(status = 1)
+      } else if (num_hits == 1) {
+        # manually replace single values in the data frame with pos/neg call or abundance
+        surv_df[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(pos_neg_call)
+        surv_df_abundances[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(abundance)
+      }
+      # if num_hits == 0 don't need to do anything
+    }
+  }
+  
+  # return both modified tables in a list
+  df_returns <- list("surv_df" = surv_df, "surv_df_abundances" = surv_df_abundances)
+  return(df_returns)
+}
 
-# Borrelia burgdorferi
-surv_df_abundances$Borrelia_burgdorferi_sensu_stricto <- replace_na(reporting_dataset_abundances$Borrelia_burgdorferi, 0)
+# which surveillance targets were actually observed in the data?
+observed_surveillance_targets <- dataset_df_calls %>% 
+  filter(!is.na(surveillance_column)) %>% 
+  group_by(surveillance_column) %>% 
+  summarize() %>% 
+  pull(surveillance_column)
 
-# Borrelia mayonii
-surv_df_abundances$Borrelia_mayonii <- replace_na(reporting_dataset_abundances$Borrelia_mayonii, 0)
+# this weird structure because multiple return values from R functions must be in a list
+returned_dfs <- populate_surveillance_calls(surv_df, surv_df_abundances, dataset_df_calls, observed_surveillance_targets)
+surv_df <- returned_dfs$surv_df
+surv_df_abundances <- returned_dfs$surv_df_abundances
 
-# Borrelia miyamotoi
-surv_df_abundances$Borrelia_miyamotoi <- replace_na(reporting_dataset_abundances$Borrelia_miyamotoi, 0)
+# rename Acceptable_DNA column from Pos/Neg -> True/False 
+surv_df$Acceptable_DNA <- recode(surv_df$Acceptable_DNA, Positive = "TRUE", Negative = "FALSE")
 
-# Anaplasma phagocytophilum
-surv_df_abundances$Anaplasma_phagocytophilum_strain_not_differentiated <- replace_na(reporting_dataset_abundances$Anaplasma_phagocytophilum, 0)
-
-# Babesia microti
-surv_df_abundances$Babesia_microti <- replace_na(reporting_dataset_abundances$Babesia_microti, 0)
-
-# EMLA
-# Ehrlichia_muris_eauclairensis", 
-surv_df_abundances$Ehrlichia_muris_eauclairensis <- replace_na(reporting_dataset_abundances$Ehrlichia_EMLA, 0)
-
-# Deal with other Borrelia spp
-borrelia_sp_abundances_df <- reporting_dataset_abundances %>% 
-  select(Borrelia_andersoni, Borrelia_bissettii) %>%
-  mutate( Borrelia_sp = sum(Borrelia_andersoni, Borrelia_bissettii, na.rm=T))
-
-surv_df_abundances$Borrelia_sp <- replace_na(borrelia_sp_abundances_df$Borrelia_sp, 0)
+# TODO: Borrelia_other_species_names
 
 
 # -------------------
@@ -544,6 +499,9 @@ surv_df_abundances$Borrelia_sp <- replace_na(borrelia_sp_abundances_df$Borrelia_
 
 # write data as plain-text
 write.table(dataset_df, paste0(output_dir, "identified_targets.tsv"), quote=F, sep="\t", col.names=T, row.names=F)
+
+# write all data as csv
+write.table(dataset_df, paste0(output_dir, "all_data.csv"), quote=F, sep=",", col.names=T, row.names=F)
 
 # write as excel
 # TODO: date in filename?  Unique run identifier?
@@ -667,66 +625,46 @@ conditionalFormatting(wb=wb, sheet="surveillance",
                       style = red_fill,
                       rule = "Positive",
                       type = "contains"
-
-                      )
-
-# Read counts
-conditionalFormatting(wb=wb, sheet="surveillance_counts", 
-                      "colourScale",
-                      cols = 10:18,
-                      rows = 1:nrow(surv_df_abundances)+1,
-                      style = light_green_fill,
-                      rule = ">0",
-                      type = "expression"
+                      
 )
-# Pos/Neg calls - red color for positive calls
-conditionalFormatting(wb=wb, sheet="surveillance", 
-                      "colourScale",
-                      cols = 11:18,
-                      rows = 1:nrow(surv_df)+1,
-                      style = red_fill,
-                      rule = "Positive",
-                      type = "contains"
-)
-
 
 # write out the workbook
 saveWorkbook(wb, paste0(output_dir, "sequencing_report.xlsx"), overwrite = TRUE)
 
 
-# make a data.table
-# ------------------------------------------
-# data table with filtering, shading, etc.
-# ------------------------------------------
-# this will make variant frequencies colored like a heatmap 
-
-# 0 -> 1 by 0.1
-# TODO: fix breaks
-breaks <- seq(0, 1000, 100)
-# create red, green, and blue color scales using RGB encoding
-blue_colors <- round(seq(255, 125, length.out = length(breaks) + 1), 0) %>%
-  {paste0("rgb(" , . , "," , . , ",255)")}
-red_colors  <- round(seq(255, 125, length.out = length(breaks) + 1), 0) %>%
-  {paste0("rgb(255," , . , "," , . , ")")}
-green_colors  <- round(seq(255, 125, length.out = length(breaks) + 1), 0) %>%
-  {paste0("rgb(", . , ", 255 , " , . , ")")}
-
-
-# create the data table object
-# dt <- DT::datatable(select(wide_df, -reference_sequence), 
-#                     caption = 'Identified target species.',
-#                     filter = 'top',
-#                     options = list(
-#                       autoWidth = TRUE,
-#                       pageLength = 250,
-#                       # fillContainer = F,
-#                       # scrollY = TRUE,
-#                       # scrollX = TRUE,
-#                       lengthMenu = c(10, 20, 50, 100, 200)
-#                       # columnDefs = list(list(width = '20px', targets = "_all" ))
-#                     )) %>%
-#   # the tail here omits first 4 columns from coloring scheme
-#   formatStyle(tail(names(wide_df), -3), backgroundColor = styleInterval(breaks, green_colors)) 
+# # make a data.table
+# # ------------------------------------------
+# # data table with filtering, shading, etc.
+# # ------------------------------------------
+# # this will make read counts colored like a heatmap 
 # 
-# dt
-
+# # 0 -> 1 by 0.1
+# # TODO: fix breaks
+# breaks <- seq(0, 1000, 100)
+# # create red, green, and blue color scales using RGB encoding
+# blue_colors <- round(seq(255, 125, length.out = length(breaks) + 1), 0) %>%
+#   {paste0("rgb(" , . , "," , . , ",255)")}
+# red_colors  <- round(seq(255, 125, length.out = length(breaks) + 1), 0) %>%
+#   {paste0("rgb(255," , . , "," , . , ")")}
+# green_colors  <- round(seq(255, 125, length.out = length(breaks) + 1), 0) %>%
+#   {paste0("rgb(", . , ", 255 , " , . , ")")}
+# 
+# 
+# # create the data table object
+# # dt <- DT::datatable(select(wide_df, -reference_sequence), 
+# #                     caption = 'Identified target species.',
+# #                     filter = 'top',
+# #                     options = list(
+# #                       autoWidth = TRUE,
+# #                       pageLength = 250,
+# #                       # fillContainer = F,
+# #                       # scrollY = TRUE,
+# #                       # scrollX = TRUE,
+# #                       lengthMenu = c(10, 20, 50, 100, 200)
+# #                       # columnDefs = list(list(width = '20px', targets = "_all" ))
+# #                     )) %>%
+# #   # the tail here omits first 4 columns from coloring scheme
+# #   formatStyle(tail(names(wide_df), -3), backgroundColor = styleInterval(breaks, green_colors)) 
+# # 
+# # dt
+# 

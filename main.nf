@@ -254,7 +254,6 @@ process generate_refseq_fastas {
 
   output:                                                                        
   path ("${targets.ref_sequence_name}.fasta") into refseq_fastas_ch
-  tuple path ("${targets.ref_sequence_name}.fasta"), val (targets) into refseq_fastas_simulate_ch
 
   // makes fasta formatted records for each target
   script:                                                                       
@@ -315,46 +314,8 @@ process setup_indexes {
   """
   # Blast database of the reference sequences
   makeblastdb -dbtype nucl -in ${refseq_fasta} -out "${refseq_fasta}"
-  
-  # make a directory to put the simulated datasets
-  mkdir -p ${params.simulated_fastq_dir}
   """
 }
-
-
-// the sizes of control datasets to make
-// TODO: how to make this parameterized but not with a list type 
-// control_dataset_sizes_ch  = Channel.of(params.simulated_dataset_sizes) 
-control_dataset_sizes_ch  = Channel.of(0, 100, 1000)
-
-/* 
-  generate simulated fastq reads for each reference sequence 
-  this will serve as an internal control
-*/
-process simulate_refseq_fastq {
-  publishDir "${params.simulated_fastq_dir}", mode: 'link'                                   
-
-  input:                                                                        
-  tuple val (dataset_size), path(ref_fasta), val(target) from control_dataset_sizes_ch.combine(refseq_fastas_simulate_ch)
-
-  output:                                                                        
-  tuple val ("${target.ref_sequence_name}_${dataset_size}"), path ("${target.ref_sequence_name}_${dataset_size}*.fastq") into simulated_fastq_ch
-
-  when:
-  params.use_simulated_test_datasets
-
-  script:                                                                       
-
-  // this is how the simulated_fastq will be named
-  def fastq_prefix =  "${target.ref_sequence_name}_${dataset_size}"
-  
-  """
-  ${params.script_dir}/simulate_fastq.pl -n $dataset_size -f $ref_fasta -pre $fastq_prefix -l ${params.simulated_read_length} -e ${params.simulated_error_profile_file}
-  # ${params.script_dir}/simulate_fastq.pl -n $dataset_size -f $ref_fasta -pre $fastq_prefix -l ${params.simulated_read_length} 
-  """
-}
-
-// TODO: signal to proceed once datasets generated
 
 /*
  These fastq files represent the main input to this workflow
@@ -390,10 +351,7 @@ Channel
    input fastq and primer pair
 */
 
-// primers_and_samples = primers_ch.combine(samples_ch_trim)
-// primers_and_samples = primers_ch.combine(samples_ch_trim.concat(simulated_fastq_ch))
-
-primers_and_samples = params.use_simulated_test_datasets ?  primers_ch.combine(simulated_fastq_ch) : primers_ch.combine(samples_ch_trim)
+primers_and_samples = primers_ch.combine(samples_ch_trim)
 
 /*                                                                              
    A function to return the complement of a DNA sequence                        
@@ -846,7 +804,7 @@ process assign_observed_sequences_to_ref_seqs {
 
   script:                                                                       
   """                                                                           
-  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $abundance_table $blast_output $metadata ${params.targets} 
+  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $abundance_table $blast_output $metadata ${params.targets} ${params.surveillance_columns}
   """             
 }
 
