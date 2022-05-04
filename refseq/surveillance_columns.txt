@@ -1,0 +1,28 @@
+column_name	default_text
+Index	
+ID	
+Submission_No	
+Vial_ID	
+Pathogen_Testing_ID	
+CSID	
+No_Samples_in_Testing_Pool	
+Extraction_SOP_Number	
+Extraction_SOP_Version	
+Acceptable_DNA	Negative
+Borrelia_sp	Negative
+Borrelia_burgdorferi_sensu_stricto	Negative
+Borrelia_mayonii	Negative
+Borrelia_miyamotoi	Negative
+Borrelia_Other_species_name	Negative
+Anaplasma_phagocytophilum_strain_not_differentiated	Negative
+Babesia_microti	Negative
+Ehrlichia_muris_eauclairensis	Negative
+Powassan_virus_lineage_I	Not Tested
+DeerTick_virus_Powassan_virus_lineage_II	Not Tested
+Attempted_to_Sequence	
+Successfully_Sequenced	
+In_house_Tick_Molecular_ID	
+In_house_Blood_Meal_ID	
+In_house_Tick_Host_Molecular_ID	
+In_house_Vertebrate_Molecular_ID	
+Notes	
