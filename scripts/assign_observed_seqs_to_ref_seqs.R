@@ -169,7 +169,7 @@ targets_df$internal_control <- as.logical(targets_df$internal_control)
 targets_df <- targets_df %>% rename(target_sequence_incl_primers = sequence)
 
 # convert empty strings in reporting column to NA values
-targets_df$reporting <- na_if(targets_df$reporting, "")
+targets_df$reporting_columns <- na_if(targets_df$reporting_columns, "")
 
 # join target info with blast info
 # This is necessary because the targets file contains info about minimum percent
@@ -253,9 +253,19 @@ sparse_sat <- filter(sequence_abundance_table, abundance > 0)
 # keep track of metadata rows
 metadata_key <- metadata_df %>% select(Index, batch)
 
-# join sparse SAT with blast_df 
-dataset_df <- full_join(metadata_key, sparse_sat, by=c("Index" = "dataset"))
-dataset_df <- left_join(dataset_df, blast_df, by=c("sequence_number" = "query")) %>% filter(assigned_to_target == T)
+# join sparse SAT with metadata
+dataset_df <- full_join(metadata_key, sparse_sat, by=c("Index" = "dataset"))  
+
+# join blast results into dataset_df
+dataset_df <- left_join(dataset_df, blast_df, by=c("sequence_number" = "query")) %>% 
+  filter(assigned_to_target == T)  %>%
+  # get rid of one of two identical redundant sequence columns
+  select(-observed_sequence) %>%
+  rename(observed_sequence = sequence)
+
+  # (there are two identical columns: one named sequence the other observed_sequence)
+  # select(-sequence) 
+  # rename(observed_sequence = sequence)
 
 # ---------------------------------------------------------------------
 # QC criterion: minimum # of reads mapping to internal pos. control
@@ -313,9 +323,6 @@ targets_to_surv_df <- data.frame(target = character(),
 
 for (row in 1:nrow(targets_df)) {
   
-  # if (debug){
-    # row <- 1
-  # }
   target <- filter(targets_df, row_number() == row) %>% pull(ref_sequence_name)
   
   # what reporting columns are defined in the targets file?
@@ -325,11 +332,6 @@ for (row in 1:nrow(targets_df)) {
   
   # collect targets for each reporting column into a named list
   for (col in reporting_columns) {
-    
-    # if (debug){
-      # col <- "Anaplasma_phagocytophilum_strain_not_differentiated:count"
-      # col <- "NA"
-    # }
     
     # split the reporting column by colon: name:type
     # where type = "count" or "name"
@@ -486,8 +488,13 @@ populate_surveillance_calls <- function(surv_df, surv_df_abundances, dataset_df_
         quit(status = 1)
       } else if (num_hits == 1) {
         surveillance_column_type = this_call %>% pull(surveillance_column_type)
+        
+        # there are 2 possible types of surveillance columns: "count" or "name"
+        # these are defined in targets.tsv
+        # count columns contain positive/negative calls (and summed read counts)
+        # name columns report the species names of detected target(s)
         if (surveillance_column_type == "count") {
-        # manually replace single values in the data frame with pos/neg call or abundance
+          # manually replace single values in the data frame with pos/neg call or abundance
           surv_df[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(pos_neg_call)
         } else if (surveillance_column_type == "name") {
           surv_df[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(contributing_target_names)
@@ -660,39 +667,4 @@ conditionalFormatting(wb=wb, sheet="surveillance",
 saveWorkbook(wb, paste0(output_dir, "sequencing_report.xlsx"), overwrite = TRUE)
 
 
-# # make a data.table
-# # ------------------------------------------
-# # data table with filtering, shading, etc.
-# # ------------------------------------------
-# # this will make read counts colored like a heatmap 
-# 
-# # 0 -> 1 by 0.1
-# # TODO: fix breaks
-# breaks <- seq(0, 1000, 100)
-# # create red, green, and blue color scales using RGB encoding
-# blue_colors <- round(seq(255, 125, length.out = length(breaks) + 1), 0) %>%
-#   {paste0("rgb(" , . , "," , . , ",255)")}
-# red_colors  <- round(seq(255, 125, length.out = length(breaks) + 1), 0) %>%
-#   {paste0("rgb(255," , . , "," , . , ")")}
-# green_colors  <- round(seq(255, 125, length.out = length(breaks) + 1), 0) %>%
-#   {paste0("rgb(", . , ", 255 , " , . , ")")}
-# 
-# 
-# # create the data table object
-# # dt <- DT::datatable(select(wide_df, -reference_sequence), 
-# #                     caption = 'Identified target species.',
-# #                     filter = 'top',
-# #                     options = list(
-# #                       autoWidth = TRUE,
-# #                       pageLength = 250,
-# #                       # fillContainer = F,
-# #                       # scrollY = TRUE,
-# #                       # scrollX = TRUE,
-# #                       lengthMenu = c(10, 20, 50, 100, 200)
-# #                       # columnDefs = list(list(width = '20px', targets = "_all" ))
-# #                     )) %>%
-# #   # the tail here omits first 4 columns from coloring scheme
-# #   formatStyle(tail(names(wide_df), -3), backgroundColor = styleInterval(breaks, green_colors)) 
-# # 
-# # dt
-# 
+
