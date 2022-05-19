@@ -13,7 +13,7 @@ Borrelia_sp	Negative
 Borrelia_burgdorferi_sensu_stricto	Negative
 Borrelia_mayonii	Negative
 Borrelia_miyamotoi	Negative
-Borrelia_Other_species_name	Negative
+Borrelia_Other_species_name	
 Anaplasma_phagocytophilum_strain_not_differentiated	Negative
 Babesia_microti	Negative
 Ehrlichia_muris_eauclairensis	Negative

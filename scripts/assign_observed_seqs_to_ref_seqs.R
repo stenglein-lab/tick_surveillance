@@ -6,13 +6,12 @@
 #   2. Populates a surveillance reporting table
 #   3. Creates additional, more detailed output
 #
-# Mark Stenglein 04/14/2022
+# Mark Stenglein 05/19/2022
 #
 
 library(tidyverse)
 library(openxlsx)
 library(readxl)
-# library(DT)
 
 # This code block sets up input arguments to either come from the command line
 # (if running from the pipeline, so not interactively) or to use expected default values 
@@ -308,11 +307,15 @@ ggsave(paste0(output_dir, "/tick_reads_per_dataset.pdf"), plot = tick_reads_p,  
 # ----------------------------------------
 
 # create maps of surveillance columns -> targets and vice versa
-surv_to_target_map <- list()
 targets_to_surv_df <- data.frame(target = character(),
-                                 surveillance_column = character())
+                                 surveillance_column = character(),
+                                 surveillance_column_type = character())
 
 for (row in 1:nrow(targets_df)) {
+  
+  # if (debug){
+    # row <- 1
+  # }
   target <- filter(targets_df, row_number() == row) %>% pull(ref_sequence_name)
   
   # what reporting columns are defined in the targets file?
@@ -322,31 +325,39 @@ for (row in 1:nrow(targets_df)) {
   
   # collect targets for each reporting column into a named list
   for (col in reporting_columns) {
-    if (!is.na(col)) {
+    
+    # if (debug){
+      # col <- "Anaplasma_phagocytophilum_strain_not_differentiated:count"
+      # col <- "NA"
+    # }
+    
+    # split the reporting column by colon: name:type
+    # where type = "count" or "name"
+    col_fields <- str_split(col, pattern = ":", simplify = T)
+    col_name <- col_fields[,1]
+    if (length(col_fields) > 1) {
+      col_type <- col_fields[,2]
+      if (!(col_type %in% c("count", "name"))) {
+        message (paste0("ERROR: invalid column type for column ", col ," in target file (", targets_tsv_file , ")."))
+        quit(status = 1)
+      }
+    } else {
+      col_type <- NA_character_
+    }
+
+    if (!is.na(col_name)) {
       # double check that any surveillance column names defined in the targets file are also defined in the surveillance columns file
-      if (!(col %in% surveillance_columns$column_name)) {
-        message (paste0("ERROR: surveillance column ", col ," in target file (", targets_tsv_file , ")",
+      if (!(col_name %in% surveillance_columns$column_name)) {
+        message (paste0("ERROR: surveillance column ", col_name ," in target file (", targets_tsv_file , ")",
                         " not present in surveillance columns file (", surveillance_columns_file ,")"))
         quit(status = 1)
       }
       
       # map targets to surveillance columns
-      targets_to_surv_df[nrow(targets_to_surv_df) + 1,] <- c(target, col)
-      
-      # map surveillance columns to targets
-      existing_targets <- surv_to_target_map[[col]]
-      if (is.null(existing_targets)) {
-        # first target for this column
-        surv_to_target_map[[col]] <- target
-      } else {
-        # already at least one target for this column
-        surv_to_target_map[[col]] <- c(existing_targets, target)
-      }
+      targets_to_surv_df[nrow(targets_to_surv_df) + 1,] <- c(target, col_name, col_type)
     }
   }
 }
-
-
 
 # -------------------------------------------------------
 # collapse unique sequences to level of targeted species
@@ -372,11 +383,14 @@ dataset_by_spp <- dataset_df %>%
 # join in surveillance column info
 dataset_with_surv_df <- left_join(dataset_df, targets_to_surv_df, by=c("subject" = "target"))
 
+dataset_with_surv_df %>% group_by(Index, surveillance_column) %>% mutate()
+
 # collapse all hits for same surveillance column in each dataset 
 dataset_by_surv_column <- dataset_with_surv_df %>% 
   group_by(Index, surveillance_column) %>%
   mutate(
     abundance = sum(abundance),   
+    contributing_target_names = paste0(unique(species), sep = " ", collapse=""),
     percent_identity = mean(percent_identity),
     percent_query_aligned = mean(percent_query_aligned),
     richness = n(),
@@ -386,7 +400,8 @@ dataset_by_surv_column <- dataset_with_surv_df %>%
   # get rid of unneeded columns
   select(Index, batch, species, abundance, percent_identity, 
          percent_query_aligned, richness, internal_control, 
-         minimum_internal_control_log_reads, minimum_non_control_reads, surveillance_column)
+         minimum_internal_control_log_reads, minimum_non_control_reads, surveillance_column, 
+         contributing_target_names, surveillance_column_type)
 
 
 # ------------------------------
@@ -397,7 +412,7 @@ dataset_df_calls <- dataset_by_surv_column %>%
                                   (!internal_control & (abundance >= minimum_non_control_reads)) ~ "Positive", 
                                   TRUE ~ "Negative"),
          .groups="drop") %>%
-  select(Index, surveillance_column, abundance, pos_neg_call)
+  select(Index, surveillance_column, abundance, pos_neg_call, contributing_target_names, surveillance_column_type)
 
 # ----------------------------
 # create a surveillance table
@@ -464,14 +479,19 @@ populate_surveillance_calls <- function(surv_df, surv_df_abundances, dataset_df_
     # fill in value from dataset_df_calls
     for (each_index in surv_df$Index) {
       # pull out possible hits for this Index (dataset) and this column
-      this_call <- dataset_df_calls %>% filter(each_index == Index & surveillance_column == column_name) %>% select(abundance, pos_neg_call)
+      this_call <- dataset_df_calls %>% filter(each_index == Index & surveillance_column == column_name) %>% select(abundance, pos_neg_call, contributing_target_names, surveillance_column_type)
       num_hits <- nrow(this_call)
       if (num_hits > 1){
         message (paste0("ERROR: more than one hit for index", each_index, " and column: ", this_column))
         quit(status = 1)
       } else if (num_hits == 1) {
+        surveillance_column_type = this_call %>% pull(surveillance_column_type)
+        if (surveillance_column_type == "count") {
         # manually replace single values in the data frame with pos/neg call or abundance
-        surv_df[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(pos_neg_call)
+          surv_df[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(pos_neg_call)
+        } else if (surveillance_column_type == "name") {
+          surv_df[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(contributing_target_names)
+        }
         surv_df_abundances[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(abundance)
       }
       # if num_hits == 0 don't need to do anything
