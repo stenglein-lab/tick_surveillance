@@ -29,6 +29,7 @@ if (!interactive()) {
   sample_metadata_file = args[4]
   targets_tsv_file = args[5]
   surveillance_columns_file = args[6]
+  input_min_non_control_reads = args[7]
   output_dir = "./"
 } else {
   # else if running via RStudio
@@ -38,6 +39,7 @@ if (!interactive()) {
   sample_metadata_file = "../input/AK_metadata.xlsx"
   targets_tsv_file = "../refseq/targets.tsv"
   surveillance_columns_file = "../refseq/surveillance_columns.txt"
+  input_min_non_control_reads = 50
   output_dir = "../results/"
 }
 
@@ -180,6 +182,13 @@ blast_df <- left_join(blast_df, targets_df, by=c("subject" = "ref_sequence_name"
 # ----------------------------
 surveillance_columns <- read.delim(surveillance_columns_file, sep="\t", header=T, stringsAsFactors = F)
 
+# --------------------------------------------------------------------------------------
+# This input parameter specifies how many reads will be required to make a positive call 
+# in the surveillance table
+# --------------------------------------------------------------------------------------
+# make sure it's not a character type but a numeric type
+input_min_non_control_reads <- as.numeric(input_min_non_control_reads)
+
 # --------------------------------------------------------------------------
 # logic for saying that one of the observed sequences is close enough 
 # to one of the reference sequences to assign it to that reference sequence
@@ -271,9 +280,8 @@ dataset_df <- left_join(dataset_df, non_control_dataset_batch_averages, by="batc
 dataset_df <- dataset_df %>%
   mutate(minimum_internal_control_log_reads =
            mean_batch_internal_ctrl_reads - (3 * sd_batch_internal_ctrl_reads),
-         # set minimum # of reads for real targets at 10...
-         # this could be parameterized or defined on a per-target basis
-         minimum_non_control_reads = 10)
+         # this could be defined on a per-target basis
+         minimum_non_control_reads = input_min_non_control_reads)
 
 # create a plot of internal control (tick actin) reads in individual datasets
 tick_reads_p <- dataset_df %>% 
