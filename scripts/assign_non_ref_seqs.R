@@ -27,8 +27,8 @@ if (!interactive()) {
 } else {
   # if running via RStudio
   r_bindir = "."
-  unassigned_sequences_fasta="../results/unassigned_sequences.fasta"
-  blast_output_path="../results/unassigned_sequences.fasta.bn_nt"
+  unassigned_sequences_fasta="../results/blast/unassigned_sequences.fasta"
+  blast_output_path="../results/blast/unassigned_sequences.fasta.bn_nt"
   output_path = "../results/"
 }
 

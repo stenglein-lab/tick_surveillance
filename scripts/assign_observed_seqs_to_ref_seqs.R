@@ -33,8 +33,8 @@ if (!interactive()) {
 } else {
   # else if running via RStudio
   r_bindir  =  "."
-  tidy_table_path = "../results/sequence_abundance_table.tsv"
-  blast_output_path = "../results/observed_sequences.fasta.bn_refseq"
+  tidy_table_path = "../results/dada2/sequence_abundance_table.tsv"
+  blast_output_path = "../results/blast/observed_sequences.fasta.bn_refseq"
   sample_metadata_file = "../input/AK_metadata.xlsx"
   targets_tsv_file = "../refseq/targets.tsv"
   surveillance_columns_file = "../refseq/surveillance_columns.txt"

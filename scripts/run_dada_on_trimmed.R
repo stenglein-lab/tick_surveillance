@@ -72,13 +72,21 @@ out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs,
                      compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
 
 
-# only keep file pairs for which the filtered files exist
+# only keep datasets with >0 reads to avoid dada2 throwing an error because of empty datasets
+# empty datasets will not contribute to error learning and will have no assigned ASVs, as expected.
+# see: https://github.com/benjjneb/dada2/issues/469
+keep <- out[,"reads.out"] > 10 
+filtFs <- filtFs[keep]
+filtRs <- filtRs[keep]
+
+
+# also only keep file pairs for which the filtered files exist
 # see: https://github.com/benjjneb/dada2/issues/375
-# exists is a logical vector based on whether the R1 and R2 files exist
 exists <- file.exists(filtFs) & file.exists(filtRs)
 # use exists logical vector to subset filtered file names
 filtFs <- filtFs[exists]
 filtRs <- filtRs[exists]
+
 
 # Estimate error rates: actual error rate as a function of quality score for each type   
 # of base substitution.
@@ -92,8 +100,6 @@ filtRs <- filtRs[exists]
 #
 errF <- learnErrors(filtFs, multithread=TRUE)
 errR <- learnErrors(filtRs, multithread=TRUE)
-
-errF$err_out
 
 # Could save this as output...
 plotErrors(errF, nominalQ=TRUE)

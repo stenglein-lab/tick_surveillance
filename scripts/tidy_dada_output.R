@@ -21,7 +21,7 @@ if (!interactive()) {
 } else {
   # if running via RStudio
   r_bindir = "."
-  trimmed_path = "../results/dada_seqtab.txt"
+  trimmed_path = "../results/dada2/dada_seqtab.txt"
   outdir="../results/"
 }
 
