@@ -26,3 +26,9 @@ In_house_Blood_Meal_ID
 In_house_Tick_Host_Molecular_ID	
 In_house_Vertebrate_Molecular_ID	
 Notes	
+Anaplasma_phagocytophilum_ha
+Anaplasma_phagocytophilum_non_ha
+Babesia_duncani
+Babesia_microti_like
+Babesia_odocoilei
+Ehrlichia_khab
