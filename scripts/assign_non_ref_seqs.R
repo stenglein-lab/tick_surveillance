@@ -8,8 +8,6 @@
 library(tidyverse)
 library(openxlsx)
 
-library(DT)
-
 #
 # This code block sets up input arguments to either come from the command line
 # (if running from the pipeline, so not interactively) or to use expected default values 
