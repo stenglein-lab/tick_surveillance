@@ -194,7 +194,6 @@ def check_params_and_input () {
   // This list includes a list of files or paths that are required 
   // to exist.  Check that they exist and fail if not.  
   checkPathParamList = [
-    params.input_dir, 
     params.fastq_dir, 
     params.script_dir, 
     params.refseq_dir, 
