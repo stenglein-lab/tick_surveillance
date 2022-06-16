@@ -409,13 +409,11 @@ process initial_qc {
   tuple val(sample_id), path(initial_fastq) from samples_ch_qc
 
   output:
-  val(sample_id) into post_initial_qc_ch
+  path("*.zip") into post_initial_qc_ch
 
   script:
   """
-  which fastqc
-  mkdir -p  ${params.initial_fastqc_dir} 
-  fastqc -o ${params.initial_fastqc_dir} $initial_fastq 
+  fastqc $initial_fastq 
   """
 }
 
@@ -434,14 +432,14 @@ process initial_multiqc {
   }
 
   input:
-  val(all_sample_ids) from post_initial_qc_ch.collect()
+  path(all_zip) from post_initial_qc_ch.collect()
 
   output: 
   path("initial_qc_report.html") into initial_multiqc_output_ch
 
   script:
   """
-  multiqc -n "initial_qc_report.html" -m fastqc ${params.initial_fastqc_dir}
+  multiqc -n "initial_qc_report.html" -m fastqc $all_zip
   """
 } 
 
@@ -590,13 +588,12 @@ process post_trim_qc {
   tuple val(sample_id), path(input_fastq) from post_trim_qc_ch
 
   output:
-  val(sample_id) into post_trim_multiqc_ch
+  path("*.zip") into post_trim_multiqc_ch
 
   script:
 
   """
-  mkdir -p  ${params.post_trim_fastqc_dir} 
-  fastqc -o ${params.post_trim_fastqc_dir} $input_fastq
+  fastqc $input_fastq
   """
 }
 
@@ -619,13 +616,13 @@ process post_trim_multiqc {
   }
 
   input:
-  val(all_sample_ids) from post_trim_multiqc_ch.collect()
+  path(all_zip) from post_trim_multiqc_ch.collect()
 
   output:
   path("post_trim_qc_report.html") into post_trim_multiqc_output_ch
 
   """
-  multiqc -n "post_trim_qc_report.html" -m fastqc ${params.post_trim_fastqc_dir}
+  multiqc -n "post_trim_qc_report.html" -m fastqc $all_zip
   """
 }
 
@@ -641,6 +638,9 @@ process post_trim_multiqc {
 
 */
 
+
+trimmed_fastq_ch = Channel.fromPath( params.trimmed_outdir )
+
 process run_dada_on_trimmed {
   publishDir "${params.dada_outdir}", mode: 'link'
 
@@ -653,6 +653,7 @@ process run_dada_on_trimmed {
 
   input:
   val(all_sample_ids) from post_trim_ch.collect()
+  path (trimmed_fastq_dir) from trimmed_fastq_ch
 
   output:
   path("dada_seqtab.txt") into post_dada_run_ch
@@ -660,7 +661,8 @@ process run_dada_on_trimmed {
   script:                                                                       
   """                                                                             
   # Run dada2 using trimmed fastq as input and create a tabular output of results
-  Rscript ${params.script_dir}/run_dada_on_trimmed.R ${params.script_dir} ${params.trimmed_outdir}
+  # Rscript ${params.script_dir}/run_dada_on_trimmed.R ${params.script_dir} ${params.trimmed_outdir}
+  Rscript ${params.script_dir}/run_dada_on_trimmed.R ${params.script_dir} $trimmed_fastq_dir
   """             
 }
 
