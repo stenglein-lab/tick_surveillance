@@ -2,6 +2,26 @@
 
 This repository contains a bioinformatics pipeline for the analysis of amplicon sequencing datasets of tick-associated microbes.  This was developed by the Stenglein lab at Colorado State University in collaboration with researchers in CDC's Division of Vector-Borne Diseases.
 
+## Running the pipeline
+
+See the [dependencies section](#dependencies) below for information about the main dependencies required for running this pipeline.
+
+TODO: flesh out this section
+
+### Running from github
+
+```
+nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,stenglein 
+```
+
+### Running by cloning the pipeline's repository
+
+```
+git clone https://github.com/stenglein-lab/tick_surveillance.git
+cd tick_surveillance
+nextflow run main.nf -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,stenglein
+```
+
 
 ## Input 
 
@@ -115,3 +135,31 @@ nextflow run main.nf -profile singularity --primers /path/to/primers.tsv
 ```
 
 If primer sequences are not entered in the correct orientation, trimming will not work and targets amplified by these sequences will not be detected by the pipeline.  The solution in this case will most likely just be to swap the F/R orientation of the primers in this file. 
+
+## Dependencies
+
+This pipeline has two main dependencies: nextflow and singularity.  These programs must be installed on your computer to run this pipeline.
+
+### Nextflow
+
+To run the pipeline you will need to be working on a computer that has nextflow installed. Installation instructions can be [found here](https://www.nextflow.io/docs/latest/getstarted.html#installation).  To test if you have nextflow installed, run:
+
+```
+nextflow -version
+```
+
+This pipeline requires nextflow version > 21.04
+
+### Singularity 
+
+The pipeline uses singularity containers to run programs like bowtie2 and R.  To use these containers you must be running the pipeline on a computer that has [singularity](https://sylabs.io/singularity) [installed](https://sylabs.io/guides/latest/admin-guide/installation.html).  To test if singularity is installed, run:
+
+```
+singularity --version
+```
+
+Singularity containers will be automatically downloaded and stored in a directory named `singularity_cacheDir` in your home directory.  They will only be downloaded once.
+
+### Conda
+
+It is possible to run this pipeline using an all-in-one [conda](https://docs.conda.io/en/latest/) environment, defined [in this file](./conda/tick_conda_environment.yaml).  But it is recommended to use singularity instead of conda.  
