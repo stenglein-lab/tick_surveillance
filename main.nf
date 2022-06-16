@@ -156,17 +156,6 @@ def usageMessage() {
   """
 }
 
-/*
-
-   unimplemented options
-
-    --off_target_refseq_fasta      [NOT IMPLEMENTED]
-                                   File containing known off-target amplicon
-                                   sequences in fasta format.  Observed sequences
-                                   matching these will be removed from analysis.
-                                   [default: ${params.off_target_refseq_fasta}] 
-*/
-
 /* 
   Pipeline informational output message
 */
@@ -396,23 +385,6 @@ tabulate_sample_ids_ch
   .set{ sample_ids_file_ch }
 
 /*
-process tabulate_sample_ids {
-  publishDir "${params.outdir}", mode:'link'
-
-  input:
-  cat(all_sample_ids) from tabulate_sample_ids_ch.collect()
-
-  output:
-  path("sample_ids.txt") into sample_ids_file_ch
-
-  script:
-  """
-  cat $all_sample_ids > "sample_ids.txt"
-  """
-}
-*/
-
-/*
  Run fastqc on input fastq 
 */
 process initial_qc {
@@ -445,7 +417,6 @@ process initial_qc {
  TODO: will this report old, accumulated fastqc reports if the pipeline is re-run without cleaning up the work directory?
 */
 process initial_multiqc {
-  publishDir "${params.outdir}", mode:'link'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -458,7 +429,7 @@ process initial_multiqc {
   val(all_sample_ids) from post_initial_qc_ch.collect()
 
   output: 
-  path("initial_qc_report.html")
+  path("initial_qc_report.html") into initial_multiqc_output_ch
 
   script:
   """
@@ -631,7 +602,6 @@ process post_trim_qc {
 
 */
 process post_trim_multiqc {
-  publishDir "${params.outdir}", mode: 'link'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -644,7 +614,7 @@ process post_trim_multiqc {
   val(all_sample_ids) from post_trim_multiqc_ch.collect()
 
   output:
-  path("post_trim_qc_report.html")
+  path("post_trim_qc_report.html") into post_trim_multiqc_output_ch
 
   """
   multiqc -n "post_trim_qc_report.html" -m fastqc ${params.post_trim_fastqc_dir}
@@ -664,7 +634,7 @@ process post_trim_multiqc {
 */
 
 process run_dada_on_trimmed {
-  publishDir "${params.outdir}", mode: 'link'
+  publishDir "${params.dada_outdir}", mode: 'link'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -692,7 +662,7 @@ process run_dada_on_trimmed {
 */
 
 process tidy_dada_output {
-  publishDir "${params.outdir}", mode: 'link'
+  publishDir "${params.dada_outdir}", mode: 'link'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -722,7 +692,7 @@ process tidy_dada_output {
  to the set of expected reference sequences using blastn.
 */
 process compare_observed_sequences_to_ref_seqs {
-  publishDir "${params.outdir}", mode: 'link'
+  publishDir "${params.blast_outdir}", mode: 'link', pattern: "*bn_refseq"
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -782,8 +752,6 @@ process validate_metadata_file {
   sequences to be assigned to them.
 */
 process assign_observed_sequences_to_ref_seqs {
-  publishDir "${params.outdir}", mode: 'link'
-
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -799,8 +767,8 @@ process assign_observed_sequences_to_ref_seqs {
 
   output:
   path("unassigned_sequences.fasta") into post_assign_to_refseq_ch
-  path("sequencing_report.xlsx")
-  path("identified_targets.tsv")
+  path("sequencing_report.xlsx") into report_output_ch
+  path("identified_targets.tsv") 
 
   script:                                                                       
   """                                                                           
@@ -815,7 +783,6 @@ process assign_observed_sequences_to_ref_seqs {
  nt database to try to figure out what they are
 */
 process blast_unassigned_sequences {
-  publishDir "${params.outdir}", mode: 'link'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -872,7 +839,6 @@ process blast_unassigned_sequences {
    populates a spreadsheet with the info. 
 */
 process assign_non_ref_seqs {
-  publishDir "${params.outdir}", mode: 'link'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -886,11 +852,31 @@ process assign_non_ref_seqs {
   path(unassigned_sequences) from post_blast_unassigned_seq_ch
 
   output:
-  path("non_reference_sequence_assignments.xlsx")
+  path("non_reference_sequence_assignments.xlsx") into unassigned_blast_output_ch
 
   script:                                                                       
   """                                                                           
   Rscript ${params.script_dir}/assign_non_ref_seqs.R ${params.script_dir} $unassigned_sequences $blast_output
   """             
+}
+
+/* 
+  This process prepends main output files with a prefix (by default the date, can be overridden)
+*/
+
+process prepend_output_filenames {
+  publishDir "${params.outdir}", mode: 'link'
+   
+  input:
+  path(output_file) from initial_multiqc_output_ch.mix( post_trim_multiqc_output_ch,
+                                                        report_output_ch,
+                                                        unassigned_blast_output_ch )
+  output:
+  path ("${params.output_prefix}${output_file}")
+
+  script:
+  """
+  cp $output_file ${params.output_prefix}${output_file}
+  """
 }
 
