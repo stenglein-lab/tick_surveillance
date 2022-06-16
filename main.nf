@@ -312,11 +312,19 @@ process setup_indexes {
  Expecting files with _R1 or _R2 in their names corresponding to paired-end reads
 */
 
+
 Channel
-    .fromFilePairs("${params.fastq_dir}/*_R{1,2}*.fastq*", 
+    .fromFilePairs("${params.fastq_dir}/${params.fastq_pattern}", 
                    size: 2, 
                    // checkIfExists: true, 
                    maxDepth: 1)
+    // this map step first strips off any _L### text from the end of the sample ID
+    // and then any _S## text from the end 
+    // this is text added onto IDs from samplesheet that are added by Illumina bcl2fastq
+    .map { untrimmed_sample_id, fastq  ->
+           def sample_id = untrimmed_sample_id.replaceFirst( /_L\d{3}$/, "")
+           sample_id = sample_id.replaceFirst( /_S\d+$/, "")
+           [sample_id, fastq] }
     .into {samples_ch_qc; samples_ch_trim; sample_ids_ch}
 
 
@@ -725,6 +733,7 @@ process compare_observed_sequences_to_ref_seqs {
   This process validates that the metadata file exists
 */
 process validate_metadata_file {
+  publishDir "${params.log_outdir}", mode: 'link', pattern: "*.txt"
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -739,10 +748,12 @@ process validate_metadata_file {
 
   output:
   path(metadata) into validated_metadata_ch
+  path("metadata_check.txt")
+  path(sample_ids)
 
   script:
   """
-  Rscript ${params.script_dir}/validate_metadata.R ${params.script_dir} $metadata $sample_ids
+  Rscript ${params.script_dir}/validate_metadata.R ${params.script_dir} $metadata $sample_ids 2> metadata_check.txt
   """
 }
 
@@ -783,6 +794,7 @@ process assign_observed_sequences_to_ref_seqs {
  nt database to try to figure out what they are
 */
 process blast_unassigned_sequences {
+  publishDir "${params.blast_outdir}", mode: 'link'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
