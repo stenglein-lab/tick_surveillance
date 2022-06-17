@@ -4,30 +4,58 @@ This repository contains a bioinformatics pipeline for the analysis of amplicon 
 
 ## Running the pipeline
 
-See the [dependencies section](#dependencies) below for information about the main dependencies required for running this pipeline.
-
-TODO: flesh out this section
+See the [dependencies section](#dependencies) below for information about the main dependencies required for running this pipeline(including nextflow and singularity).
 
 ### Running from github
 
+The simplest way to run the pipeline is directly from github, like this:
+
 ```
-nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,stenglein 
+nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,local 
 ```
 
+You must specify two required inputs to the pipeline: the path to a metadata excel spreadsheet and the path to a directory containing input fastq.  See [this section](#inputs) for more information on required inputs.
+
+You must specify a path to a metadata 
+
+#### Running test datasets
+
+The pipeline includes a handful of small (<= 1000 read) datasets that are derived from real known positive (or known negative) datasets.  These are included in the [test directory](./test/) of the repository.  These datasets serve as positive and negative controls and allow you to test that the pipeline is working as expected.  To use these test datasets, run with the test profile, for instance:
+
+```
+nextflow run stenglein-lab/tick_surveillance -profile singularity,local,test
+```
+
+The results of the test run will be placed in a `test/results` sub-directory.
+
+#### Running in different environments
+
+You will want to use a profile that matches your computing environment.  So, for instance, if running on an SGE HPC environment, you'd modify this to:
+
+```
+nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,sge 
+```
+
+#### Updating the cached pipeline 
+This downloads the pipeline code and caches it in your home directory in `~/.nextflow/assets/stenglein-lab/tick_surveillance/`.  In theory, running the command `nextflow pull stenglein-lab/tick_surveillance` should update this cached pipeline.  But I've found that doesn't always work.  If you need to update the pipeline (because it's been updated on the github repostiroy), you can do so by running `rm -rf ~/.nextflow/assets/stenglein-lab/tick_surveillance/` before running the pipeline again.  
+
+
+
 ### Running by cloning the pipeline's repository
+
+It is also possible to download the pipeline code to a directory of your choosing.  This can be useful if, for instance, you want to modify or debug the code.  You can do this by cloning the repository (or a fork of the repository):
 
 ```
 git clone https://github.com/stenglein-lab/tick_surveillance.git
 cd tick_surveillance
-nextflow run main.nf -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,stenglein
+nextflow run main.nf -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,local
 ```
 
-
-## Input 
+## Inputs
 
 The pipeline requires two inputs:
 
-1. A [metadata file](#metadata-file).
+1. [A metadata file](#metadata-file).
 
 2. [Sequence datasets in fastq format](#input-fastq).  
 
@@ -41,7 +69,7 @@ A metadata file in Microsoft Excel format must be input to the pipeline.
 4. Subsequent rows should contain metadata with one row per dataset. 
 5. One of the columns must be named Index (case sensitive), and the values in this column must match fastq file names.  In other words, the values in this column should match the sample names specified in the Illumina sample sheet.
 
-TODO: Provide a metadata template.
+An example of a working metadata file [can be found here](./test/test_metadata.xlsx)
 
 ### Input fastq
 
