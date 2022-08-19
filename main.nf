@@ -782,11 +782,62 @@ process assign_observed_sequences_to_ref_seqs {
   path("sequencing_report.xlsx") into report_output_ch
   path("all_data.csv") into csv_output_ch
   path("identified_targets.tsv") 
+  // output channels for tree-building process
+  path("sequencing_report.xlsx") into report_tree_ch
 
   script:                                                                       
   """                                                                           
   Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $abundance_table $blast_output $metadata ${params.targets} ${params.surveillance_columns} ${params.min_reads_for_positive_surveillance_call}
   """             
+}
+
+/*
+ * Split up assigned observed sequeces by target
+ * for making trees
+ */
+process create_fasta_for_trees {
+  publishDir "${params.tree_outdir}", mode: 'link'
+
+  // need to specify label?
+  // label 'lowmem'
+
+  // TODO: setup singularity info (create new singularity image) for this process
+
+  input:
+  path(sequencing_report) from report_tree_ch
+
+  output:
+  path("*_all.fasta") into fasta_tree_ch
+
+  script:
+  """
+  python ${params.script_dir}/lynns_tree_script.py $sequencing_report $params.targets
+  """
+}
+
+/*
+ * Build multiple-sequencing alignments for one group of sequences
+ */
+process make_tree_alignment {
+  publishDir "${params.tree_outdir}", mode: 'link'
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/mafft:7.505--hec16e2b_0"
+  } else {
+      container "quay.io/biocontainers/mafft:7.505--hec16e2b_0"
+  }
+
+  input:
+  path(fasta) from fasta_tree_ch
+
+  output:
+  path("${fasta}_mafft") into msa_tree_ch
+
+  shell:
+  """
+  mafft --auto --adjust_direction $fasta > ${fasta}_mafft
+  """
 }
 
 
