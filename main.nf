@@ -811,13 +811,14 @@ process create_fasta_for_trees {
 
   script:
   """
-  python ${params.script_dir}/lynns_tree_script.py $sequencing_report $params.targets
+  python ${params.script_dir}/MPAS_create_fasta.py $sequencing_report $params.targets
   """
 }
 
 /*
- * Build multiple-sequencing alignments for one group of sequences
+ * Build multiple-sequencing alignments for each group of sequences using MAFFT. Documentation found here: https://mafft.cbrc.jp/alignment/software/manual/manual.html
  */
+
 process make_tree_alignment {
   publishDir "${params.tree_outdir}", mode: 'link'
 
@@ -829,16 +830,61 @@ process make_tree_alignment {
   }
 
   input:
-  path(fasta) from fasta_tree_ch
+  path(all_fasta) from fasta_tree_ch.flatten()
+  
 
   output:
-  path("${fasta}_mafft") into msa_tree_ch
+  path("mafft_${all_fasta}") into msa_tree_ch
+  
 
   shell:
   """
-  mafft --auto --adjust_direction $fasta > ${fasta}_mafft
+  mafft --adjustdirection --quiet --auto --maxiterate 1000 --nuc "$all_fasta" > "mafft_${all_fasta}"
   """
 }
+
+/*
+ * Build maximum likelihood for each group of sequences using FastTree and save as newick file. Documentation found here: https://manpages.org/fasttree
+ */
+ 
+process make_ml_tree {
+  // singularity info for this process
+  
+  input:
+  path(all_alignment) from msa_tree_ch
+  
+
+  output:
+  path("tree_${all_alignment}") into ml_tree_ch
+  val "tree_${all_alignment}" into tree_name_ch
+
+  
+  shell:
+  """
+  fasttree -gamma -nt -quiet $all_alignment > "tree_${all_alignment}"
+  """
+}
+/*
+ * Creates pdf files of each ML tree using ToyTree. Documentation fun here: https://toytree.readthedocs.io/en/latest/
+ */
+
+ process view_phylo_tree {
+  publishDir "${params.tree_outdir}", mode: 'link'
+
+  // TODO: setup singularity info (create new singularity image) for this process
+
+  input:
+  path(fasttree) from ml_tree_ch.flatten()
+  val tree_name from tree_name_ch
+
+  output:
+  path("${tree_name}.pdf") into pdf_tree_ch
+
+  script:
+  """
+  python ${params.script_dir}/MPAS_view_tree.py $fasttree
+  """
+ }
 
 
 /* 
@@ -846,6 +892,7 @@ process make_tree_alignment {
  (amplicon sequence variants) from dada2 against the NCBI
  nt database to try to figure out what they are
 */
+
 process blast_unassigned_sequences {
   publishDir "${params.blast_outdir}", mode: 'link'
 
@@ -903,6 +950,7 @@ process blast_unassigned_sequences {
    This process parses the blast output from unassigned sequences and
    populates a spreadsheet with the info. 
 */
+
 process assign_non_ref_seqs {
 
   // singularity info for this process
@@ -937,6 +985,7 @@ process prepend_output_filenames {
                                                         report_output_ch,
                                                         csv_output_ch,
                                                         unassigned_blast_output_ch )
+                                                        
   output:
   path ("${params.output_prefix}${output_file}")
 
