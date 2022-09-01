@@ -805,6 +805,9 @@ process blast_unassigned_sequences {
       container "quay.io/biocontainers/blast:2.12.0--pl5262h3289130_0"
   }
 
+  when: 
+  params.blast_unassigned_sequences
+
   input:
   path(unassigned_sequences) from post_assign_to_refseq_ch
 
