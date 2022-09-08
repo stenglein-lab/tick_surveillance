@@ -808,11 +808,122 @@ process assign_observed_sequences_to_ref_seqs {
   path("sequencing_report.xlsx") into report_output_ch
   path("all_data.csv") into csv_output_ch
 
+  // output channels for tree-building process
+  path("sequencing_report.xlsx") into report_tree_ch
+
   script:                                                                       
   """                                                                           
   Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $abundance_table $blast_output $metadata ${params.targets} ${params.surveillance_columns} ${params.min_reads_for_positive_surveillance_call}
   """             
 }
+
+/*
+ * Split up assigned observed sequeces by target
+ * for making trees
+ */
+process create_fasta_for_trees {
+  publishDir "${params.tree_outdir}", mode: 'link'
+
+  // need to specify label?
+  // label 'lowmem'
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+  } else {
+      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+  }
+
+  input:
+  path(sequencing_report) from report_tree_ch
+
+  output:
+  path("*_all.fasta") into fasta_tree_ch
+
+  script:
+  """
+  python ${params.script_dir}/MPAS_create_fasta.py $sequencing_report $params.targets
+  """
+}
+
+/*
+ * Build multiple-sequencing alignments for each group of sequences using MAFFT. Documentation found here: https://mafft.cbrc.jp/alignment/software/manual/manual.html
+ */
+
+process make_tree_alignment {
+  publishDir "${params.tree_outdir}", mode: 'link'
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+  } else {
+      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+  }
+
+  input:
+  path(all_fasta) from fasta_tree_ch.flatten()
+  
+
+  output:
+  path("mafft_${all_fasta}") into msa_tree_ch
+  
+
+  shell:
+  """
+  mafft --adjustdirection --quiet --auto --maxiterate 1000 --nuc "$all_fasta" > "mafft_${all_fasta}"
+  """
+}
+
+/*
+ * Build maximum likelihood for each group of sequences using FastTree and save as newick file. Documentation found here: https://manpages.org/fasttree
+ */
+ 
+process make_ml_tree {
+  // singularity info for this process
+ if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/fasttree:3A2.1.11--hec16e2b_1"
+      } else {
+      container "quay.io/biocontainers/fasttree:3A2.1.11--hec16e2b_1"
+  }
+  
+  input:
+  path(all_alignment) from msa_tree_ch
+  
+
+  output:
+  path("tree_${all_alignment.baseName}") into ml_tree_ch
+
+  
+  shell:
+  """
+  fasttree -gamma -nt -quiet $all_alignment > "tree_${all_alignment.baseName}"
+  """
+}
+/*
+ * Creates pdf files of each ML tree using ToyTree. Documentation fun here: https://toytree.readthedocs.io/en/latest/
+ */
+
+ process view_phylo_tree {
+  publishDir "${params.tree_outdir}", mode: 'link'
+
+  // singularity info for this process
+ if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/fasttree:3A2.1.11--hec16e2b_1"
+      } else {
+      container "quay.io/biocontainers/fasttree:3A2.1.11--hec16e2b_1"
+  }
+
+  input:
+  path(fasttree) from ml_tree_ch.flatten()
+
+  output:
+   path("${fasttree}.pdf") into pdf_tree_ch
+
+  shell:
+  """
+  python ${params.script_dir}/MPAS_view_tree.py $fasttree
+  """
+ }
 
 
 /* 
@@ -820,6 +931,7 @@ process assign_observed_sequences_to_ref_seqs {
  (amplicon sequence variants) from dada2 against the NCBI
  nt database to try to figure out what they are
 */
+
 process blast_unassigned_sequences {
   publishDir "${params.blast_outdir}", mode: 'link'
 
@@ -882,6 +994,7 @@ process blast_unassigned_sequences {
    This process parses the blast output from unassigned sequences and
    populates a spreadsheet with the info. 
 */
+
 process assign_non_ref_seqs {
 
   label 'process_low'
@@ -919,7 +1032,8 @@ process prepend_output_filenames {
   path(output_file) from initial_multiqc_output_ch.mix( post_trim_multiqc_output_ch,
                                                         report_output_ch,
                                                         csv_output_ch,
-                                                        unassigned_blast_output_ch )
+                                                        unassigned_blast_output_ch)
+                                                        
   output:
   path ("${params.output_prefix}${output_file}")
 
