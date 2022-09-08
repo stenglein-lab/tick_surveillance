@@ -7,16 +7,34 @@ This directory contains a singularity definition file to create a singularity im
 Modify the `r_tools.def` file as appropriate
 
 ```
-# create the singularity image
+# create the singularity image for R tools
 sudo singularity build r_tools.sif r_tools.def
+# now sign the image.  Uses linked github email.  Passphrase != access token.
+singularity sign r_tools.sif
+
+# create the singularity image for python tools
+sudo singularity build python_tools.sif python_tools.def
+# now sign the image.  Uses linked github email.  Passphrase != access token.
+singularity sign python_tools.sif
 ```
+
 
 #### To push this image to the singularity library 
 
 I first had to create a singularity library account and login as described [here](https://sylabs.io/guides/latest/user-guide/cloud_library.html?highlight=push#overview)
 
+Do a remote login to singularity cloud library
+```
+# this uses access token created at sylabs cloud library site.  These expire every few months so may need to create a new one.
+singularity remote login
+```
+
+The can push images
 ```
 # modify version number as appropriate
 singularity push -D "A singularity image containing tidyverse and a few other R packages" r_tools.sif library://stenglein-lab/r_tools/r_tools:1.0.0
+
+# push the python tools image
+singularity push -D "A singularity image containing python 3.10.6 and several modules" python_tools.sif library://stenglein-lab/python_tools/python_tools:1.0.0
 ```
 

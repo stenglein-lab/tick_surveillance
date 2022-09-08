@@ -251,7 +251,7 @@ writeFasta(unassigned_sequences, paste0(output_dir, "unassigned_sequences.fasta"
 sparse_sat <- filter(sequence_abundance_table, abundance > 0) 
 
 # keep track of metadata rows
-metadata_key <- metadata_df %>% select(Index, batch)
+metadata_key <- metadata_df %>% select(Index, Pathogen_Testing_ID, batch)
 
 # join sparse SAT with metadata
 dataset_df <- full_join(metadata_key, sparse_sat, by=c("Index" = "dataset"))  
@@ -453,9 +453,9 @@ for (name in names(surv_default_text)){
 # ------------------------------------------------------------
 
 # Pull in metadata from the metadata dataframe (from excel input)
-populate_surveillance_metadata <- function(surv_df, meta_df, column_names) {
+populate_surveillance_metadata <- function(surv_df, meta_df) {
   
-  for (column_name in column_names) {
+  for (column_name in colnames(meta_df)) {
     if (!(column_name %in% colnames(surv_df))) {
       message (paste0("INFO: metadata column ", column_name, " not present in surveillance table. Will not populate column in surveillance report table."))
       next
@@ -466,8 +466,7 @@ populate_surveillance_metadata <- function(surv_df, meta_df, column_names) {
 }
 
 # call the function to populate surveillance table metadata
-metadata_columns <-  colnames(metadata_df)
-surv_df <- populate_surveillance_metadata(surv_df, metadata_df, metadata_columns)
+surv_df <- populate_surveillance_metadata(surv_df, metadata_df)
 
 # make a copy of the surveillance table that will have abundance info instead of pos/neg calls
 surv_df_abundances <- surv_df
@@ -532,15 +531,24 @@ surv_df$Acceptable_DNA <- recode(surv_df$Acceptable_DNA, Positive = "TRUE", Nega
 # Write out results
 # -------------------
 
-# write data as plain-text
-write.table(dataset_df, paste0(output_dir, "identified_targets.tsv"), quote=F, sep="\t", col.names=T, row.names=F)
+# reorder dataset_df (all_data table) so that Pathogen_Testing_Id is second column.
+# see: https://github.com/stenglein-lab/tick_surveillance/issues/29
+# need to make sure Pathogen_Testing_ID column exists first: since it is defined
+# in metadata input, and this input is flexible.  But if it *is* there, move it.
+if ("Pathogen_Testing_ID" %in% colnames(dataset_df)) {
+  dataset_df <- dataset_df %>% relocate(Pathogen_Testing_ID, .after = 1)
+}
 
-# write all data as csv
+# reorder dataset_df (all_data table) so that observed_sequence column is after mismatch column.
+# see: https://github.com/stenglein-lab/tick_surveillance/issues/27
+if (all(c("observed_sequence","mismatch") %in% colnames(dataset_df))) {
+  dataset_df <- dataset_df %>% relocate(observed_sequence, .after = mismatch)
+}
+
+# write all data as csv plain-text file
 write.table(dataset_df, paste0(output_dir, "all_data.csv"), quote=F, sep=",", col.names=T, row.names=F)
 
-# write as excel
-# TODO: date in filename?  Unique run identifier?
-
+# create excel output
 wb <- createWorkbook(paste0(output_dir, "identified_targets.xlsx"))
 modifyBaseFont(wb, fontSize = 11, fontColour = "black", fontName = "Helvetica")
 
