@@ -885,6 +885,7 @@ process make_ml_tree {
       container "https://depot.galaxyproject.org/singularity/fasttree:3A2.1.11--hec16e2b_1"
       } else {
       container "quay.io/biocontainers/fasttree:3A2.1.11--hec16e2b_1"
+  }
 
   input:
   path(fasttree) from ml_tree_ch.flatten()
