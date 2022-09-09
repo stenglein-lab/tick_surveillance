@@ -25,15 +25,15 @@ targets = pd.read_table(sys.argv[2])
 #all_data DF: only indluce Index, abundance, sequence number, subject, percent identity, and sequence
 seqs = val[['Index', 'abundance', 'primer_name', 'sequence_number', 'subject','percent_identity', 'observed_sequence']]
 
-#metadata DF: only include CSID, Index, Sample_Type, Tick_Genus_species, Lifestage, state
-meta_sub = meta[['Index', 'CSID', 'Sample_Type', 'Morphological_Ectoparasite_Genus_Species', 'Lifestage', 'State']]
+#metadata DF: only include CSID, Index, Tick_Genus_species, Lifestage, state
+meta_sub = meta[['Index', 'CSID', 'Morphological_Ectoparasite_Genus_Species', 'Lifestage', 'State']]
 
 #targets DF:
 targets_sub = targets[['primer_name', 'ref_sequence_name', 'sequence']]
 
 
 # 3. Join seq and meta_sub into one DF based on Index
-meta_sub_seqs = pd.merge(seqs, meta_sub, on='Index').reindex(columns=['Index', 'CSID', 'abundance', 'primer_name', 'sequence_number', 'subject', 'percent_identity', 'Sample_Type', 'Morphological_Ectoparasite_Genus_Species', 'Lifestage', 'State', 'observed_sequence'])
+meta_sub_seqs = pd.merge(seqs, meta_sub, on='Index').reindex(columns=['Index', 'CSID', 'abundance', 'primer_name', 'sequence_number', 'subject', 'percent_identity', 'Morphological_Ectoparasite_Genus_Species', 'Lifestage', 'State', 'observed_sequence'])
 
 # 4. Keep all sequences with abundance greter than 50
 seq_50 = meta_sub_seqs[meta_sub_seqs['abundance'] >=50]
