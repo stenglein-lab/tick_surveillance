@@ -58,7 +58,7 @@ if (nrow(repeated_sample_ids) > 0) {
 
 # check that required metadata columns exist.  Error and abort if not.
 # required_metadata_columns <- c("Index", "Not_A_Column_")
-required_metadata_columns <- c("Index")
+required_metadata_columns <- c("Index", "Pathogen_Testing_ID")
 
 for (required_col in required_metadata_columns) {
   if (!required_col %in% colnames(metadata)) {
