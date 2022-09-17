@@ -818,9 +818,9 @@ process assign_observed_sequences_to_ref_seqs {
 }
 
 /*
- * Split up assigned observed sequeces by target
- * for making trees
- */
+   Split up assigned observed sequeces by target
+   for making trees
+*/
 process create_fasta_for_trees {
   publishDir "${params.tree_outdir}", mode: 'link'
 
@@ -847,26 +847,27 @@ process create_fasta_for_trees {
 }
 
 /*
- * Build multiple-sequencing alignments for each group of sequences using MAFFT. Documentation found here: https://mafft.cbrc.jp/alignment/software/manual/manual.html
- */
+   Build multiple-sequencing alignments for each group of sequences using MAFFT. 
 
+   MAFFT documentation : https://mafft.cbrc.jp/alignment/software/manual/manual.html
+*/
 process make_tree_alignment {
   publishDir "${params.tree_outdir}", mode: 'link'
 
+  label 'process_medium'
+
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+      container "https://depot.galaxyproject.org/singularity/mafft:7.505--hec16e2b_0"
   } else {
-      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+      container "https://depot.galaxyproject.org/singularity/mafft:7.505--hec16e2b_0"
   }
 
   input:
   path(all_fasta) from fasta_tree_ch.flatten()
   
-
   output:
   path("mafft_${all_fasta}") into msa_tree_ch
-  
 
   shell:
   """
@@ -875,41 +876,48 @@ process make_tree_alignment {
 }
 
 /*
- * Build maximum likelihood for each group of sequences using FastTree and save as newick file. Documentation found here: https://manpages.org/fasttree
- */
- 
+   Build maximum likelihood for each group of sequences using FastTree 
+   and save as newick file. 
+
+   FastTree documentation: https://manpages.org/fasttree
+*/
 process make_ml_tree {
+
+  label 'process_medium'
+
   // singularity info for this process
- if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/fasttree:3A2.1.11--hec16e2b_1"
-      } else {
-      container "quay.io/biocontainers/fasttree:3A2.1.11--hec16e2b_1"
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/fasttree:2.1.11--hec16e2b_1"
+  } else {
+      container "quay.io/biocontainers/fasttree:2.1.11--hec16e2b_1"
   }
   
   input:
   path(all_alignment) from msa_tree_ch
-  
 
   output:
   path("tree_${all_alignment.baseName}") into ml_tree_ch
-
   
   shell:
   """
   fasttree -gamma -nt -quiet $all_alignment > "tree_${all_alignment.baseName}"
   """
 }
-/*
- * Creates pdf files of each ML tree using ToyTree. Documentation fun here: https://toytree.readthedocs.io/en/latest/
- */
 
- process view_phylo_tree {
+/*
+   Creates pdf files of each ML tree using ToyTree. 
+
+   ToyTree documentation: https://toytree.readthedocs.io/en/latest/
+*/
+process view_phylo_tree {
   publishDir "${params.tree_outdir}", mode: 'link'
 
+  label 'process_low'
+
   // singularity info for this process
- if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/fasttree:3A2.1.11--hec16e2b_1"
-      } else {
+  } else {
       container "quay.io/biocontainers/fasttree:3A2.1.11--hec16e2b_1"
   }
 
@@ -917,13 +925,13 @@ process make_ml_tree {
   path(fasttree) from ml_tree_ch.flatten()
 
   output:
-   path("${fasttree}.pdf") into pdf_tree_ch
+  path("${fasttree}.pdf") into pdf_tree_ch
 
   shell:
   """
   python ${params.script_dir}/MPAS_view_tree.py $fasttree
   """
- }
+}
 
 
 /* 
