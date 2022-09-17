@@ -9,6 +9,7 @@ From: python:3.10.6
     python -m pip install pandas==1.4.3
     python -m pip install toytree==2.0.1
     python -m pip install toyplot==1.0.1
+    python -m pip install openpyxl==3.0.10
 
 %labels
     Author Mark Stenglein
