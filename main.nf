@@ -834,6 +834,9 @@ process create_fasta_for_trees {
       container "library://stenglein-lab/python_tools/python_tools:1.0.0"
   }
 
+  when:
+  params.make_trees
+
   input:
   path(sequencing_report) from report_tree_ch
 
@@ -916,9 +919,9 @@ process view_phylo_tree {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/fasttree:3A2.1.11--hec16e2b_1"
+      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
   } else {
-      container "quay.io/biocontainers/fasttree:3A2.1.11--hec16e2b_1"
+      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
   }
 
   input:
