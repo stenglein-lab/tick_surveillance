@@ -52,7 +52,7 @@ def write_fasta(in_seq, out_seq):
 
     try:
         fin = open(in_seq, 'r')
-        fout = open(out_seq,'w')
+        fout = open(out_seq,'a')
     except:
         return -1
 
@@ -71,7 +71,7 @@ def write_fasta(in_seq, out_seq):
 def write_ref_fasta(infile, outfile):
     try:
         f_in = open(infile, 'r')
-        f_out = open(outfile,'w')
+        f_out = open(outfile,'a')
     except:
         return -1
 
@@ -89,20 +89,10 @@ def write_ref_fasta(infile, outfile):
 
 for primers, seqs in seq_50_group_reorder.groupby(['primer_name']):
     seqs.to_csv(f'{primers}.csv', index=False)
-    write_fasta(f'{primers}.csv', f'{primers}_fasta.fasta')
+    write_fasta(f'{primers}.csv', f'{primers}_all.fasta')
 
 for primer, seq in targets_sub.groupby(['primer_name']):
     seq.to_csv(f'{primer}_ref.csv', index=False)
-    write_ref_fasta(f'{primer}_ref.csv', f'{primer}_ref_fasta.fasta')
+    write_ref_fasta(f'{primer}_ref.csv', f'{primer}_all.fasta')
 
 
-# 9. Concatenate the reference seq fasta files with the sample fasta files based on primer
-
-for primer, seq in targets_sub.groupby(['primer_name']): #put primer name into variable
-    primer_name = primer
-    with open(f'{primer_name}_all.fasta', 'w') as outfile: #open .fasta files for each primer name
-        for file in os.listdir(os.curdir): #files in the curren direcotry
-            if file.startswith(f'{primer_name}') and file.endswith('.fasta'): #if files start with the primer name and ends with end with .fasta
-                with open(file) as infile: #open the selected files
-                    contents = infile.read() #read the files and put into variables
-                    outfile.write(contents) #write the contents of those files into the outfiles
