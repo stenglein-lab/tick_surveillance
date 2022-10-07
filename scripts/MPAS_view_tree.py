@@ -12,13 +12,13 @@ import sys
 fasttree: sys.argv[1]
 
 # create tree pdf with toytree python tool. Documentation found here: https://toytree.readthedocs.io/en/latest/
-
-
 tree = toytree.tree(sys.argv[1])
+colorlist = ['purple' if 'seq' in tip else 'black' for tip in tree.get_tip_labels()]
 canvas, axes, makr = tree.draw(
         tip_labels_style={"font-size":"11px", "-toyplot-anchor-shift": "20px",},
         tip_labels_align = False,
-        height=1000,
+        tip_labels_colors=colorlist,
+	height=1000,
         width = 1000,
         node_hover=True, 
         node_sizes=5, 

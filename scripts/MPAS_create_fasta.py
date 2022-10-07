@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+from tkinter import TRUE
 import pandas as pd
 import csv
 import sys
@@ -26,23 +27,26 @@ targets = pd.read_table(sys.argv[2])
 seqs = val[['Index', 'abundance', 'primer_name', 'sequence_number', 'subject','percent_identity', 'observed_sequence']]
 
 #metadata DF: only include CSID, Index, Tick_Genus_species, Lifestage, state
-meta_sub = meta[['Index', 'CSID', 'Morphological_Ectoparasite_Genus_Species', 'Lifestage', 'State']]
+meta_sub = meta[['Index', 'Pathogen_Testing_ID', 'Morphological_Ectoparasite_Genus_Species', 'Lifestage', 'State']]
 
 #targets DF:
 targets_sub = targets[['primer_name', 'ref_sequence_name', 'sequence']]
 
 
-# 3. Join seq and meta_sub into one DF based on Index
-meta_sub_seqs = pd.merge(seqs, meta_sub, on='Index').reindex(columns=['Index', 'CSID', 'abundance', 'primer_name', 'sequence_number', 'subject', 'percent_identity', 'Morphological_Ectoparasite_Genus_Species', 'Lifestage', 'State', 'observed_sequence'])
+# 3. Join seq and meta_sub into one DF based on Index. Replace all spaces with underscore.
+meta_sub_seqs = pd.merge(seqs, meta_sub, on='Index').replace(' ', '_', regex=True)
 
 # 4. Keep all sequences with abundance greter than 50
 seq_50 = meta_sub_seqs[meta_sub_seqs['abundance'] >=50]
 
+#5. Add new column that contains only the first 7 characters of the sequence_number
 
+seq_50['new_seq_number'] = seq_50['sequence_number'].str[:7]
+#seq_50 = seq_50.assign(new_seq_number = seq_50['sequence_number'].astype(str).str[:7])
 
 # 6. Group representative sequences found in each state and tick species and create CSV
-seq_50_group = seq_50.groupby(['State','sequence_number', 'Morphological_Ectoparasite_Genus_Species', 'Lifestage', 'subject', 'primer_name', 'observed_sequence']).size().reset_index(name='n')
-seq_50_group_reorder = seq_50_group[['State', 'Morphological_Ectoparasite_Genus_Species', 'Lifestage', 'sequence_number', 'subject', 'primer_name', 'n', 'observed_sequence']]
+seq_50_group = seq_50.groupby(['State','sequence_number', 'Morphological_Ectoparasite_Genus_Species', 'Lifestage', 'primer_name', 'observed_sequence', 'new_seq_number'], dropna=False).size().reset_index(name='n')
+seq_50_group_reorder = seq_50_group[['State', 'Morphological_Ectoparasite_Genus_Species', 'Lifestage', 'new_seq_number', 'primer_name', 'n', 'observed_sequence']]
 
 
 
@@ -52,7 +56,7 @@ def write_fasta(in_seq, out_seq):
 
     try:
         fin = open(in_seq, 'r')
-        fout = open(out_seq,'w')
+        fout = open(out_seq,'a')
     except:
         return -1
 
@@ -62,16 +66,16 @@ def write_fasta(in_seq, out_seq):
             state = line['State']
             genus = line['Morphological_Ectoparasite_Genus_Species']
             lifestage = line['Lifestage']
-            number = line['sequence_number']
+            number = line['new_seq_number']
             tot = line['n']
-            seq = line['observed_sequence']
-            print(f'>{state}_{genus}_{lifestage}_seq{number}_n={tot}\n{seq}', file=fout)
+            ob_seq = line['observed_sequence']
+            print(f'>{state}_{genus}_{lifestage}_seq{number}_n={tot}\n{ob_seq}', file=fout)
     return
 
 def write_ref_fasta(infile, outfile):
     try:
         f_in = open(infile, 'r')
-        f_out = open(outfile,'w')
+        f_out = open(outfile,'a')
     except:
         return -1
 
@@ -89,20 +93,9 @@ def write_ref_fasta(infile, outfile):
 
 for primers, seqs in seq_50_group_reorder.groupby(['primer_name']):
     seqs.to_csv(f'{primers}.csv', index=False)
-    write_fasta(f'{primers}.csv', f'{primers}_fasta.fasta')
+    write_fasta(f'{primers}.csv', f'{primers}_all.fasta')
 
 for primer, seq in targets_sub.groupby(['primer_name']):
     seq.to_csv(f'{primer}_ref.csv', index=False)
-    write_ref_fasta(f'{primer}_ref.csv', f'{primer}_ref_fasta.fasta')
+    write_ref_fasta(f'{primer}_ref.csv', f'{primer}_all.fasta')
 
-
-# 9. Concatenate the reference seq fasta files with the sample fasta files based on primer
-
-for primer, seq in targets_sub.groupby(['primer_name']): #put primer name into variable
-    primer_name = primer
-    with open(f'{primer_name}_all.fasta', 'w') as outfile: #open .fasta files for each primer name
-        for file in os.listdir(os.curdir): #files in the curren direcotry
-            if file.startswith(f'{primer_name}') and file.endswith('.fasta'): #if files start with the primer name and ends with end with .fasta
-                with open(file) as infile: #open the selected files
-                    contents = infile.read() #read the files and put into variables
-                    outfile.write(contents) #write the contents of those files into the outfiles
