@@ -989,7 +989,7 @@ process blast_unassigned_sequences {
 
   """
   # run blastn
-  blastn $blast_db_params -task megablast -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
+  blastn $blast_db_params -task megablast -perc_identity 70 -qcov_hsp_perc 70 -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
 
   # prepend blast output with the column names so we don't have to manually name them later
   # the perl inline command here is to replace spaces with tabs
