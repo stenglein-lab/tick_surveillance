@@ -237,6 +237,8 @@ Channel
 */
 process generate_refseq_fastas {                                                      
 
+  label 'process_low'
+
   input:                                                                        
   val targets from targets_ch
 
@@ -255,6 +257,8 @@ process generate_refseq_fastas {
 */
 process combine_refseq_fasta {                                                      
   publishDir "${params.refseq_dir}", mode: 'link'                                   
+
+  label 'process_low'
 
   input:                                                                        
   path (individual_fastas) from refseq_fastas_ch.collect()
@@ -276,6 +280,8 @@ process combine_refseq_fasta {
 */
 process setup_indexes {
   publishDir "${params.refseq_dir}", mode: 'link'                                   
+
+  label 'process_low'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -369,7 +375,8 @@ String.metaClass.complement = {
  Output sample IDs into a file
 */
 process output_sample_ids {
-  label 'lowmem'
+
+  label 'process_low'
 
   input:
   tuple val(sample_id), path(initial_fastq) from sample_ids_ch
@@ -395,7 +402,8 @@ tabulate_sample_ids_ch
  Run fastqc on input fastq 
 */
 process initial_qc {
-  label 'lowmem'
+  label 'many_forks'
+  label 'process_low'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -422,6 +430,8 @@ process initial_qc {
  TODO: will this report old, accumulated fastqc reports if the pipeline is re-run without cleaning up the work directory?
 */
 process initial_multiqc {
+
+  label 'process_low'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -461,7 +471,8 @@ process initial_multiqc {
 */
 
 process trim_primer_seqs {                                                      
-  label 'lowmem'
+  label 'many_forks'
+  label 'process_low'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -496,7 +507,7 @@ process trim_primer_seqs {
   # "Use --discard-untrimmed to throw away all read pairs in which R1 
   # doesn’t start with FWDPRIMER or in which R2 does not start with REVPRIMER"
   #
-  cutadapt $primer_args --discard-untrimmed  -e ${params.amplicon_primers_max_error_fraction} --minimum-length ${params.post_trim_min_length} $f1 $f2 -o ${sample_id}.R1_${primers.primer_name}.fastq.gz -p ${sample_id}.R2_${primers.primer_name}.fastq.gz
+  cutadapt $primer_args --discard-untrimmed  -e ${params.amplicon_primers_max_error_fraction} --minimum-length ${params.post_trim_min_length} $f1 $f2 -o ${sample_id}.R1_${primers.primer_name}.fastq.gz -p ${sample_id}.R2_${primers.primer_name}.fastq.gz 
   """                                                                         
 }
                                                                                 
@@ -523,6 +534,8 @@ process trim_primer_seqs {
 */
 process collect_cutadapt_output {                                               
   publishDir "${params.trimmed_outdir}", mode:'link'                                    
+
+  label 'process_low'
                                                                                 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -574,7 +587,8 @@ process collect_cutadapt_output {
  Use fastqc to do QC on post-trimmed fastq
 */
 process post_trim_qc {
-  label 'lowmem'
+  label 'many_forks'
+  label 'process_low'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -606,6 +620,8 @@ process post_trim_qc {
 
 */
 process post_trim_multiqc {
+
+  label 'process_low'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -643,6 +659,8 @@ trimmed_fastq_ch = Channel.fromPath( params.trimmed_outdir )
 process run_dada_on_trimmed {
   publishDir "${params.dada_outdir}", mode: 'link'
 
+  label 'process_medium'
+
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/bioconductor-dada2%3A1.22.0--r41h399db7b_0"
@@ -673,6 +691,8 @@ process run_dada_on_trimmed {
 process tidy_dada_output {
   publishDir "${params.dada_outdir}", mode: 'link'
 
+  label 'process_low'
+
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "library://stenglein-lab/r_tools/r_tools:1.0.0"
@@ -702,6 +722,8 @@ process tidy_dada_output {
 */
 process compare_observed_sequences_to_ref_seqs {
   publishDir "${params.blast_outdir}", mode: 'link', pattern: "*bn_refseq"
+
+  label 'process_low'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -736,6 +758,8 @@ process compare_observed_sequences_to_ref_seqs {
 process validate_metadata_file {
   publishDir "${params.log_outdir}", mode: 'link', pattern: "*.txt"
 
+  label 'process_low'
+
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "library://stenglein-lab/r_tools/r_tools:1.0.0"
@@ -765,6 +789,8 @@ process validate_metadata_file {
 */
 process assign_observed_sequences_to_ref_seqs {
 
+  label 'process_low'
+
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "library://stenglein-lab/r_tools/r_tools:1.0.0"
@@ -781,12 +807,133 @@ process assign_observed_sequences_to_ref_seqs {
   path("unassigned_sequences.fasta") into post_assign_to_refseq_ch
   path("sequencing_report.xlsx") into report_output_ch
   path("all_data.csv") into csv_output_ch
-  path("identified_targets.tsv") 
+
+  // output channels for tree-building process
+  path("sequencing_report.xlsx") into report_tree_ch
 
   script:                                                                       
   """                                                                           
   Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $abundance_table $blast_output $metadata ${params.targets} ${params.surveillance_columns} ${params.min_reads_for_positive_surveillance_call}
   """             
+}
+
+/*
+   Split up assigned observed sequeces by target
+   for making trees
+*/
+process create_fasta_for_trees {
+  publishDir "${params.tree_outdir}", mode: 'link'
+
+  // need to specify label?
+  // label 'lowmem'
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+  } else {
+      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+  }
+
+  when:
+  params.make_trees
+
+  input:
+  path(sequencing_report) from report_tree_ch
+
+  output:
+  path("*_all.fasta") into fasta_tree_ch
+
+  script:
+  """
+  python ${params.script_dir}/MPAS_create_fasta.py $sequencing_report $params.targets
+  """
+}
+
+/*
+   Build multiple-sequencing alignments for each group of sequences using MAFFT. 
+
+   MAFFT documentation : https://mafft.cbrc.jp/alignment/software/manual/manual.html
+*/
+process make_tree_alignment {
+  publishDir "${params.tree_outdir}", mode: 'link'
+
+  label 'process_medium'
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/mafft:7.505--hec16e2b_0"
+  } else {
+      container "https://depot.galaxyproject.org/singularity/mafft:7.505--hec16e2b_0"
+  }
+
+  input:
+  path(all_fasta) from fasta_tree_ch.flatten()
+  
+  output:
+  path("mafft_${all_fasta}") into msa_tree_ch
+
+  shell:
+  """
+  mafft --adjustdirection --quiet --auto --maxiterate 1000 --nuc "$all_fasta" > "mafft_${all_fasta}"
+  """
+}
+
+/*
+   Build maximum likelihood for each group of sequences using FastTree 
+   and save as newick file. 
+
+   FastTree documentation: https://manpages.org/fasttree
+*/
+process make_ml_tree {
+
+  label 'process_medium'
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/fasttree:2.1.11--hec16e2b_1"
+  } else {
+      container "quay.io/biocontainers/fasttree:2.1.11--hec16e2b_1"
+  }
+  
+  input:
+  path(all_alignment) from msa_tree_ch
+
+  output:
+  path("tree_${all_alignment.baseName}") into ml_tree_ch
+  
+  shell:
+  """
+  fasttree -gamma -nt -quiet $all_alignment > "tree_${all_alignment.baseName}"
+  """
+}
+
+/*
+   Creates pdf files of each ML tree using ToyTree. 
+
+   ToyTree documentation: https://toytree.readthedocs.io/en/latest/
+*/
+process view_phylo_tree {
+  publishDir "${params.tree_outdir}", mode: 'link'
+
+  label 'process_low'
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+  } else {
+      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+  }
+
+  input:
+  path(fasttree) from ml_tree_ch.flatten()
+
+  output:
+  path("${fasttree}.pdf") into pdf_tree_ch
+
+  shell:
+  """
+  python ${params.script_dir}/MPAS_view_tree.py $fasttree
+  """
 }
 
 
@@ -795,8 +942,11 @@ process assign_observed_sequences_to_ref_seqs {
  (amplicon sequence variants) from dada2 against the NCBI
  nt database to try to figure out what they are
 */
+
 process blast_unassigned_sequences {
   publishDir "${params.blast_outdir}", mode: 'link'
+
+  label 'process_high'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -804,6 +954,9 @@ process blast_unassigned_sequences {
   } else {
       container "quay.io/biocontainers/blast:2.12.0--pl5262h3289130_0"
   }
+
+  when: 
+  params.blast_unassigned_sequences
 
   input:
   path(unassigned_sequences) from post_assign_to_refseq_ch
@@ -836,7 +989,7 @@ process blast_unassigned_sequences {
 
   """
   # run blastn
-  blastn $blast_db_params -task megablast -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
+  blastn $blast_db_params -task megablast -perc_identity 70 -qcov_hsp_perc 70 -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
 
   # prepend blast output with the column names so we don't have to manually name them later
   # the perl inline command here is to replace spaces with tabs
@@ -852,7 +1005,10 @@ process blast_unassigned_sequences {
    This process parses the blast output from unassigned sequences and
    populates a spreadsheet with the info. 
 */
+
 process assign_non_ref_seqs {
+
+  label 'process_low'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -880,12 +1036,15 @@ process assign_non_ref_seqs {
 
 process prepend_output_filenames {
   publishDir "${params.outdir}", mode: 'link'
+
+  label 'process_low'
    
   input:
   path(output_file) from initial_multiqc_output_ch.mix( post_trim_multiqc_output_ch,
                                                         report_output_ch,
                                                         csv_output_ch,
-                                                        unassigned_blast_output_ch )
+                                                        unassigned_blast_output_ch)
+                                                        
   output:
   path ("${params.output_prefix}${output_file}")
 

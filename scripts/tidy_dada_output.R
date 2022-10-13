@@ -3,6 +3,7 @@
 #
 
 library(tidyverse)
+library(openssl)
 
 #
 # This code block sets up input arguments to either come from the command line
@@ -33,7 +34,13 @@ t <- read.delim(dada_seqtab, sep="\t", header=T)
 tidy_sequence_table <- pivot_longer(t, -dataset, names_to = "sequence", values_to = "abundance" )
 
 # create a unique sequence id (#) for each sequence: for keeping track of in further processing steps
-sequences <- tidy_sequence_table %>% group_by(sequence) %>% summarize () %>% mutate(sequence_number = row_number())
+# this sequence ID will be a sha1 hash of the actual sequence
+# this will facilitate comparison of sequences across datasets
+sequences <- tidy_sequence_table %>% 
+	       group_by(sequence) %>% 
+	       summarize () %>% 
+	       mutate(sequence_number = sha1(sequence))
+	       # mutate(sequence_number = row_number())
 
 # join these sequence #s back into the tidy table
 tidy_sequence_table <- left_join(tidy_sequence_table, sequences, by="sequence")
