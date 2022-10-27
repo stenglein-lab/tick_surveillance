@@ -312,6 +312,43 @@ process setup_indexes {
 }
 
 /*
+   Setup indexes and dictionaries needed by downstream processes.
+
+   Only do this once at beginning.
+*/
+process setup_python_venv {
+  label 'process_low'
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/python:3.9--1" 
+  } else {
+      container "quay.io/biocontainers/python:3.9--1"
+  }
+
+  when:
+  params.make_trees
+
+  output:
+  // this output will be a signal that indexes are setup and processes that
+  // need them can proceed
+  val ("venv_complete") into post_venv_setup_ch
+  
+  script:
+  """
+  python3 -m venv ${params.python_venv_path}
+  source ${params.python_venv_path}/bin/activate
+  # install modules needed for tree-building scripts
+  python -m pip install numpy==1.22.1
+  python -m pip install pandas==1.3.5
+  python -m pip install toytree==2.0.1
+  python -m pip install toyplot==1.0.1
+  python -m pip install openpyxl==3.0.10
+  """
+}
+
+
+/*
  These fastq files represent the main input to this workflow
  
  Expecting files with _R1 or _R2 in their names corresponding to paired-end reads
@@ -829,9 +866,9 @@ process create_fasta_for_trees {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+      container "https://depot.galaxyproject.org/singularity/python:3.9--1" 
   } else {
-      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+      container "quay.io/biocontainers/python:3.9--1"
   }
 
   when:
@@ -839,13 +876,15 @@ process create_fasta_for_trees {
 
   input:
   path(sequencing_report) from report_tree_ch
+  val(venv_setup) from post_venv_setup_ch
 
   output:
   path("*_all.fasta") into fasta_tree_ch
 
   script:
   """
-  python ${params.script_dir}/MPAS_create_fasta.py $sequencing_report $params.targets
+  source ${params.python_venv_path}/bin/activate                                
+  python3 ${params.script_dir}/MPAS_create_fasta.py $sequencing_report $params.targets
   """
 }
 
@@ -919,9 +958,9 @@ process view_phylo_tree {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+      container "https://depot.galaxyproject.org/singularity/python:3.9--1" 
   } else {
-      container "library://stenglein-lab/python_tools/python_tools:1.0.0"
+      container "quay.io/biocontainers/python:3.9--1"
   }
 
   input:
@@ -932,7 +971,8 @@ process view_phylo_tree {
 
   shell:
   """
-  python ${params.script_dir}/MPAS_view_tree.py $fasttree
+  source ${params.python_venv_path}/bin/activate                                
+  python3 ${params.script_dir}/MPAS_view_tree.py $fasttree
   """
 }
 
