@@ -312,9 +312,11 @@ process setup_indexes {
 }
 
 /*
-   Setup indexes and dictionaries needed by downstream processes.
+   This sets up a python virtual environment (venv) containing the packages
+   needed by python scripts in this pipeline. 
+   
+   see: https://docs.python.org/3/library/venv.html
 
-   Only do this once at beginning.
 */
 process setup_python_venv {
   label 'process_low'
@@ -330,8 +332,7 @@ process setup_python_venv {
   params.make_trees
 
   output:
-  // this output will be a signal that indexes are setup and processes that
-  // need them can proceed
+  // this output will be a signal that venv setup is complete
   val ("venv_complete") into post_venv_setup_ch
   
   script:
