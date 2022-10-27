@@ -9,9 +9,6 @@
 # Mark Stenglein 05/19/2022
 #
 
-library(tidyverse)
-library(openxlsx)
-library(readxl)
 
 # This code block sets up input arguments to either come from the command line
 # (if running from the pipeline, so not interactively) or to use expected default values 
@@ -22,35 +19,49 @@ library(readxl)
 # if running from Rscript (called from the pipeline)
 if (!interactive()) {
   args = commandArgs(trailingOnly=TRUE)
-  r_bindir = args[1]
-  tidy_table_path = args[2]
-  blast_output_path = args[3]
-  sample_metadata_file = args[4]
-  targets_tsv_file = args[5]
-  surveillance_columns_file = args[6]
-  input_min_non_control_reads = args[7]
-  output_dir = "./"
+  r_bindir                    = args[1]
+  r_libdir                    = args[2]
+  tidy_table_path             = args[3]
+  blast_output_path           = args[4]
+  sample_metadata_file        = args[5]
+  targets_tsv_file            = args[6]
+  surveillance_columns_file   = args[7]
+  input_min_non_control_reads = args[8]
+  output_dir                  = "./"
 } else {
   # else if running via RStudio
-  r_bindir  =  "."
-  tidy_table_path = "../results/dada2/sequence_abundance_table.tsv"
-  blast_output_path = "../results/blast/observed_sequences.fasta.bn_refseq"
-  sample_metadata_file = "../input/AK_metadata.xlsx"
-  targets_tsv_file = "../refseq/targets.tsv"
-  surveillance_columns_file = "../refseq/surveillance_columns.txt"
+  r_bindir                    = "./"
+  r_libdir                    = "../lib/R/"
+  tidy_table_path             = "../results/dada2/sequence_abundance_table.tsv"
+  blast_output_path           = "../results/blast/observed_sequences.fasta.bn_refseq"
+  sample_metadata_file        = "../input/AK_metadata.xlsx"
+  targets_tsv_file            = "../refseq/targets.tsv"
+  surveillance_columns_file   = "../refseq/surveillance_columns.txt"
   input_min_non_control_reads = 50
-  output_dir = "../results/"
+  output_dir                  = "../results/"
 }
 
+library(tidyverse)
+library(readxl)
+# load openxlsx, either from pipeline's R lib dir or from R environment
+if (r_libdir != "NA") {
+  library(openxlsx, lib.loc=r_libdir)
+} else {
+  library(openxlsx)
+}
 
 # a function to write out sequences in fasta format
-# assumes the dataframe has columns named sequence_number and observed_sequence 
-# see: https://bootstrappers.umassmed.edu/guides/main/r_writeFasta.html
-writeFasta <- function(data, filename){
+# takes as input vectors of sequence names and the sequences themselves
+# adapted from: https://bootstrappers.umassmed.edu/guides/main/r_writeFasta.html
+writeFasta <- function(sequence_headers, sequences, filename){
   fastaLines = c()
-  for (rowNum in 1:nrow(data)){
-    fastaLines = c(fastaLines, as.character(paste(">", data[rowNum,"sequence_number"], sep = "")))
-    fastaLines = c(fastaLines,as.character(data[rowNum,"observed_sequence"]))
+  if (length(sequence_headers) != length(sequences)) {
+    message (paste0("ERROR: was expecting equal numbers of sequences and sequence headesr"))
+    quit (status = 1)
+  }
+  for (i in 1:length(sequence_headers)){
+    fastaLines = c(fastaLines, as.character(paste0(">", sequence_headers[i])))
+    fastaLines = c(fastaLines, as.character(sequences[i]))
   }
   fileConn<-file(filename)
   writeLines(fastaLines, fileConn)
@@ -241,7 +252,9 @@ unassigned_sequences <- filter(sequences, !(sequence_number %in% assigned_sequen
 
 # write out the unassigned sequences in fasta format
 # these will be dealt with separately by downstream processes
-writeFasta(unassigned_sequences, paste0(output_dir, "unassigned_sequences.fasta"))
+writeFasta(unassigned_sequences$sequence_number, 
+           unassigned_sequences$observed_sequence, 
+           paste0(output_dir, "unassigned_sequences.fasta"))
 
 # -----------------------
 # consolidate dataframes

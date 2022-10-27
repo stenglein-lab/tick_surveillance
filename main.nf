@@ -354,7 +354,38 @@ process setup_python_venv {
     echo "only need to make a venv when using singularity"
   """
   }
+}
 
+
+/*
+   This installs a couple R packages that are not included in the
+   base tidyverse singularity image we are using.
+*/
+process setup_R_dependencies {
+  label 'process_low'
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1"
+  } else {
+      container "quay.io/biocontainers/r-tidyverse:1.2.1"
+  }
+
+  output:
+  // this output will be a signal that venv setup is complete
+  val ("r_dependencies_OK") into post_r_dep_setup_ch
+  
+  script:
+
+  if (workflow.containerEngine == 'singularity') {
+  """
+     Rscript ${params.script_dir}/install_R_packages.R ${params.R_lib_dir}
+  """
+  } else {
+  """
+    echo "setup not necessary for conda environment"
+  """
+  }
 }
 
 
@@ -740,12 +771,12 @@ process tidy_dada_output {
 
   label 'process_low'
 
-  // singularity info for this process
+  // singularity info for this process                                          
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1" 
   } else {                                                                      
-      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
-  }        
+      container "quay.io/biocontainers/r-tidyverse:1.2.1"                       
+  }    
 
   input:
   path(dada_output) from post_dada_run_ch
@@ -807,12 +838,12 @@ process validate_metadata_file {
 
   label 'process_low'
 
-  // singularity info for this process
+  // singularity info for this process                                          
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1" 
   } else {                                                                      
-      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
-  }        
+      container "quay.io/biocontainers/r-tidyverse:1.2.1"                       
+  }     
   
   input:
   path(metadata) from post_metadata_check_ch
@@ -839,16 +870,17 @@ process assign_observed_sequences_to_ref_seqs {
   label 'process_low'
 
   // singularity info for this process
+  // singularity info for this process                                          
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1" 
   } else {                                                                      
-      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
-  }        
-  
+      container "quay.io/biocontainers/r-tidyverse:1.2.1"                       
+  }     
 
   input:
   path(metadata) from validated_metadata_ch
   tuple path(abundance_table), path(blast_output) from post_compare_ch
+  val(R_setup_OK) from post_r_dep_setup_ch
 
   output:
   path("unassigned_sequences.fasta") into post_assign_to_refseq_ch
@@ -859,8 +891,10 @@ process assign_observed_sequences_to_ref_seqs {
   path("sequencing_report.xlsx") into report_tree_ch
 
   script:                                                                       
+  // only use R lib dir for singularity
+  def r_lib_dir = workflow.containerEngine == 'singularity' ? "${params.R_lib_dir}" : "NA"
   """                                                                           
-  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $abundance_table $blast_output $metadata ${params.targets} ${params.surveillance_columns} ${params.min_reads_for_positive_surveillance_call}
+  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $r_lib_dir $abundance_table $blast_output $metadata ${params.targets} ${params.surveillance_columns} ${params.min_reads_for_positive_surveillance_call}
   """             
 }
 
@@ -893,10 +927,9 @@ process create_fasta_for_trees {
 
   script:
   // only need to activate the venv for singularity
-  def activate_venv = workflow.containerEngine == 'singularity' ? "source ${params.python_venv_path}/bin/activate" : ""
+  def activate_venv_command = workflow.containerEngine == 'singularity' ? "source ${params.python_venv_path}/bin/activate" : ""
   """
-  # source ${params.python_venv_path}/bin/activate                                
-  $activate_venv
+  $activate_venv_command
   python3 ${params.script_dir}/MPAS_create_fasta.py $sequencing_report $params.targets
   """
 }
@@ -1066,12 +1099,12 @@ process assign_non_ref_seqs {
 
   label 'process_low'
 
-  // singularity info for this process
+  // singularity info for this process                                          
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
+      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1" 
   } else {                                                                      
-      container "library://stenglein-lab/r_tools/r_tools:1.0.0"
-  }        
+      container "quay.io/biocontainers/r-tidyverse:1.2.1"                       
+  }    
 
   input:
   path(blast_output) from post_blast_unassigned_ch
@@ -1081,8 +1114,10 @@ process assign_non_ref_seqs {
   path("non_reference_sequence_assignments.xlsx") into unassigned_blast_output_ch
 
   script:                                                                       
+  // only use R lib dir for singularity
+  def r_lib_dir = workflow.containerEngine == 'singularity' ? "${params.R_lib_dir}" : "NA"
   """                                                                           
-  Rscript ${params.script_dir}/assign_non_ref_seqs.R ${params.script_dir} $unassigned_sequences $blast_output
+  Rscript ${params.script_dir}/assign_non_ref_seqs.R $r_lib_dir $unassigned_sequences $blast_output
   """             
 }
 

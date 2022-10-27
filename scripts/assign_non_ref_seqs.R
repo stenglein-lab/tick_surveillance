@@ -5,8 +5,6 @@
 # Mark Stenglein 1/13/2021 
 #
 
-library(tidyverse)
-library(openxlsx)
 
 #
 # This code block sets up input arguments to either come from the command line
@@ -17,31 +15,24 @@ library(openxlsx)
 if (!interactive()) {
   # if running from Rscript
   args = commandArgs(trailingOnly=TRUE)
-  # TODO: check CLAs
-  r_bindir=args[1]
+  r_libdir=args[1]
   unassigned_sequences_fasta=args[2]
   blast_output_path=args[3]
   output_path = "./"
 } else {
   # if running via RStudio
-  r_bindir = "."
+  r_libdir = "../lib/R/"
   unassigned_sequences_fasta="../results/blast/unassigned_sequences.fasta"
   blast_output_path="../results/blast/unassigned_sequences.fasta.bn_nt"
   output_path = "../results/"
 }
 
-# write out a file of unassigned sequence# this writes fasta from the sequences data frame 
-# see: https://bootstrappers.umassmed.edu/guides/main/r_writeFasta.html
-# TODO: import (source) 
-writeFasta <- function(data, filename){
-  fastaLines = c()
-  for (rowNum in 1:nrow(data)){
-    fastaLines = c(fastaLines, as.character(paste(">", data[rowNum,"sequence_number"], sep = "")))
-    fastaLines = c(fastaLines,as.character(data[rowNum,"sequence"]))
-  }
-  fileConn<-file(filename)
-  writeLines(fastaLines, fileConn)
-  close(fileConn)
+library(tidyverse)
+# load openxlsx, either from pipeline's R lib dir or from R environment
+if (r_libdir != "NA") {
+  library(openxlsx, lib.loc=r_libdir)
+} else {
+  library(openxlsx)
 }
 
 # read in fasta-formatted unassigned sequences
