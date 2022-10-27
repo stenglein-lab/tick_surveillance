@@ -329,23 +329,32 @@ process setup_python_venv {
   }
 
   when:
-  params.make_trees
+  params.make_trees 
+
 
   output:
   // this output will be a signal that venv setup is complete
   val ("venv_complete") into post_venv_setup_ch
   
   script:
+
+  if (workflow.containerEngine == 'singularity') {
   """
-  python3 -m venv ${params.python_venv_path}
-  source ${params.python_venv_path}/bin/activate
-  # install modules needed for tree-building scripts
-  python -m pip install numpy==1.22.1
-  python -m pip install pandas==1.3.5
-  python -m pip install toytree==2.0.1
-  python -m pip install toyplot==1.0.1
-  python -m pip install openpyxl==3.0.10
+    python3 -m venv ${params.python_venv_path}
+    source ${params.python_venv_path}/bin/activate
+    # install modules needed for tree-building scripts
+    python -m pip install numpy==1.22.1
+    python -m pip install pandas==1.3.5
+    python -m pip install toytree==2.0.1
+    python -m pip install toyplot==1.0.1
+    python -m pip install openpyxl==3.0.10
   """
+  } else {
+  """
+    echo "only need to make a venv when using singularity"
+  """
+  }
+
 }
 
 
@@ -883,8 +892,11 @@ process create_fasta_for_trees {
   path("*_all.fasta") into fasta_tree_ch
 
   script:
+  // only need to activate the venv for singularity
+  def activate_venv = workflow.containerEngine == 'singularity' ? "source ${params.python_venv_path}/bin/activate" : ""
   """
-  source ${params.python_venv_path}/bin/activate                                
+  # source ${params.python_venv_path}/bin/activate                                
+  $activate_venv
   python3 ${params.script_dir}/MPAS_create_fasta.py $sequencing_report $params.targets
   """
 }
@@ -971,8 +983,11 @@ process view_phylo_tree {
   path("${fasttree}.pdf") into pdf_tree_ch
 
   shell:
+  // only need to activate the venv for singularity
+  def activate_venv = workflow.containerEngine == 'singularity' ? "source ${params.python_venv_path}/bin/activate" : ""
   """
-  source ${params.python_venv_path}/bin/activate                                
+  # source ${params.python_venv_path}/bin/activate                                
+  $activate_venv
   python3 ${params.script_dir}/MPAS_view_tree.py $fasttree
   """
 }
