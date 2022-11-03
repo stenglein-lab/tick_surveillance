@@ -18,15 +18,49 @@ You must specify two required inputs to the pipeline: the path to a metadata exc
 
 You must specify a path to a metadata 
 
-#### Running test datasets
+### Running test datasets
 
 The pipeline includes a handful of small (<= 1000 read) datasets that are derived from real known positive (or known negative) datasets.  These are included in the [test directory](./test/) of the repository.  These datasets serve as positive and negative controls and allow you to test that the pipeline is working as expected.  To use these test datasets, run with the test profile, for instance:
 
 ```
-nextflow run stenglein-lab/tick_surveillance -profile singularity,local,test
+nextflow run stenglein-lab/tick_surveillance -profile singularity,test
 ```
 
+Or to run with conda:
+```
+nextflow run stenglein-lab/tick_surveillance -profile conda,test
+```
+
+##### Test outputs:
+
 The results of the test run will be placed in a `test/results` sub-directory.
+
+#### Running a specific version from github:
+
+To run a specific version of the pipeline, use the -r option, for example:
+
+```
+nextflow run stenglein-lab/tick_surveillance -profile singularity,test -r v1.0.3
+```
+
+#### Making sure that you are running the latest version when running from github.
+
+Nextflow will cache the pipeline in `$HOME/.nextflow/assets/` and continue to use the cached version, even if the pipeline has newer versions on github.  To remove the locally cached version, which will force nextflow to download and cache the latest version, run:
+
+```
+nextflow drop stenglein-lab/tick_surveillance
+# now run with latest version
+nextflow run stenglein-lab/tick_surveillance -profile singularity,test
+```
+
+Alternatively, you can just delete the cached pipeline directory:
+```
+rm -rf ~/.nextflow/assets/stenglein-lab/tick_surveillance/
+```
+
+Running from github is [described in more detail here](https://www.nextflow.io/docs/latest/sharing.html).  
+
+
 
 #### Running in different environments
 
@@ -35,11 +69,6 @@ You will want to use a profile that matches your computing environment.  So, for
 ```
 nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,sge 
 ```
-
-#### Updating the cached pipeline 
-This downloads the pipeline code and caches it in your home directory in `~/.nextflow/assets/stenglein-lab/tick_surveillance/`.  In theory, running the command `nextflow pull stenglein-lab/tick_surveillance` should update this cached pipeline.  But I've found that doesn't always work.  If you need to update the pipeline (because it's been updated on the github repostiroy), you can do so by running `rm -rf ~/.nextflow/assets/stenglein-lab/tick_surveillance/` before running the pipeline again.  
-
-
 
 ### Running by cloning the pipeline's repository
 
