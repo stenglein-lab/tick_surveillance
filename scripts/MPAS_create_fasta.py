@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-from tkinter import TRUE
+# from tkinter import TRUE
 import pandas as pd
 import csv
 import sys

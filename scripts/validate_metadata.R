@@ -31,6 +31,7 @@ if (!interactive()) {
 
 # This script: 
 # - validates that the metadata file contains required columns
+# - validates that the metadata file contains values for certain columns
 # - validates that sample names (fastq file names) are not repeated
 # - validates that metadata sample names (in Index column) are not repeated
 # - confirms that there is one-to-one correspondence between fastq sample IDs and metadata IDs
@@ -58,7 +59,12 @@ if (nrow(repeated_sample_ids) > 0) {
 
 # check that required metadata columns exist.  Error and abort if not.
 # required_metadata_columns <- c("Index", "Not_A_Column_")
-required_metadata_columns <- c("Index", "Pathogen_Testing_ID")
+required_metadata_columns <- c("Index", 
+			       "Pathogen_Testing_ID", 
+			       "CSID", 
+			       "Morphological_Ectoparasite_Genus_Species", 
+			       "Lifestage", 
+			       "State")
 
 for (required_col in required_metadata_columns) {
   if (!required_col %in% colnames(metadata)) {
