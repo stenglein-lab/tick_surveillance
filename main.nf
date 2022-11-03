@@ -526,7 +526,7 @@ process initial_multiqc {
 
   script:
   """
-  multiqc -n "initial_qc_report.html" -m fastqc $all_zip
+  multiqc --interactive -n "initial_qc_report.html" -m fastqc $all_zip
   """
 } 
 
@@ -715,7 +715,7 @@ process post_trim_multiqc {
   path("post_trim_qc_report.html") into post_trim_multiqc_output_ch
 
   """
-  multiqc -n "post_trim_qc_report.html" -m fastqc $all_zip
+  multiqc --interactive -n "post_trim_qc_report.html" -m fastqc $all_zip
   """
 }
 
