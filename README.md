@@ -11,7 +11,7 @@ See the [dependencies section](#dependencies) below for information about the ma
 The simplest way to run the pipeline is directly from github, like this:
 
 ```
-nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,local 
+nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity
 ```
 
 You must specify two required inputs to the pipeline: the path to a metadata excel spreadsheet and the path to a directory containing input fastq.  See [this section](#inputs) for more information on required inputs.
@@ -75,7 +75,7 @@ It is also possible to download the pipeline code to a directory of your choosin
 ```
 git clone https://github.com/stenglein-lab/tick_surveillance.git
 cd tick_surveillance
-nextflow run main.nf -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,local
+nextflow run main.nf -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity
 ```
 
 ## Inputs
