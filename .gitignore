@@ -8,3 +8,5 @@ draft_versions
 python_venv
 *.swp
 *.bak
+lib/R/openxlsx
+lib/R/zip
