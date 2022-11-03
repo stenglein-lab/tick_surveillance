@@ -16,8 +16,6 @@ nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadat
 
 You must specify two required inputs to the pipeline: the path to a metadata excel spreadsheet and the path to a directory containing input fastq.  See [this section](#inputs) for more information on required inputs.
 
-You must specify a path to a metadata 
-
 ### Running test datasets
 
 The pipeline includes a handful of small (<= 1000 read) datasets that are derived from real known positive (or known negative) datasets.  These are included in the [test directory](./test/) of the repository.  These datasets serve as positive and negative controls and allow you to test that the pipeline is working as expected.  To use these test datasets, run with the test profile, for instance:
@@ -106,7 +104,7 @@ Input sequence data is assumed to be Illumina paired-end data in separate read1 
 
 The expected names of the fastq files are defined by the parameter `fastq_pattern`, whose default value is defined in nextflow.config as `*_R[12]_*.fastq*`.  This pattern can be overridden on the nextflow command line using the `--fastq_pattern` paramter.
 
-The location of the fastq files is specified by the `fastq_dir` parameter, whose default value is `${baseDir}/input/fastq`.
+The location of the fastq files is specified by the `fastq_dir` parameter, whose default value is `./input/fastq` (relative to your present working directory from which you are running the nextflow command).
 
 ## Output
 
@@ -116,9 +114,11 @@ The main outputs of the pipeline are:
 2. [QC reports](#qc-reports)
 3. Information about [observed sequences that were not assigned to any reference sequences](#unassigned-sequences).
 
+These typically are output to a `results` directory (or `test/results` when running with -profile test).
+
 ### Surveillance Report
 
-The pipeline outputs a surveillance report in Microsoft Excel format in the results directory (or value of parameter `outdir`).   
+The pipeline outputs a surveillance report in Microsoft Excel format.
 
 #### Surveillance columns
 
@@ -188,7 +188,7 @@ To add a new primer pair to the pipeline, you will need to edit this file.  It i
 The default location of the primers.tsv file can be overwritten by specifying the --primers option on the nextflow command line.  For instance:
 
 ```
-nextflow run main.nf -profile singularity --primers /path/to/primers.tsv
+nextflow run stenglein-lab/tick_surveillance -profile singularity --primers /path/to/primers.tsv
 ```
 
 If primer sequences are not entered in the correct orientation, trimming will not work and targets amplified by these sequences will not be detected by the pipeline.  The solution in this case will most likely just be to swap the F/R orientation of the primers in this file. 
@@ -220,3 +220,30 @@ Singularity containers will be automatically downloaded and stored in a director
 ### Conda
 
 It is possible to run this pipeline using an all-in-one [conda](https://docs.conda.io/en/latest/) environment, defined [in this file](./conda/tick_conda_environment.yaml).  But it is recommended to use singularity instead of conda.  
+
+## BLASTing of unassigned sequences
+
+It is possible that amplicon sequencing will generate sequences that are off-target or not closely related enough to be assigned to one of the predefined reference sequences.  The pipeline can BLAST these "unassigned" sequences against the NCBI nt database to try to figure out what they are.  There are two ways to do this:
+
+1. By using BLASTn with the -remote option.  This is very slow but doesn't require a local copy of the BLAST database.  To run this way, set the `remote_blast_nt` parameter to true.  This sends the sequences to a remote NCBI server for BLASTing.
+2. Alternatively, if you have a local copy of the nt BLAST database installed, you can specify its location using the `local_nt_database` parameter, which should be the path of a local nt database.
+
+Enabling BLASTing of unassigned sequences is controlled by the `blast_unassigned_sequences` parameter.  
+
+These options can be configured on the command line, for example:
+
+```
+nextflow run stenglein-lab/tick_surveillance -profile test,singularity --remote_blast_nt true
+```
+
+Or in a nextflow config file, for instance:
+
+```
+  // profile for local BLAST of unassigned sequences
+  local_blast {
+    params.blast_unassigned_sequences = true
+    params.local_nt_database ="/home/NCBI_databases/nt/nt"
+    params.remote_blast_nt = false
+  }
+```
+
