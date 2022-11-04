@@ -15,16 +15,16 @@
 if (!interactive()) {
   # if running from Rscript
   args = commandArgs(trailingOnly=TRUE)
-  r_libdir=args[1]
-  unassigned_sequences_fasta=args[2]
-  blast_output_path=args[3]
-  output_path = "./"
+  r_libdir                    = args[1]
+  unassigned_sequences_fasta  = args[2]
+  blast_output_path           = args[3]
+  output_path                 = "./"
 } else {
   # if running via RStudio
-  r_libdir = "../lib/R/"
-  unassigned_sequences_fasta="../results/blast/unassigned_sequences.fasta"
-  blast_output_path="../results/blast/unassigned_sequences.fasta.bn_nt"
-  output_path = "../results/"
+  r_libdir                    = "NA"
+  unassigned_sequences_fasta  = "../test/results/blast/unassigned_sequences.fasta"
+  blast_output_path           = "../test/results/blast/unassigned_sequences.fasta.bn_nt"
+  output_path                 = "../test/results/"
 }
 
 library(tidyverse)
@@ -45,7 +45,7 @@ for (line in seq_lines){
     seq_id = seq_id_match
   } else {
     sequence = line
-    unassigned_sequences[nrow(unassigned_sequences) + 1,] = c(seq_id, sequence)
+    unassigned_sequences <- unassigned_sequences %>% add_row(query = seq_id, sequence = sequence)
   }
 }
 
