@@ -223,17 +223,19 @@ It is possible to run this pipeline using an all-in-one [conda](https://docs.con
 
 ## BLASTing of unassigned sequences
 
-It is possible that amplicon sequencing will generate sequences that are off-target or not closely related enough to be assigned to one of the predefined reference sequences.  The pipeline can BLAST these "unassigned" sequences against the NCBI nt database to try to figure out what they are.  There are two ways to do this:
-
-1. By using BLASTn with the -remote option.  This is very slow but doesn't require a local copy of the BLAST database.  To run this way, set the `remote_blast_nt` parameter to true.  This sends the sequences to a remote NCBI server for BLASTing.
-2. Alternatively, if you have a local copy of the nt BLAST database installed, you can specify its location using the `local_nt_database` parameter, which should be the path of a local nt database.
+It is possible that amplicon sequencing will generate sequences that are off-target or not closely related enough to be assigned to one of the predefined reference sequences.  The pipeline can BLAST these "unassigned" sequences against the NCBI nt database to try to figure out what they are.  
 
 Enabling BLASTing of unassigned sequences is controlled by the `blast_unassigned_sequences` parameter.  
+
+There are two ways to run the BLAST:
+
+1. **Remote option:** By using BLASTn with the -remote option.  This is very slow but doesn't require a local copy of the BLAST database.  To run this way, set the `remote_blast_nt` parameter to true.  This sends the sequences to a remote NCBI server for BLASTing.
+2. **Local option:** Alternatively, if you have a local copy of the nt BLAST database installed, you can specify its location using the `local_nt_database` parameter, which should be the path of a local nt database.
 
 These options can be configured on the command line, for example:
 
 ```
-nextflow run stenglein-lab/tick_surveillance -profile test,singularity --remote_blast_nt true
+nextflow run stenglein-lab/tick_surveillance -profile test,singularity --blast_unassigned_sequences true --remote_blast_nt true
 ```
 
 Or in a nextflow config file, for instance:
@@ -246,4 +248,8 @@ Or in a nextflow config file, for instance:
     params.remote_blast_nt = false
   }
 ```
+
+#### BLAST Taxonomy 
+
+BLAST can provide taxonomic information about database hits.  To do this, it needs access to two files: taxdb.btd and taxdb.bti.  These can be downloaded from `ftp://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz`. If you have a copy of these files locally, you can specify their location using the `blast_tax_dir` parameter, which should be set to the directory containing these files.  If you don't specify this parameter, nextflow will download a copy of these files in the work directory. These files take up ~200 Mb of disk space.  An advantage of letting nextflow download these files is that it will then be using the latest versions.
 

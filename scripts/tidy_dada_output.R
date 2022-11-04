@@ -15,7 +15,6 @@ library(openssl)
 if (!interactive()) {
   # if running from Rscript
   args = commandArgs(trailingOnly=TRUE)
-  # TODO: check CLAs
   r_bindir=args[1]
   dada_seqtab=args[2]
   outdir="./"
