@@ -186,11 +186,6 @@ if (params.help || params.h) {
 */
 def check_params_and_input () {
 
-  // check_input_fastq()
-  // check_reference_sequences()
-  // check_primers()
-  // check_metadata()
-
   // This list includes a list of files or paths that are required 
   // to exist.  Check that they exist and fail if not.  
   checkPathParamList = [
@@ -201,9 +196,29 @@ def check_params_and_input () {
     params.metadata, 
     params.primers 
   ]
-  log.info("Checking for required input paths and files...")
+  // log.info("Checking for required input paths and files...")
   for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true) } }
+
+  check_blast_parameters()
   
+}
+
+/*
+  Check that BLAST (of unassigned sequences) parameters are set in a way that makes sense
+ */
+def check_blast_parameters() {
+  if (params.blast_unassigned_sequences && !(params.local_nt_database || params.remote_blast_nt)) {
+    log.error("Error: blast_unassigned_sequences is true but neither local_nt_database nor remote_blast_nt is specified.")
+    System.exit(1)
+  }
+  if (params.blast_unassigned_sequences && (params.local_nt_database && params.remote_blast_nt)) {
+    log.error(
+    """
+    Error: blast_unassigned_sequences is true and both local_nt_database and remote_blast_nt are specified.
+           Only one of local_nt_database and remote_blast_nt must be specified.
+    """)
+    System.exit(1)
+  }
 }
 
 
@@ -475,6 +490,37 @@ process output_sample_ids {
 tabulate_sample_ids_ch
   .collectFile(name: 'sample_ids.txt', newLine: true)
   .set{ sample_ids_file_ch }
+
+/*
+  This process validates that the metadata file is in the approprate
+  format and contains the appropriate information.  Logic in the R script.
+*/
+process validate_metadata_file {
+  publishDir "${params.log_outdir}", mode: 'link', pattern: "*.txt"
+
+  label 'process_low'
+
+  // singularity info for this process                                          
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1" 
+  } else {                                                                      
+      container "quay.io/biocontainers/r-tidyverse:1.2.1"                       
+  }     
+  
+  input:
+  path(metadata) from post_metadata_check_ch
+  path(sample_ids) from sample_ids_file_ch
+
+  output:
+  path(metadata) into validated_metadata_ch
+  path("metadata_check.txt")
+  path(sample_ids)
+
+  script:
+  """
+  Rscript ${params.script_dir}/validate_metadata.R ${params.script_dir} $metadata $sample_ids 2> metadata_check.txt
+  """
+}
 
 /*
  Run fastqc on input fastq 
@@ -830,35 +876,6 @@ process compare_observed_sequences_to_ref_seqs {
   """             
 }
 
-/*
-  This process validates that the metadata file exists
-*/
-process validate_metadata_file {
-  publishDir "${params.log_outdir}", mode: 'link', pattern: "*.txt"
-
-  label 'process_low'
-
-  // singularity info for this process                                          
-  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1" 
-  } else {                                                                      
-      container "quay.io/biocontainers/r-tidyverse:1.2.1"                       
-  }     
-  
-  input:
-  path(metadata) from post_metadata_check_ch
-  path(sample_ids) from sample_ids_file_ch
-
-  output:
-  path(metadata) into validated_metadata_ch
-  path("metadata_check.txt")
-  path(sample_ids)
-
-  script:
-  """
-  Rscript ${params.script_dir}/validate_metadata.R ${params.script_dir} $metadata $sample_ids 2> metadata_check.txt
-  """
-}
 
 /*
   This process takes the blast alignment information from the above process
@@ -1026,6 +1043,105 @@ process view_phylo_tree {
 }
 
 
+/*
+  This process confirms that the local NT database is valid 
+  (if applicable: if going to blast unassigned sequences and 
+   if not doing a remote blast)
+ */
+
+process check_local_blast_database {
+  label 'process_low'
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/blast:2.12.0--pl5262h3289130_0"
+  } else {
+      container "quay.io/biocontainers/blast:2.12.0--pl5262h3289130_0"
+  }
+
+  when: 
+  params.blast_unassigned_sequences
+
+  output:
+  val("db_check_complete") into post_blast_db_check_ch
+
+  script:                                                                       
+  params.remote_blast_nt ? 
+  """
+    echo "Don't need to check local BLAST database when running with -remote option"
+  """ : 
+  """
+    # check for expected .nal file: if not present, output a helpful warning message
+    if [ ! -f "${params.local_nt_database}.nal" ]                                 
+    then                                                                          
+      echo "ERROR: it does not appear that ${params.local_nt_database} (--local_nt_database) is a valid BLAST database."
+    fi   
+  
+    # check validity of database with blastdbcmd.  If not valid, this will error 
+    # and stop pipeline.
+    blastdbcmd -db ${params.local_nt_database} -info 
+  """
+}
+
+/* 
+  Confirm that local blast will be taxonomically aware
+ */
+process check_blast_tax {
+  label 'process_low'
+
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://depot.galaxyproject.org/singularity/curl:7.80.0"
+  } else {
+      container "quay.io/biocontainers/curl:7.80.0"
+  }
+
+  when: 
+  params.blast_unassigned_sequences
+
+  input:
+  val(db_check_complete) from post_blast_db_check_ch
+
+  output:
+  path(blast_tax_dir) into post_blast_tax_check_ch
+
+  script:
+  // if a local blast_tax_dir is specified, check that it contains the expected files
+  params.blast_tax_dir ? 
+  """
+    # check that the directory exists
+    if [ ! -d "${params.blast_tax_dir}" ] ; then
+      echo "ERROR: BLAST taxonomy directory ${params.blast_tax_dir} (--blast_tax_dir) does not exist."
+      exit 1
+    fi 
+    # check that appropriate files exist
+    if [ ! -f "${params.blast_tax_dir}/taxdb.btd" ] ; then
+      echo "ERROR: required BLAST taxonomy file taxdb.btd not in directory ${params.blast_tax_dir} (--blast_tax_dir)."
+      exit 1
+    fi 
+    if [ ! -f "${params.blast_tax_dir}/taxdb.bti" ] ; then
+      echo "ERROR: required BLAST taxonomy file taxdb.bti not in directory ${params.blast_tax_dir} (--blast_tax_dir)."
+      exit 1
+    fi 
+  
+    # create link to directory that contains the files.  This will be output
+    ln -s ${params.blast_tax_dir} blast_tax_dir
+  """ :
+  // if tax dir not defined: download the necessary files and keep track of directory 
+  """
+    # make a directory to contain the files
+    mkdir blast_tax_dir
+    # download taxdb files
+    curl -OL ftp://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz
+    # unpack archive
+    tar xvf taxdb.tar.gz
+    # move files to blast_tax_dir
+    mv taxdb.??? blast_tax_dir
+    # get rid of archive
+    rm taxdb.tar.gz
+  """
+}
+
 /* 
  This process BLASTs all of the unassigned unique sequences 
  (amplicon sequence variants) from dada2 against the NCBI
@@ -1049,6 +1165,7 @@ process blast_unassigned_sequences {
 
   input:
   path(unassigned_sequences) from post_assign_to_refseq_ch
+  path(blast_tax_dir) from post_blast_tax_check_ch
 
   output:
   path("${unassigned_sequences}.bn_nt") into post_blast_unassigned_ch
@@ -1077,6 +1194,8 @@ process blast_unassigned_sequences {
 
 
   """
+  export BLASTDB="$blast_tax_dir"
+
   # run blastn
   blastn $blast_db_params -task megablast -perc_identity ${params.blast_perc_identity} -qcov_hsp_perc ${params.blast_qcov_hsp_perc} -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
 
