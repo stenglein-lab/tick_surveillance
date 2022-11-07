@@ -1132,7 +1132,7 @@ process check_blast_tax {
     # make a directory to contain the files
     mkdir blast_tax_dir
     # download taxdb files
-    curl -OL ftp://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz
+    curl -OL https://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz
     # unpack archive
     tar xvf taxdb.tar.gz
     # move files to blast_tax_dir
