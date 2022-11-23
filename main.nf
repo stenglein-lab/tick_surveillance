@@ -1004,7 +1004,7 @@ process make_ml_tree {
   
   shell:
   """
-  iqtree -s $all_alignment -st DNA -bb 1000 -quiet -nt AUTO -m MFP -pre tree_${all_alignment.baseName}   
+  iqtree -s $all_alignment -st DNA -quiet -m MFP -pre tree_${all_alignment.baseName}   
   """ 
 }
 
