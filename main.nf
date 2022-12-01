@@ -976,15 +976,14 @@ process make_tree_alignment {
 
   shell:
   """
-  mafft --adjustdirection --quiet --auto --maxiterate 1000 --nuc "$all_fasta" > "mafft_${all_fasta}"
+  mafft --adjustdirection --quiet --auto --nuc "$all_fasta" > "mafft_${all_fasta}"
   """
 }
 
 /*
-   Build maximum likelihood for each group of sequences using FastTree 
-   and save as newick file. 
+   Build maximum likelihood for each group of sequences using IQ-TREE. 
 
-   FastTree documentation: https://manpages.org/fasttree
+   IQ-TREE documentation: www.iqtree.org/doc/
 */
 process make_ml_tree {
 
@@ -992,21 +991,21 @@ process make_ml_tree {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/fasttree:2.1.11--hec16e2b_1"
+      container "https://depot.galaxyproject.org/singularity/iqtree:2.2.0.3--hb97b32f_1"
   } else {
-      container "quay.io/biocontainers/fasttree:2.1.11--hec16e2b_1"
+      container "quay.io/biocontainers/iqtree:2.2.0.3--hb97b32f_1"
   }
   
   input:
   path(all_alignment) from msa_tree_ch
 
   output:
-  path("tree_${all_alignment.baseName}") into ml_tree_ch
+  path("tree_${all_alignment.baseName}.treefile") into ml_tree_ch
   
   shell:
   """
-  fasttree -gamma -nt -quiet $all_alignment > "tree_${all_alignment.baseName}"
-  """
+  iqtree -s $all_alignment -st DNA -quiet -m MFP -pre tree_${all_alignment.baseName}   
+  """ 
 }
 
 /*
@@ -1027,10 +1026,10 @@ process view_phylo_tree {
   }
 
   input:
-  path(fasttree) from ml_tree_ch.flatten()
+  path(iqtree) from ml_tree_ch.flatten()
 
   output:
-  path("${fasttree}.pdf") into pdf_tree_ch
+  path("${iqtree.baseName}.pdf") into pdf_tree_ch
 
   shell:
   // only need to activate the venv for singularity
@@ -1038,7 +1037,7 @@ process view_phylo_tree {
   """
   # source ${params.python_venv_path}/bin/activate                                
   $activate_venv
-  python3 ${params.script_dir}/MPAS_view_tree.py $fasttree
+  python3 ${params.script_dir}/MPAS_view_tree.py $iqtree
   """
 }
 
@@ -1132,7 +1131,7 @@ process check_blast_tax {
     # make a directory to contain the files
     mkdir blast_tax_dir
     # download taxdb files
-    curl -OL https://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz
+    curl -OL ftp://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz
     # unpack archive
     tar xvf taxdb.tar.gz
     # move files to blast_tax_dir

@@ -16,7 +16,7 @@ dependencies:
   - bioconda::bioconductor-dada2=1.22.0
   - bioconda::blast=2.12.*
   - bioconda::mafft=7.508
-  - bioconda::fasttree=2.1.11
+  - bioconda::iqtree=2.2.0.3
   - conda-forge::toytree=2.0.5
   - conda-forge::toyplot=1.0.1
   - conda-forge::pandas=1.4.4
