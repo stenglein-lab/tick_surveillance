@@ -1061,6 +1061,9 @@ process check_local_blast_database {
   when: 
   params.blast_unassigned_sequences
 
+  input:
+  path(params.local_nt_database)
+
   output:
   val("db_check_complete") into post_blast_db_check_ch
 
@@ -1165,6 +1168,7 @@ process blast_unassigned_sequences {
   input:
   path(unassigned_sequences) from post_assign_to_refseq_ch
   path(blast_tax_dir) from post_blast_tax_check_ch
+  path(params.local_nt_database)
 
   output:
   path("${unassigned_sequences}.bn_nt") into post_blast_unassigned_ch
