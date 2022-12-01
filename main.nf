@@ -207,15 +207,15 @@ def check_params_and_input () {
   Check that BLAST (of unassigned sequences) parameters are set in a way that makes sense
  */
 def check_blast_parameters() {
-  if (params.blast_unassigned_sequences && !(params.local_nt_database || params.remote_blast_nt)) {
-    log.error("Error: blast_unassigned_sequences is true but neither local_nt_database nor remote_blast_nt is specified.")
+  if (params.blast_unassigned_sequences && !(params.local_nt_database_dir || params.remote_blast_nt)) {
+    log.error("Error: blast_unassigned_sequences is true but neither local_nt_database_dir nor remote_blast_nt is specified.")
     System.exit(1)
   }
-  if (params.blast_unassigned_sequences && (params.local_nt_database && params.remote_blast_nt)) {
+  if (params.blast_unassigned_sequences && (params.local_nt_database_dir && params.remote_blast_nt)) {
     log.error(
     """
-    Error: blast_unassigned_sequences is true and both local_nt_database and remote_blast_nt are specified.
-           Only one of local_nt_database and remote_blast_nt must be specified.
+    Error: blast_unassigned_sequences is true and both local_nt_database_dir and remote_blast_nt are specified.
+           Only one of local_nt_database_dir and remote_blast_nt must be specified.
     """)
     System.exit(1)
   }
@@ -1043,6 +1043,17 @@ process view_phylo_tree {
 
 
 /*
+  Create a channel containing the path to an (optional) local copy of the nt
+  blast database.
+ */
+blast_db_ch = Channel.empty()
+
+if (params.blast_unassigned_sequences && params.local_nt_database_dir) {
+  blast_db_ch = Channel.fromPath( params.local_nt_database_dir )
+}
+
+
+/*
   This process confirms that the local NT database is valid 
   (if applicable: if going to blast unassigned sequences and 
    if not doing a remote blast)
@@ -1059,31 +1070,56 @@ process check_local_blast_database {
   }
 
   when: 
-  params.blast_unassigned_sequences
+  params.blast_unassigned_sequences 
 
   input:
-  path(params.local_nt_database)
+  path(local_nt_database_dir) from blast_db_ch
 
   output:
-  val("db_check_complete") into post_blast_db_check_ch
+  path(local_nt_database_dir) into post_blast_db_check_ch
 
   script:                                                                       
+  def local_nt_database = "${local_nt_database_dir}/${params.local_nt_database_name}"
+
   params.remote_blast_nt ? 
   """
     echo "Don't need to check local BLAST database when running with -remote option"
   """ : 
   """
     # check for expected .nal file: if not present, output a helpful warning message
-    if [ ! -f "${params.local_nt_database}.nal" ]                                 
+    if [ ! -f "${local_nt_database_dir}/${params.local_nt_database_name}.nal" ]                                 
     then                                                                          
-      echo "ERROR: it does not appear that ${params.local_nt_database} (--local_nt_database) is a valid BLAST database."
+      echo "ERROR: it does not appear that ${local_nt_database} is a valid BLAST database."
     fi   
   
     # check validity of database with blastdbcmd.  If not valid, this will error 
     # and stop pipeline.
-    blastdbcmd -db ${params.local_nt_database} -info 
+    blastdbcmd -db ${local_nt_database} -info 
   """
 }
+
+/*
+  Create a channel containing the path to an (optional) local copy of the 
+  NCBI blast/taxonomy db to make BLAST taxonomically aware
+ */
+blast_tax_ch = Channel.empty()
+
+if (params.blast_unassigned_sequences) {
+  // if this path was provided as a parameter, then create a channel
+  // from this path and set a boolean to true to indicate it's an existing
+  // directory
+  if (params.blast_tax_dir) {
+     blast_tax_ch = Channel.fromPath( params.blast_tax_dir )
+                           .map { path -> [ path , true ] }  
+  } else {
+     // if this path was *not* provided as a parameter, then create a channel
+     // from a bogus path "blast_tax_dir" and set a boolean to false 
+     // to indicate it *doesn't* refer to an existing
+     blast_tax_ch = Channel.fromPath( "blast_tax_dir" )
+                           .map { path -> [ path , false ] }  
+  }
+} 
+
 
 /* 
   Confirm that local blast will be taxonomically aware
@@ -1102,43 +1138,43 @@ process check_blast_tax {
   params.blast_unassigned_sequences
 
   input:
-  val(db_check_complete) from post_blast_db_check_ch
+  tuple path(blast_tax_dir), val(existing_db) from blast_tax_ch
 
   output:
-  path(blast_tax_dir) into post_blast_tax_check_ch
+  path (blast_tax_dir) into post_blast_tax_check_ch
 
   script:
   // if a local blast_tax_dir is specified, check that it contains the expected files
-  params.blast_tax_dir ? 
+  existing_db ? 
   """
     # check that the directory exists
-    if [ ! -d "${params.blast_tax_dir}" ] ; then
-      echo "ERROR: BLAST taxonomy directory ${params.blast_tax_dir} (--blast_tax_dir) does not exist."
+    if [ ! -d "${blast_tax_dir}" ] ; then
+      echo "ERROR: BLAST taxonomy directory ${blast_tax_dir} (--blast_tax_dir) does not exist."
       exit 1
     fi 
     # check that appropriate files exist
-    if [ ! -f "${params.blast_tax_dir}/taxdb.btd" ] ; then
-      echo "ERROR: required BLAST taxonomy file taxdb.btd not in directory ${params.blast_tax_dir} (--blast_tax_dir)."
+    if [ ! -f "${blast_tax_dir}/taxdb.btd" ] ; then
+      echo "ERROR: required BLAST taxonomy file taxdb.btd not in directory ${blast_tax_dir} (--blast_tax_dir)."
       exit 1
     fi 
-    if [ ! -f "${params.blast_tax_dir}/taxdb.bti" ] ; then
-      echo "ERROR: required BLAST taxonomy file taxdb.bti not in directory ${params.blast_tax_dir} (--blast_tax_dir)."
+    if [ ! -f "${blast_tax_dir}/taxdb.bti" ] ; then
+      echo "ERROR: required BLAST taxonomy file taxdb.bti not in directory ${blast_tax_dir} (--blast_tax_dir)."
       exit 1
     fi 
   
-    # create link to directory that contains the files.  This will be output
-    ln -s ${params.blast_tax_dir} blast_tax_dir
   """ :
-  // if tax dir not defined: download the necessary files and keep track of directory 
+  // if tax db doesn't already exist : download the necessary files and keep track of directory 
   """
-    # make a directory to contain the files
-    mkdir blast_tax_dir
+    # make a new local directory to contain the files
+    # first remove broken link to non-existent file
+    rm $blast_tax_dir
+    mkdir $blast_tax_dir
     # download taxdb files
-    curl -OL ftp://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz
+    curl -OL https://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz
     # unpack archive
     tar xvf taxdb.tar.gz
     # move files to blast_tax_dir
-    mv taxdb.??? blast_tax_dir
+    mv taxdb.??? $blast_tax_dir
     # get rid of archive
     rm taxdb.tar.gz
   """
@@ -1167,14 +1203,17 @@ process blast_unassigned_sequences {
 
   input:
   path(unassigned_sequences) from post_assign_to_refseq_ch
-  path(blast_tax_dir) from post_blast_tax_check_ch
-  path(params.local_nt_database)
+  path(blast_tax_dir), stageAs: 'local_blast_tax_dir' from post_blast_tax_check_ch
+  path(local_nt_database_dir), stageAs: 'local_nt_db_dir'  from post_blast_db_check_ch
 
   output:
   path("${unassigned_sequences}.bn_nt") into post_blast_unassigned_ch
   path("${unassigned_sequences}") into post_blast_unassigned_seq_ch
 
   script:                                                                       
+  // if BLASTing locally: the location/name of the blast db
+  def local_nt_database = "${local_nt_database_dir}/${params.local_nt_database_name}"
+
   // columns to include in blast output: standard ones plus taxonomy info
   def blastn_columns = "qaccver saccver pident length mismatch gaps qstart qend sstart send evalue bitscore staxid ssciname scomname sblastname sskingdom"
 /*
@@ -1192,7 +1231,7 @@ process blast_unassigned_sequences {
   }
   else {
     // local blastn: faster but requires locally installed nt database
-    blast_db_params = "-db ${params.local_nt_database}"
+    blast_db_params = "-db ${local_nt_database}"
   }
 
 
