@@ -230,12 +230,12 @@ Enabling BLASTing of unassigned sequences is controlled by the `blast_unassigned
 There are two ways to run the BLAST:
 
 1. **Remote option:** By using BLASTn with the -remote option.  This is very slow but doesn't require a local copy of the BLAST database.  To run this way, set the `remote_blast_nt` parameter to true.  This sends the sequences to a remote NCBI server for BLASTing.
-2. **Local option:** Alternatively, if you have a local copy of the nt BLAST database installed, you can specify its location using the `local_nt_database` parameter, which should be the path of a local nt database.
+2. **Local option:** Alternatively, if you have a local copy of the nt BLAST database installed, you can specify its location using the `local_nt_database_dir` parameter, which should be the path to a directory containing a local nt database.  The name of this database is expected to be "nt", but this name can be changed by overriding the `local_nt_database_name` parameter.
 
 These options can be configured on the command line, for example:
 
 ```
-nextflow run stenglein-lab/tick_surveillance -profile test,singularity --blast_unassigned_sequences true --remote_blast_nt true
+nextflow run stenglein-lab/tick_surveillance -profile test,singularity --blast_unassigned_sequences --remote_blast_nt true
 ```
 
 Or in a nextflow config file, for instance:
@@ -244,7 +244,7 @@ Or in a nextflow config file, for instance:
   // profile for local BLAST of unassigned sequences
   local_blast {
     params.blast_unassigned_sequences = true
-    params.local_nt_database ="/home/NCBI_databases/nt/nt"
+    params.local_nt_database_dir ="/home/NCBI_databases/nt/"
     params.remote_blast_nt = false
   }
 ```
