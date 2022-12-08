@@ -380,11 +380,9 @@ process setup_R_dependencies {
   label 'process_low'
 
   // singularity info for this process
-  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1"
-  } else {
-      container "quay.io/biocontainers/r-tidyverse:1.2.1"
-  }
+  if (workflow.containerEngine == 'singularity'){
+      container "docker://rocker/tidyverse:4.2.2"
+  }     
 
   output:
   // this output will be a signal that venv setup is complete
@@ -500,11 +498,9 @@ process validate_metadata_file {
 
   label 'process_low'
 
-  // singularity info for this process                                          
-  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1" 
-  } else {                                                                      
-      container "quay.io/biocontainers/r-tidyverse:1.2.1"                       
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity'){
+      container "docker://rocker/tidyverse:4.2.2"
   }     
   
   input:
@@ -817,12 +813,10 @@ process tidy_dada_output {
 
   label 'process_low'
 
-  // singularity info for this process                                          
-  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1" 
-  } else {                                                                      
-      container "quay.io/biocontainers/r-tidyverse:1.2.1"                       
-  }    
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity'){
+      container "docker://rocker/tidyverse:4.2.2"
+  }     
 
   input:
   path(dada_output) from post_dada_run_ch
@@ -887,11 +881,8 @@ process assign_observed_sequences_to_ref_seqs {
   label 'process_low'
 
   // singularity info for this process
-  // singularity info for this process                                          
-  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1" 
-  } else {                                                                      
-      container "quay.io/biocontainers/r-tidyverse:1.2.1"                       
+  if (workflow.containerEngine == 'singularity'){
+      container "docker://rocker/tidyverse:4.2.2"
   }     
 
   input:
@@ -1260,12 +1251,10 @@ process assign_non_ref_seqs {
 
   label 'process_low'
 
-  // singularity info for this process                                          
-  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/r-tidyverse:1.2.1" 
-  } else {                                                                      
-      container "quay.io/biocontainers/r-tidyverse:1.2.1"                       
-  }    
+  // singularity info for this process
+  if (workflow.containerEngine == 'singularity'){
+      container "docker://rocker/tidyverse:4.2.2"
+  }     
 
   input:
   path(blast_output) from post_blast_unassigned_ch
