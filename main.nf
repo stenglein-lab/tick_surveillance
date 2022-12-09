@@ -191,7 +191,6 @@ def check_params_and_input () {
   checkPathParamList = [
     params.fastq_dir, 
     params.script_dir, 
-    params.refseq_dir, 
     params.targets, 
     params.metadata, 
     params.primers 
@@ -271,7 +270,7 @@ process generate_refseq_fastas {
   concatenate individual fasta into one big reference sequence file 
 */
 process combine_refseq_fasta {                                                      
-  publishDir "${params.refseq_dir}", mode: 'link'                                   
+  publishDir "${params.refseq_fasta_dir}", mode: 'link'
 
   label 'process_low'
 
@@ -294,7 +293,6 @@ process combine_refseq_fasta {
    Only do this once at beginning.
 */
 process setup_indexes {
-  publishDir "${params.refseq_dir}", mode: 'link'                                   
 
   label 'process_low'
 
