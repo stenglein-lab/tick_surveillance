@@ -507,12 +507,11 @@ process validate_metadata_file {
 
   output:
   path(metadata) into validated_metadata_ch
-  path("metadata_check.txt")
   path(sample_ids)
 
   script:
   """
-  Rscript ${params.script_dir}/validate_metadata.R ${params.script_dir} $metadata $sample_ids 2> metadata_check.txt
+  Rscript ${params.script_dir}/validate_metadata.R ${params.script_dir} $metadata $sample_ids 
   """
 }
 
