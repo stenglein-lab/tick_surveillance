@@ -444,6 +444,12 @@ surv_df <- data.frame(mat = matrix(ncol = num_surv_cols, nrow = num_surv_rows), 
 # name the columns
 colnames(surv_df) <- t(surveillance_columns$column_name)
 
+# confirm Index column present in surveillance report columns, since it's referred to in a hardcoded way below
+if (!("Index" %in% colnames(surv_df))) {
+  message (paste0("ERROR: \"Index\" column not present in surveillance columns file (", surveillance_columns_file ,")"))
+  quit(status = 1)
+}
+
 # prepopulate the columns with any default values
 #
 # convert default values from surveillance column file to a named list for easy access to values
