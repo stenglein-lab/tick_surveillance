@@ -428,6 +428,10 @@ dataset_df_calls <- dataset_by_surv_column %>%
          .groups="drop") %>%
   select(Index, surveillance_column, abundance, pos_neg_call, contributing_target_names, surveillance_column_type)
 
+# contributing target names should not be filled out if overall call is negative
+# see: https://github.com/stenglein-lab/tick_surveillance/issues/14
+dataset_df_calls <- dataset_df_calls %>% mutate(contributing_target_names = if_else(pos_neg_call == "Positive", contributing_target_names, NA_character_)) 
+
 # ----------------------------
 # create a surveillance table
 # ----------------------------
