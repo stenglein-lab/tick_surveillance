@@ -34,7 +34,7 @@ if (!interactive()) {
   r_libdir                    = "../lib/R/"
   tidy_table_path             = "../results/dada2/sequence_abundance_table.tsv"
   blast_output_path           = "../results/blast/observed_sequences.fasta.bn_refseq"
-  sample_metadata_file        = "../input/AK_metadata.xlsx"
+  sample_metadata_file        = "../../2022_2_24_datasets/2021_4_group_2_v3.xlsx"
   targets_tsv_file            = "../refseq/targets.tsv"
   surveillance_columns_file   = "../refseq/surveillance_columns.txt"
   input_min_non_control_reads = 50
@@ -240,7 +240,6 @@ assigned_plot <- ggplot(blast_df) +
 # render the plot and output to PDF
 ggsave(paste0(output_dir, "/assigned_targets_plot.pdf"), plot = assigned_plot, width=7, height=5, units="in")
 
-
 # --------------------------------------------------------------------------------------
 # separate assigned and unassigned sequences and write out unassigned sequences in fasta
 # --------------------------------------------------------------------------------------
@@ -429,6 +428,10 @@ dataset_df_calls <- dataset_by_surv_column %>%
          .groups="drop") %>%
   select(Index, surveillance_column, abundance, pos_neg_call, contributing_target_names, surveillance_column_type)
 
+# contributing target names should not be filled out if overall call is negative
+# see: https://github.com/stenglein-lab/tick_surveillance/issues/14
+dataset_df_calls <- dataset_df_calls %>% mutate(contributing_target_names = if_else(pos_neg_call == "Positive", contributing_target_names, NA_character_)) 
+
 # ----------------------------
 # create a surveillance table
 # ----------------------------
@@ -444,6 +447,12 @@ surv_df <- data.frame(mat = matrix(ncol = num_surv_cols, nrow = num_surv_rows), 
 
 # name the columns
 colnames(surv_df) <- t(surveillance_columns$column_name)
+
+# confirm Index column present in surveillance report columns, since it's referred to in a hardcoded way below
+if (!("Index" %in% colnames(surv_df))) {
+  message (paste0("ERROR: \"Index\" column not present in surveillance columns file (", surveillance_columns_file ,")"))
+  quit(status = 1)
+}
 
 # prepopulate the columns with any default values
 #
@@ -487,6 +496,7 @@ surv_df_abundances <- surv_df
 surv_df_abundances [surv_df_abundances == "Negative"] <- ""
 
 # Populate surveillance tables with observed positive calls and abundances
+# TODO: calling this function is quite slow.  Why?
 populate_surveillance_calls <- function(surv_df, surv_df_abundances, dataset_df_calls, column_names) {
   
   for (column_name in column_names) {
@@ -562,7 +572,7 @@ if (all(c("observed_sequence","mismatch") %in% colnames(dataset_df))) {
 write.table(dataset_df, paste0(output_dir, "all_data.csv"), quote=F, sep=",", col.names=T, row.names=F)
 
 # create excel output
-wb <- createWorkbook(paste0(output_dir, "identified_targets.xlsx"))
+wb <- createWorkbook(paste0(output_dir, "sequencing_report.xlsx"))
 modifyBaseFont(wb, fontSize = 11, fontColour = "black", fontName = "Helvetica")
 
 # a generic style for all cells
@@ -595,15 +605,15 @@ style_worksheet <- function (wb, sheetname, df) {
   # style all cells
   addStyle(wb=wb, sheet=sheetname,
            style=all_cell_style,
-           cols = 1:ncol(df)+1,
-           rows = 1:nrow(df)+1,
+           cols = 0:ncol(df)+1,
+           rows = 0:nrow(df)+1,
            gridExpand = T
   )
   
   # style column headers
   addStyle(wb=wb, sheet=sheetname,
            style=col_header_style,
-           cols = 1:ncol(df)+1,
+           cols = 0:ncol(df)+1,
            rows = 1:1,
            gridExpand = T,
            stack = T
@@ -622,7 +632,6 @@ style_worksheet(wb, "surveillance", surv_df)
 addWorksheet(wb, "surveillance_counts")
 writeData(wb, "surveillance_counts", surv_df_abundances)
 style_worksheet(wb, "surveillance_counts", surv_df_abundances)
-addStyle(wb, "surveillance_counts", integer_num_style, rows=1:nrow(surv_df_abundances)+1, cols=9:ncol(surv_df_abundances)+1, gridExpand =T, stack = T)
 
 addWorksheet(wb, "data_by_species")
 writeData(wb, "data_by_species", dataset_by_spp)
@@ -653,10 +662,15 @@ red_fill <- createStyle(
   bgFill = "#FF9999"
 )
 
-# Acceptable DNA column 
+# Color-coding for Acceptable DNA column 
+
+# identify position of Acceptable DNA column
+# This assumes that the column is actually named Acceptable_DNA in the surveillance_columns file
+acceptable_DNA_column <- which(colnames(surv_df) == "Acceptable_DNA")
+  
 conditionalFormatting(wb=wb, sheet="surveillance", 
                       "colourScale",
-                      cols = 10:10,
+                      cols = acceptable_DNA_column:acceptable_DNA_column,
                       rows = 1:nrow(surv_df)+1,
                       style = light_green_fill,
                       rule = "TRUE",
@@ -666,7 +680,7 @@ conditionalFormatting(wb=wb, sheet="surveillance",
 # Acceptable DNA column 
 conditionalFormatting(wb=wb, sheet="surveillance", 
                       "colourScale",
-                      cols = 10:10,
+                      cols = acceptable_DNA_column:acceptable_DNA_column,
                       rows = 1:nrow(surv_df)+1,
                       style = red_fill,
                       rule = "FALSE",
@@ -674,15 +688,19 @@ conditionalFormatting(wb=wb, sheet="surveillance",
 )
 
 # Pos/Neg calls - red color for positive calls
+# this applies to all columns after the Acceptable_DNA column
 conditionalFormatting(wb=wb, sheet="surveillance", 
                       "colourScale",
-                      cols = 11:18,
+                      cols = acceptable_DNA_column:ncol(surv_df)+1,
                       rows = 1:nrow(surv_df)+1,
                       style = red_fill,
                       rule = "Positive",
                       type = "contains"
                       
 )
+
+# add integer style to surveillance counts
+addStyle(wb, "surveillance_counts", integer_num_style, rows=1:nrow(surv_df_abundances)+1, cols=acceptable_DNA_column+1:ncol(surv_df_abundances)+1, gridExpand =T, stack = T)
 
 # write out the workbook
 saveWorkbook(wb, paste0(output_dir, "sequencing_report.xlsx"), overwrite = TRUE)
