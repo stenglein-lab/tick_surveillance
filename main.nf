@@ -795,7 +795,6 @@ process run_dada_on_trimmed {
   script:                                                                       
   """                                                                             
   # Run dada2 using trimmed fastq as input and create a tabular output of results
-  # Rscript ${params.script_dir}/run_dada_on_trimmed.R ${params.script_dir} ${params.trimmed_outdir}
   Rscript ${params.script_dir}/run_dada_on_trimmed.R ${params.script_dir} $trimmed_fastq_dir
   """             
 }
