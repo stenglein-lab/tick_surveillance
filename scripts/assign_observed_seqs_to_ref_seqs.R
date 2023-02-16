@@ -625,9 +625,9 @@ style_worksheet <- function (wb, sheetname, df) {
 
 # populate the workbook with data
 
-addWorksheet(wb, "surveillance")
-writeData(wb, "surveillance", surv_df)
-style_worksheet(wb, "surveillance", surv_df)
+addWorksheet(wb, "Testing Results")
+writeData(wb, "Testing Results", surv_df)
+style_worksheet(wb, "Testing Results", surv_df)
 
 addWorksheet(wb, "surveillance_counts")
 writeData(wb, "surveillance_counts", surv_df_abundances)
@@ -668,7 +668,7 @@ red_fill <- createStyle(
 # This assumes that the column is actually named Acceptable_DNA in the surveillance_columns file
 acceptable_DNA_column <- which(colnames(surv_df) == "Acceptable_DNA")
   
-conditionalFormatting(wb=wb, sheet="surveillance", 
+conditionalFormatting(wb=wb, sheet="Testing Results", 
                       "colourScale",
                       cols = acceptable_DNA_column:acceptable_DNA_column,
                       rows = 1:nrow(surv_df)+1,
@@ -678,7 +678,7 @@ conditionalFormatting(wb=wb, sheet="surveillance",
 )
 
 # Acceptable DNA column 
-conditionalFormatting(wb=wb, sheet="surveillance", 
+conditionalFormatting(wb=wb, sheet="Testing Results", 
                       "colourScale",
                       cols = acceptable_DNA_column:acceptable_DNA_column,
                       rows = 1:nrow(surv_df)+1,
@@ -689,7 +689,7 @@ conditionalFormatting(wb=wb, sheet="surveillance",
 
 # Pos/Neg calls - red color for positive calls
 # this applies to all columns after the Acceptable_DNA column
-conditionalFormatting(wb=wb, sheet="surveillance", 
+conditionalFormatting(wb=wb, sheet="Testing Results", 
                       "colourScale",
                       cols = acceptable_DNA_column:ncol(surv_df)+1,
                       rows = 1:nrow(surv_df)+1,
