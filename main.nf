@@ -16,6 +16,9 @@
 params.help = false
 params.h = false
 
+WorkflowMain.initialise(workflow, params, log)                                  
+
+
 /*
    Pipeline usage output message.
 
@@ -25,135 +28,7 @@ def usageMessage() {
 
   log.info """
 
-  # Tick-borne pathogen surveillance bioinformatics pipeline
-
-  For more information on this pipeline, see:
-
-   https://github.com/stenglein-lab/tick_surveillance/tree/master/documentation
-
-  ## Pipeline usage:
-  
-  The typical command for running the pipeline is as follows:
-
-    nextflow run tick_pipeline.nf 
-  
-  To resume the pipeline (if it stops for some reason or you modify the pipeline scripts): 
-
-    nextflow run tick_pipeline.nf -resume
-
-
-  ## Pipeline inputs and assumptions:
-
-  For a description of this pipeline's assumptions, input formats, see:
-
-    1. Paired end fastq (or compressed fastq) files in the input/fastq folder.  
-       These files should have filenames that end in .fastq or .fastq.gz.
-       These files name's should contain the text R1 and R2, corresponding 
-       to the 2 paired reads. 
-
-    2. A sample metadata file 
-
-
-   To document:
-
-    - Expected type of fastq input 
-    - Format of primer input 
-    - Primer sequences and their orientation.
-    - Format of target reference sequences (species name)...
-    - Internal control reference sequences
-    - Known off target sequences
-    - Known off target sequences
-    - Versioning of references?
-    - NT database info (use RefSeq instead of nt?)
-  
-  Pipeline parameters: 
-
-  All of the following parameters have default values that can be optionally
-  overridden at run time by including the parameter on the command line. For
-  example:
-
-   nextflow run tick_pipeline.nf --input_dir a_different_input_directory
-
-
-    Pipeline input:
-
-    --input_dir                    Input directory. 
-                                   [default: ${params.input_dir}] 
-
-    --fastq_dir                    Input directory for fastq files. 
-                                   [default: ${params.fastq_dir}] 
-
-    --script_dir                   Directory containing auxiliary pipeline scripts.
-                                   [default: ${params.script_dir}] 
-
-    --refseq_dir                   Directory containing target reference sequences.
-                                   [default: ${params.refseq_dir}] 
-
-    --targets                      File containing information about the target
-                                   and internal control sequences in tsv 
-                                   (tab-delimited) format.
-                                   [default: ${params.targets}] 
-
-    --primers                      File containing primers used to amplify 
-                                   surveillance targets in tsv format.
-                                   [default: ${params.primers}] 
-
-    --metadata                     File containing sample metadata
-                                   in Excel format.
-                                   [default: ${params.metadata}] 
-
-
-    Pipeline output:
-
-    --outdir                       Output directory into which to place 
-                                   result files 
-                                   [default: ${params.outdir}] 
-
-    --initial_fastqc_dir           Output directory into which to place 
-                                   initial (pre quality-trimming) fastqc 
-                                   report files
-                                   [default: ${params.initial_fastqc_dir}] 
-
-    --post_trim_fastqc_dir         Output directory into which to place 
-                                   post-trimming fastqc report files
-                                   [default: ${params.post_trim_fastqc_dir}] 
-
-    --trimmed_outdir               Output directory into which to place 
-                                   post-trimming fastqc files
-                                   [default: ${params.trimmed_outdir}] 
-
-
-    Configurable parameters for trimming and assignment:
-
-    --post_trim_min_length         Reads shorter than this after primer trimming
-                                   will be discarded from further analysis.
-                                   [default: ${params.post_trim_min_length}] 
-
-    --max_blast_refseq_evalue      The maximum blastn E-value for observed
-                                   sequences to be considered for possible
-                                   assignment to a reference sequence.  
-                                   Having an blastn E-value below this is 
-                                   necessary but not sufficient to be assigned.
-                                   [default: ${params.max_blast_refseq_evalue}] 
-
-    --max_blast_non_refseq_evalue  The maximum blastn E-value for non-reference
-                                   sequences to be considered for possible
-                                   assignment to a Genbank sequence.  
-                                   Having an blastn E-value below this is 
-                                   necessary but not sufficient to be assigned.
-                                   [default: ${params.max_blast_non_refseq_evalue}] 
-
-    Pipeline help and usage information:
-
-    --help                         Output this usage statement and terminate.
-    --h                            Output this usage statement and terminate. 
-
         """
-
-  // do this extra call to log.info because groovy strips off trailing newlines 
-  // from usage message, which makes for slightly less nice looking output.
-  log.info """
-  """
 }
 
 /* 
@@ -201,6 +76,7 @@ def check_params_and_input () {
   check_blast_parameters()
   
 }
+
 
 /*
   Check that BLAST (of unassigned sequences) parameters are set in a way that makes sense
