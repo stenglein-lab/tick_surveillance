@@ -656,7 +656,7 @@ process run_dada_on_trimmed {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/bioconductor-dada2%3A1.22.0--r41h399db7b_0"
+      container "https://depot.galaxyproject.org/singularity/bioconductor-dada2:1.22.0--r41h399db7b_0"
   } else {
       container "quay.io/biocontainers/bioconductor-dada2:1.22.0--r41h399db7b_0"
   }
@@ -742,6 +742,9 @@ process compare_observed_sequences_to_ref_seqs {
   """             
 }
 
+surveillance_columns_ch =  Channel.fromPath(params.surveillance_columns, type: 'file', checkIfExists: true)
+targets_ch =  Channel.fromPath(params.targets, type: 'file', checkIfExists: true)
+targets_msa_ch =  Channel.fromPath(params.targets, type: 'file', checkIfExists: true)
 
 /*
   This process takes the blast alignment information from the above process
@@ -761,6 +764,8 @@ process assign_observed_sequences_to_ref_seqs {
   path(metadata) from validated_metadata_ch
   tuple path(abundance_table), path(blast_output) from post_compare_ch
   val(R_setup_OK) from post_r_dep_setup_ch
+  path(surveillance_columns_file) from surveillance_columns_ch
+  path(targets_file) from targets_ch
 
   output:
   path("unassigned_sequences.fasta") into post_assign_to_refseq_ch
@@ -774,7 +779,7 @@ process assign_observed_sequences_to_ref_seqs {
   // only use R lib dir for singularity
   def r_lib_dir = workflow.containerEngine == 'singularity' ? "${params.R_lib_dir}" : "NA"
   """                                                                           
-  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $r_lib_dir $abundance_table $blast_output $metadata ${params.targets} ${params.surveillance_columns} ${params.min_reads_for_positive_surveillance_call}
+  Rscript ${params.script_dir}/assign_observed_seqs_to_ref_seqs.R ${params.script_dir} $r_lib_dir $abundance_table $blast_output $metadata ${targets_file} ${surveillance_columns_file} ${params.min_reads_for_positive_surveillance_call}
   """             
 }
 
@@ -801,6 +806,7 @@ process create_fasta_for_trees {
   input:
   path(sequencing_report) from report_tree_ch
   val(venv_setup) from post_venv_setup_ch
+  path(targets_file) from targets_msa_ch
 
   output:
   path("*_all.fasta") into fasta_tree_ch
@@ -810,7 +816,7 @@ process create_fasta_for_trees {
   def activate_venv_command = workflow.containerEngine == 'singularity' ? "source ${params.python_venv_path}/bin/activate" : ""
   """
   $activate_venv_command
-  python3 ${params.script_dir}/MPAS_create_fasta.py $sequencing_report $params.targets
+  python3 ${params.script_dir}/MPAS_create_fasta.py $sequencing_report $targets_file
   """
 }
 
