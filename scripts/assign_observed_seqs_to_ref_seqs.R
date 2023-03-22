@@ -605,15 +605,15 @@ style_worksheet <- function (wb, sheetname, df) {
   # style all cells
   addStyle(wb=wb, sheet=sheetname,
            style=all_cell_style,
-           cols = 0:ncol(df)+1,
-           rows = 0:nrow(df)+1,
+           cols = 1:ncol(df),
+           rows = 1:nrow(df),
            gridExpand = T
   )
   
   # style column headers
   addStyle(wb=wb, sheet=sheetname,
            style=col_header_style,
-           cols = 0:ncol(df)+1,
+           cols = 1:ncol(df),
            rows = 1:1,
            gridExpand = T,
            stack = T
@@ -691,7 +691,7 @@ conditionalFormatting(wb=wb, sheet="surveillance",
 # this applies to all columns after the Acceptable_DNA column
 conditionalFormatting(wb=wb, sheet="surveillance", 
                       "colourScale",
-                      cols = acceptable_DNA_column:ncol(surv_df)+1,
+                      cols = acceptable_DNA_column:ncol(surv_df),
                       rows = 1:nrow(surv_df)+1,
                       style = red_fill,
                       rule = "Positive",
@@ -704,6 +704,7 @@ addStyle(wb, "surveillance_counts", integer_num_style, rows=1:nrow(surv_df_abund
 
 # write out the workbook
 saveWorkbook(wb, paste0(output_dir, "sequencing_report.xlsx"), overwrite = TRUE)
+
 
 
 
