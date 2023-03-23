@@ -42,6 +42,7 @@ if (!interactive()) {
 }
 
 library(tidyverse)
+library(lubridate)
 library(readxl)
 # load openxlsx, either from pipeline's R lib dir or from R environment
 if (r_libdir != "NA") {
@@ -166,6 +167,14 @@ if ( ! "batch" %in% colnames(metadata_df)) {
   # then consider all of the datasets as belonging to a single batch
   message ('INFO: There is no "batch" column in the metadata file so will consider all datasets to belong to a single batch')
   metadata_df <- metadata_df %>% mutate(batch = "1")
+}
+
+# Metadata columns in Excel date format get output as in integer that is the # of days since Jan 1, 1900 
+# which columns have POSIXct date format?
+posix_date_columns <- which(sapply(metadata_df, is.POSIXct))
+# This converts columns with POSIXct format into Date format
+for (date_col in posix_date_columns) {
+  metadata_df[,date_col] <- lapply (metadata_df[,date_col], as.Date)
 }
 
 # --------------------------
@@ -581,17 +590,30 @@ all_cell_style <- createStyle(
   borderColour = getOption("openxlsx.borderColour", "grey"),
   borderStyle = getOption("openxlsx.borderStyle", "thin"),
   halign = "left",
-  numFmt = "0.00",
+  # numFmt = "0.00",
   wrapText = F
 )
 
 # integer number format
-integer_num_style <- createStyle( 
+integer_cell_style <- createStyle( 
   numFmt = "0"
+)
+
+# date format
+date_cell_style <- createStyle( 
+  numFmt = "yyyy-mm-dd"
+)
+
+# text format
+text_cell_style <- createStyle( 
+  numFmt = "TEXT"
 )
 
 # column headers
 col_header_style <- createStyle( 
+  border = "TopBottomLeftRight",
+  borderColour = getOption("openxlsx.borderColour", "grey"),
+  borderStyle = getOption("openxlsx.borderStyle", "thin"),
   fontName = "Helvetica",
   fontSize = 11,
   textDecoration = "bold",
@@ -606,9 +628,23 @@ style_worksheet <- function (wb, sheetname, df) {
   addStyle(wb=wb, sheet=sheetname,
            style=all_cell_style,
            cols = 1:ncol(df),
-           rows = 1:nrow(df),
+           rows = 1:nrow(df)+1,
            gridExpand = T
   )
+  
+  # style date cells
+  date_columns <- which(sapply(df, is.Date))
+  
+  for (date_col in date_columns) {
+    # style date cells
+    addStyle(wb=wb, sheet=sheetname,
+             style=date_cell_style,
+             cols = date_col:date_col,
+             rows = 1:nrow(df)+1,
+             gridExpand = T,
+             stack = T
+    )
+  }
   
   # style column headers
   addStyle(wb=wb, sheet=sheetname,
@@ -700,7 +736,7 @@ conditionalFormatting(wb=wb, sheet="surveillance",
 )
 
 # add integer style to surveillance counts
-addStyle(wb, "surveillance_counts", integer_num_style, rows=1:nrow(surv_df_abundances)+1, cols=acceptable_DNA_column+1:ncol(surv_df_abundances)+1, gridExpand =T, stack = T)
+addStyle(wb, "surveillance_counts", integer_cell_style, rows=1:nrow(surv_df_abundances)+1, cols=acceptable_DNA_column+1:ncol(surv_df_abundances)+1, gridExpand =T, stack = T)
 
 # write out the workbook
 saveWorkbook(wb, paste0(output_dir, "sequencing_report.xlsx"), overwrite = TRUE)
