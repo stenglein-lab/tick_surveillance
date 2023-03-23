@@ -174,7 +174,7 @@ if ( ! "batch" %in% colnames(metadata_df)) {
 posix_date_columns <- which(sapply(metadata_df, is.POSIXct))
 # This converts columns with POSIXct format into Date format
 for (date_col in posix_date_columns) {
-  metadata_df[,date_col] <- lapply (metadata_df[,date_col], as.Date)
+  metadata_df[,date_col] <- lapply (metadata_df[,date_col], as.Date, format="yyyy-mm-dd")
 }
 
 # --------------------------
@@ -579,6 +579,15 @@ if (all(c("observed_sequence","mismatch") %in% colnames(dataset_df))) {
 
 # write all data as csv plain-text file
 write.table(dataset_df, paste0(output_dir, "all_data.csv"), quote=F, sep=",", col.names=T, row.names=F)
+
+# create an all_data csv that includes metadata 
+# see: https://github.com/stenglein-lab/tick_surveillance/issues/59
+dataset_plus_metadata <- left_join(dataset_df, metadata_df, by= c("Index", "Pathogen_Testing_ID", "batch"))
+if (nrow(dataset_df) != nrow(dataset_plus_metadata)) {
+    message (paste0("ERROR: merging dataset and metadata resulted in an unexpectedly number of rows"))
+    quit (status = 1)
+}
+write.table(dataset_plus_metadata, paste0(output_dir, "all_data_and_metadata.csv"), quote=F, sep=",", col.names=T, row.names=F)
 
 # create excel output
 wb <- createWorkbook(paste0(output_dir, "sequencing_report.xlsx"))
