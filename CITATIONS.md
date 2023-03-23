@@ -1,5 +1,9 @@
 # Citations
 
+## [The MPAS amplicon sequencing strategy](https://pubmed.ncbi.nlm.nih.gov/32993925/)
+
+> Hojgaard A, Osikowicz LM, Eisen L, Eisen RJ. Evaluation of a novel multiplex PCR amplicon sequencing assay for detection of human pathogens in Ixodes ticks.  Ticks Tick Borne Dis. 2020 Nov;11(6):101504. doi: 10.1016/j.ttbdis.2020.101504.  Epub 2020 Jul 2. PMID: 32993925.  
+
 ## Paper describing the pipeline
 
 > Osikowicz LM, Hojgaard A, Maes S, Eisen RJ, Stenglein RJ. A bioinformatics pipeline for a tick pathogen surveillance multiplex amplicon sequencing assay. In review.
