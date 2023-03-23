@@ -191,7 +191,9 @@ The default location of the primers.tsv file can be overwritten by specifying th
 nextflow run stenglein-lab/tick_surveillance -profile singularity --primers /path/to/primers.tsv
 ```
 
-If primer sequences are not entered in the correct orientation, trimming will not work and targets amplified by these sequences will not be detected by the pipeline.  The solution in this case will most likely just be to swap the F/R orientation of the primers in this file. 
+If primer sequences are not entered in the correct orientation, trimming will not work and targets amplified by these sequences will not be detected by the pipeline.  The solution in this case will most likely just be to swap the F/R orientation of the primers in this file.  
+
+**Correct primer orientation:**  The forward primer (primer_f) should appear at the beginning of Illumina read 1 and be in the same orientation as R1.  The reverse primer (primer_r) should appear at the beginning of read 2 and be in the same orientation as read 2.  In other words, relative to the PCR product as a whole, the primers should point towards each other.
 
 ## Dependencies
 
