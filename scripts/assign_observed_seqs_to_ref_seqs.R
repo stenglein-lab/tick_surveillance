@@ -399,7 +399,7 @@ dataset_by_spp <- dataset_df %>%
   filter(row_number() == 1) %>%
   ungroup() %>%
   # get rid of unneeded columns
-  select(Index, batch, species, abundance, percent_identity, 
+  select(Index, Pathogen_Testing_ID, batch, species, abundance, percent_identity, 
          percent_query_aligned, richness, internal_control, 
          minimum_internal_control_log_reads, minimum_non_control_reads)
 
