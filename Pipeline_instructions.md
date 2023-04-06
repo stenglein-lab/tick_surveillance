@@ -114,7 +114,13 @@ The main outputs of the pipeline are:
 2. [QC reports](#qc-reports)
 3. Information about [observed sequences that were not assigned to any reference sequences](#unassigned-sequences).
 
-These typically are output to a `results` directory (or `test/results` when running with -profile test).
+#### Output directory
+
+Output files are placed in a `results` directory (or `test/results` when running with -profile test).  The output directory can be specified using the `--outdir` parameter (e.g. `nextflow run stenglein-lab/tick_surveillance ... --outdir a_results_directory`
+
+#### Output file name prefixes 
+
+The main pipeline output file names will be prefixed by a value that is by default the date the pipeline is run (e.g. `2023_04_06_sequencing_report.xlsx`).  This filename prefix can be changed using the --output_prefix parameter.  For instance, running `nextflow run stenglein-lab/tick_surveillance ... --output_prefix my_new_run` will create a file named `my_new_run_sequencing_report.xlsx`)
 
 ### Surveillance Report
 
