@@ -42,6 +42,7 @@ if (!interactive()) {
 }
 
 library(tidyverse)
+library(lubridate)
 library(readxl)
 # load openxlsx, either from pipeline's R lib dir or from R environment
 if (r_libdir != "NA") {
@@ -166,6 +167,14 @@ if ( ! "batch" %in% colnames(metadata_df)) {
   # then consider all of the datasets as belonging to a single batch
   message ('INFO: There is no "batch" column in the metadata file so will consider all datasets to belong to a single batch')
   metadata_df <- metadata_df %>% mutate(batch = "1")
+}
+
+# Metadata columns in Excel date format get output as in integer that is the # of days since Jan 1, 1900 
+# which columns have POSIXct date format?
+posix_date_columns <- which(sapply(metadata_df, is.POSIXct))
+# This converts columns with POSIXct format into Date format
+for (date_col in posix_date_columns) {
+  metadata_df[,date_col] <- lapply (metadata_df[,date_col], as.Date, format="yyyy-mm-dd")
 }
 
 # --------------------------
@@ -390,7 +399,7 @@ dataset_by_spp <- dataset_df %>%
   filter(row_number() == 1) %>%
   ungroup() %>%
   # get rid of unneeded columns
-  select(Index, batch, species, abundance, percent_identity, 
+  select(Index, Pathogen_Testing_ID, batch, species, abundance, percent_identity, 
          percent_query_aligned, richness, internal_control, 
          minimum_internal_control_log_reads, minimum_non_control_reads)
 
@@ -571,6 +580,15 @@ if (all(c("observed_sequence","mismatch") %in% colnames(dataset_df))) {
 # write all data as csv plain-text file
 write.table(dataset_df, paste0(output_dir, "all_data.csv"), quote=F, sep=",", col.names=T, row.names=F)
 
+# create an all_data csv that includes metadata 
+# see: https://github.com/stenglein-lab/tick_surveillance/issues/59
+dataset_plus_metadata <- left_join(dataset_df, metadata_df, by= c("Index", "Pathogen_Testing_ID", "batch"))
+if (nrow(dataset_df) != nrow(dataset_plus_metadata)) {
+    message (paste0("ERROR: merging dataset and metadata resulted in an unexpectedly number of rows"))
+    quit (status = 1)
+}
+write.table(dataset_plus_metadata, paste0(output_dir, "all_data_and_metadata.csv"), quote=F, sep=",", col.names=T, row.names=F)
+
 # create excel output
 wb <- createWorkbook(paste0(output_dir, "sequencing_report.xlsx"))
 modifyBaseFont(wb, fontSize = 11, fontColour = "black", fontName = "Helvetica")
@@ -581,17 +599,30 @@ all_cell_style <- createStyle(
   borderColour = getOption("openxlsx.borderColour", "grey"),
   borderStyle = getOption("openxlsx.borderStyle", "thin"),
   halign = "left",
-  numFmt = "0.00",
+  # numFmt = "0.00",
   wrapText = F
 )
 
 # integer number format
-integer_num_style <- createStyle( 
+integer_cell_style <- createStyle( 
   numFmt = "0"
+)
+
+# date format
+date_cell_style <- createStyle( 
+  numFmt = "yyyy-mm-dd"
+)
+
+# text format
+text_cell_style <- createStyle( 
+  numFmt = "TEXT"
 )
 
 # column headers
 col_header_style <- createStyle( 
+  border = "TopBottomLeftRight",
+  borderColour = getOption("openxlsx.borderColour", "grey"),
+  borderStyle = getOption("openxlsx.borderStyle", "thin"),
   fontName = "Helvetica",
   fontSize = 11,
   textDecoration = "bold",
@@ -605,15 +636,29 @@ style_worksheet <- function (wb, sheetname, df) {
   # style all cells
   addStyle(wb=wb, sheet=sheetname,
            style=all_cell_style,
-           cols = 0:ncol(df)+1,
-           rows = 0:nrow(df)+1,
+           cols = 1:ncol(df),
+           rows = 1:nrow(df)+1,
            gridExpand = T
   )
+  
+  # style date cells
+  date_columns <- which(sapply(df, is.Date))
+  
+  for (date_col in date_columns) {
+    # style date cells
+    addStyle(wb=wb, sheet=sheetname,
+             style=date_cell_style,
+             cols = date_col:date_col,
+             rows = 1:nrow(df)+1,
+             gridExpand = T,
+             stack = T
+    )
+  }
   
   # style column headers
   addStyle(wb=wb, sheet=sheetname,
            style=col_header_style,
-           cols = 0:ncol(df)+1,
+           cols = 1:ncol(df),
            rows = 1:1,
            gridExpand = T,
            stack = T
@@ -691,7 +736,7 @@ conditionalFormatting(wb=wb, sheet="Testing Results",
 # this applies to all columns after the Acceptable_DNA column
 conditionalFormatting(wb=wb, sheet="Testing Results", 
                       "colourScale",
-                      cols = acceptable_DNA_column:ncol(surv_df)+1,
+                      cols = acceptable_DNA_column:ncol(surv_df),
                       rows = 1:nrow(surv_df)+1,
                       style = red_fill,
                       rule = "Positive",
@@ -700,10 +745,11 @@ conditionalFormatting(wb=wb, sheet="Testing Results",
 )
 
 # add integer style to surveillance counts
-addStyle(wb, "surveillance_counts", integer_num_style, rows=1:nrow(surv_df_abundances)+1, cols=acceptable_DNA_column+1:ncol(surv_df_abundances)+1, gridExpand =T, stack = T)
+addStyle(wb, "surveillance_counts", integer_cell_style, rows=1:nrow(surv_df_abundances)+1, cols=acceptable_DNA_column+1:ncol(surv_df_abundances)+1, gridExpand =T, stack = T)
 
 # write out the workbook
 saveWorkbook(wb, paste0(output_dir, "sequencing_report.xlsx"), overwrite = TRUE)
+
 
 
 
