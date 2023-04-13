@@ -652,7 +652,7 @@ trimmed_fastq_ch = Channel.fromPath( params.trimmed_outdir )
 process run_dada_on_trimmed {
   publishDir "${params.dada_outdir}", mode: 'link'
 
-  label 'process_medium'
+  label 'process_high'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
