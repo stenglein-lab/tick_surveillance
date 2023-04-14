@@ -653,6 +653,7 @@ process run_dada_on_trimmed {
   publishDir "${params.dada_outdir}", mode: 'link'
 
   label 'process_high'
+  label 'error_retry'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -1058,7 +1059,8 @@ process check_blast_tax {
 process blast_unassigned_sequences {
   publishDir "${params.blast_outdir}", mode: 'link'
 
-  label 'process_high'
+  label 'process_high_memory'
+  label 'error_retry'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
