@@ -1061,6 +1061,7 @@ process blast_unassigned_sequences {
 
   label 'process_high_memory'
   label 'error_retry'
+  label 'process_long'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
