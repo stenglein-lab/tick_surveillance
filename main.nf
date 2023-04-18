@@ -920,6 +920,13 @@ blast_db_ch = Channel.empty()
 
 if (params.blast_unassigned_sequences && params.local_nt_database_dir) {
   blast_db_ch = Channel.fromPath( params.local_nt_database_dir )
+} else if (params.blast_unassigned_sequences && params.remote_blast_nt) {
+  // if remote BLASTing, don't need to point to a directory containing a copy
+  // of the local nt BLAST database, but need to provide a non-empty channel
+  // so process check_local_blast_database will run.  
+  // This is based on the pattern described here: 
+  // https://nextflow-io.github.io/patterns/optional-input/
+  blast_db_ch = file( "not_a_real_db_path_but_keeps_channel_from_being_empty" )
 }
 
 
@@ -954,6 +961,8 @@ process check_local_blast_database {
   params.remote_blast_nt ? 
   """
     echo "Don't need to check local BLAST database when running with -remote option"
+    rm $local_nt_database_dir
+    touch $local_nt_database_dir
   """ : 
   """
     # check for expected .nal file: if not present, output a helpful warning message
@@ -1061,6 +1070,7 @@ process blast_unassigned_sequences {
 
   label 'process_high_memory'
   label 'error_retry'
+  label 'process_long'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
