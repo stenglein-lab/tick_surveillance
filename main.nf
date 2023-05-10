@@ -268,7 +268,8 @@ process setup_R_dependencies {
 
   if (workflow.containerEngine == 'singularity') {
   """
-     Rscript ${params.script_dir}/install_R_packages.R ${params.R_lib_dir}
+     mkdir -p ${params.R_lib_dir}
+     Rscript ${params.script_dir}/install_R_packages.R ${params.R_tar_dir} ${params.R_lib_dir}
   """
   } else {
   """
