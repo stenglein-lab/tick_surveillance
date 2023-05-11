@@ -212,9 +212,9 @@ process setup_python_venv {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/python:3.9--1" 
+      container "https://depot.galaxyproject.org/singularity/python:3.10.4" 
   } else {
-      container "quay.io/biocontainers/python:3.9--1"
+      container "quay.io/biocontainers/python:3.10.4"
   }
 
   when:
@@ -233,12 +233,8 @@ process setup_python_venv {
     source ${params.python_venv_path}/bin/activate
     # install modules needed for tree-building scripts
     # see https://github.com/stenglein-lab/tick_surveillance/issues/76
-    python -m pip install "reportlab==3.6.13"
-    python -m pip install "numpy==1.22.1"
-    python -m pip install "pandas==1.3.5"
-    python -m pip install "toytree==2.0.1"
-    python -m pip install "toyplot==1.0.1"
-    python -m pip install "openpyxl==3.0.10"
+    # see https://github.com/stenglein-lab/tick_surveillance/issues/77
+    pip install -r ${params.python_requirements}
   """
   } else {
   """
@@ -799,9 +795,9 @@ process create_fasta_for_trees {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/python:3.9--1" 
+      container "https://depot.galaxyproject.org/singularity/python:3.10.4" 
   } else {
-      container "quay.io/biocontainers/python:3.9--1"
+      container "quay.io/biocontainers/python:3.10.4"
   }
 
   when:
@@ -893,9 +889,9 @@ process view_phylo_tree {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/python:3.9--1" 
+      container "https://depot.galaxyproject.org/singularity/python:3.10.4" 
   } else {
-      container "quay.io/biocontainers/python:3.9--1"
+      container "quay.io/biocontainers/python:3.10.4"
   }
 
   input:
