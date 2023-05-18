@@ -771,6 +771,8 @@ process assign_observed_sequences_to_ref_seqs {
   path("unassigned_sequences.fasta") into post_assign_to_refseq_ch
   path("sequencing_report.xlsx") into report_output_ch
   path("all_data*.csv") into csv_output_ch
+  path("*.txt") into assigned_txt_ch
+  path("*.pdf") into assigned_pdf_ch
 
   // output channels for tree-building process
   path("sequencing_report.xlsx") into report_tree_ch
@@ -1173,6 +1175,8 @@ process prepend_output_filenames {
   path(output_file) from initial_multiqc_output_ch.mix( post_trim_multiqc_output_ch,
                                                         report_output_ch,
                                                         csv_output_ch.flatten(),
+                                                        assigned_txt_ch.flatten(),
+                                                        assigned_pdf_ch.flatten(),
                                                         unassigned_blast_output_ch)
                                                         
   output:

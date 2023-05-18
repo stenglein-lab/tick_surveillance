@@ -264,12 +264,64 @@ writeFasta(unassigned_sequences$sequence_number,
            unassigned_sequences$observed_sequence, 
            paste0(output_dir, "unassigned_sequences.fasta"))
 
+
+# get rid of 0 counts
+sparse_sat <- filter(sequence_abundance_table, abundance > 0) 
+
+sat_with_assigned <- left_join(sparse_sat, 
+                               select(blast_df, query, assigned_to_target), 
+                               by=c("sequence_number" = "query"))  
+
+# turn NA values in assigned_to_target, resulting from queries producing no blast hits at all, into F values
+sat_with_assigned$assigned_to_target <-  replace(sat_with_assigned$assigned_to_target, 
+                                                 is.na(sat_with_assigned$assigned_to_target), 
+                                                 FALSE)
+
+# calculate fraction of reads that are assigned or not
+assigned_unassigned_counts <- sat_with_assigned %>% 
+  group_by(dataset, assigned_to_target) %>% 
+  summarize(reads = sum(abundance), .groups="drop") %>%
+  ungroup() %>%
+  group_by(dataset) %>%
+  mutate(total_reads = sum(reads),
+         fraction = reads / total_reads)
+  
+# clean-up dataframe
+fraction_assigned <- assigned_unassigned_counts %>% 
+  filter(assigned_to_target == T) %>%
+  select(-assigned_to_target) %>%
+  rename(assigned_reads = reads)
+
+# output dataframe
+write.table(fraction_assigned, file=paste0(output_dir, "fraction_reads_assigned.txt"),  
+            quote=F, sep="\t", row.names=F, col.names=T)
+
+# calculate_stats (for paper revisions)
+assigned_stats <- fraction_assigned %>% ungroup() %>% summarize(mean_fraction_assigned = mean(fraction),
+                                                  median_fraction_assigned = median(fraction),
+                                                  sd_fraction_assigned = sd(fraction),
+                                                  min_fraction_assigned = min(fraction),
+                                                  max_fraction_assigned = max(fraction))
+
+# output dataframe
+write.table(assigned_stats, file=paste0(output_dir, "fraction_reads_assigned_summary_stats.txt"),  
+            quote=F, sep="\t", row.names=F, col.names=T)
+
+# create a histogram of fraction of reads assigned
+assigned_histogram = ggplot(fraction_assigned) +
+  geom_histogram(aes(x=fraction), bins=50, fill="darkslateblue", color="black", size=0.15) +
+  theme_classic() +
+  xlab("Fraction of reads assigned to a reference sequence") + 
+  ylab("Datasets")
+
+ggsave(paste0(output_dir, "/Fraction_of_reads_assigned_histogram.pdf"), plot = assigned_histogram, width=10, height=7.5, units="in")
+
+
+
 # -----------------------
 # consolidate dataframes
 # -----------------------
 
-# get rid of 0 counts
-sparse_sat <- filter(sequence_abundance_table, abundance > 0) 
 
 # keep track of metadata rows
 metadata_key <- metadata_df %>% select(Index, Pathogen_Testing_ID, batch)
@@ -283,10 +335,6 @@ dataset_df <- left_join(dataset_df, blast_df, by=c("sequence_number" = "query"))
   # get rid of one of two identical redundant sequence columns
   select(-observed_sequence) %>%
   rename(observed_sequence = sequence)
-
-  # (there are two identical columns: one named sequence the other observed_sequence)
-  # select(-sequence) 
-  # rename(observed_sequence = sequence)
 
 # ---------------------------------------------------------------------
 # QC criterion: minimum # of reads mapping to internal pos. control
