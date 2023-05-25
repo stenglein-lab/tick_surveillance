@@ -1,16 +1,5 @@
 include { BLAST_MAKEBLASTDB } from '../../../modules/nf-core/blast/makeblastdb/main'                                                                                                                                                       
 
-// MAKE_BLAST_DB options
-process {
-    withName: 'BLAST_MAKEBLASTDB' {
-
-        ext.args   = [
-                "-dbtype nucl"
-            ].join(' ').trim()
-        ]
-    }
-}
-
 /*
    Setup indexes and dictionaries needed by downstream processes.
 */
