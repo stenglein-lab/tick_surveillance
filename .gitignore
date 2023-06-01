@@ -7,6 +7,8 @@ refseq/reference_sequences.fasta*
 draft_versions
 python_venv
 *.swp
+*.swp.*
 *.bak
 lib/R/openxlsx
 lib/R/zip
+
