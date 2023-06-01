@@ -4,7 +4,7 @@
 
 import groovy.text.SimpleTemplateEngine
 
-class WorkflowDbtlc {
+class WorkflowMPAS {
 
     //
     // Check and validate parameters

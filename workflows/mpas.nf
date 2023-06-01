@@ -39,7 +39,51 @@ Channel
     .fromPath(params.targets, checkIfExists: true)
     .splitCsv(header:true, sep:"\t", strip:true)
     .set { targets_ch }
+
+/*
+
+ This channel generates the primer sequences that were
+ used to amplify surveillance targets.  These primer sequences will be trimmed
+ off of read pairs and used to identify legitimate PCR products, which will
+ contain an expected F/R primer pair at the ends.
+
+*/
+Channel
+    .fromPath(params.primers, checkIfExists: true)
+    .splitCsv(header:true, sep:"\t", strip:true)
+    .set { primers_ch }
                                                                                 
+
+/*
+ These fastq files represent the main input to this workflow
+ 
+ Expecting files with _R1 or _R2 in their names corresponding to paired-end reads
+*/
+
+
+Channel
+    .fromFilePairs("${params.fastq_dir}/${params.fastq_pattern}",
+                   size: 2,
+                   // checkIfExists: true,
+                   maxDepth: 1)
+    // this map step first strips off any _L### text from the end of the sample ID
+    // and then any _S## text from the end
+    // this is text added onto IDs from samplesheet that are added by Illumina bcl2fastq
+    .map { untrimmed_sample_id, fastq  ->
+           def sample_id = untrimmed_sample_id.replaceFirst( /_L\d{3}$/, "")
+           sample_id = sample_id.replaceFirst( /_S\d+$/, "")
+           [sample_id, fastq] }
+    .set {reads_ch}
+
+
+/*
+   this combinatorially mixes the fastq file pairs with the primer sequences
+   to be trimmed, creating a new channel with all possible combinations of
+   input fastq and primer pair
+*/                 
+    
+primers_and_samples_ch = primers_ch.combine(reads_ch)
+
 
 /*                                                                              
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -62,6 +106,10 @@ ch_multiqc_custom_methods_description = params.multiqc_methods_description ? fil
 //                                                                              
 include { GENERATE_REFSEQ_FASTA       } from '../modules/local/generate_refseq_fasta/main'
 include { SETUP_INDEXES               } from '../modules/local/setup_indexes/main'
+include { SETUP_PYTHON_ENVIRONMENT    } from '../modules/local/setup_python_env/main'
+include { SETUP_R_DEPENDENCIES        } from '../modules/local/setup_R_dependencies/main'
+
+
 include { FASTQC                      } from '../modules/nf-core/fastqc/main'
 include { MULTIQC                     } from '../modules/nf-core/multiqc/main'
 include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoftwareversions/main'
@@ -89,13 +137,22 @@ workflow MPAS_PIPELINE {
     SETUP_INDEXES (GENERATE_REFSEQ_FASTA.out.fasta)
     ch_versions = ch_versions.mix ( SETUP_INDEXES.out.versions )      
 
+    python_req_ch = Channel.fromPath(params.python_requirements, checkIfExists: true)
+    SETUP_PYTHON_ENVIRONMENT(params.python_venv_path, python_req_ch)
+    ch_versions = ch_versions.mix ( SETUP_PYTHON_ENVIRONMENT.out.versions )      
+
+    R_install_pkg_script_ch = Channel.fromPath(params.R_install_pkg_script, checkIfExists: true)
+    R_tar_dir_ch = Channel.fromPath(params.R_tar_dir, checkIfExists: true)
+    SETUP_R_DEPENDENCIES(R_install_pkg_script_ch, R_tar_dir_ch, params.R_lib_dir)
+    ch_versions = ch_versions.mix ( SETUP_R_DEPENDENCIES.out.versions )      
+
     //                                                                          
     // MODULE: MultiQC                                                          
     //                                                                          
-    workflow_summary    = WorkflowDbtlc.paramsSummaryMultiqc(workflow, summary_params)
+    workflow_summary    = WorkflowMPAS.paramsSummaryMultiqc(workflow, summary_params)
     ch_workflow_summary = Channel.value(workflow_summary)                       
                                                                                 
-    methods_description    = WorkflowDbtlc.methodsDescriptionText(workflow, ch_multiqc_custom_methods_description)
+    methods_description    = WorkflowMPAS.methodsDescriptionText(workflow, ch_multiqc_custom_methods_description)
     ch_methods_description = Channel.value(methods_description)                 
                                                                                 
     ch_multiqc_files = Channel.empty()                                          
@@ -110,6 +167,7 @@ workflow MPAS_PIPELINE {
         ch_multiqc_logo.toList()                                                
     )                                                                           
     multiqc_report = MULTIQC.out.report.toList()                                
+
 }                                                                               
                                                                                 
 /*                                                                              

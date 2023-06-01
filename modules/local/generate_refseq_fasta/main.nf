@@ -9,6 +9,7 @@ workflow GENERATE_REFSEQ_FASTA {
   
   emit:
   fasta = combine_refseq_fastas.out.fasta
+  // no specialized tool versions to emit
 }
 
 /*
