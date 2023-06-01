@@ -21,14 +21,6 @@ for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true
 // Validate input parameters                                                    
 WorkflowMPAS.initialise(params, log)                                           
 
-/*
-  Check for existence of metadata file 
-  and create channel 
-*/
-Channel
-    .fromPath("${params.metadata}",
-                   checkIfExists: true)
-    .set {post_metadata_check_ch}
 
 
 /*
@@ -77,6 +69,14 @@ Channel
 
 
 /*
+  collect sample IDs in a file
+*/
+reads_ch.map{sample_id, fastq -> sample_id}
+  .collectFile(name: 'sample_ids.txt', newLine: true)
+  .set{ sample_ids_file_ch }
+
+
+/*
    this combinatorially mixes the fastq file pairs with the primer sequences
    to be trimmed, creating a new channel with all possible combinations of
    input fastq and primer pair
@@ -108,6 +108,7 @@ include { GENERATE_REFSEQ_FASTA       } from '../modules/local/generate_refseq_f
 include { SETUP_INDEXES               } from '../modules/local/setup_indexes/main'
 include { SETUP_PYTHON_ENVIRONMENT    } from '../modules/local/setup_python_env/main'
 include { SETUP_R_DEPENDENCIES        } from '../modules/local/setup_R_dependencies/main'
+include { VALIDATE_METADATA           } from '../modules/local/validate_metadata/main'
 
 
 include { FASTQC                      } from '../modules/nf-core/fastqc/main'
@@ -145,6 +146,12 @@ workflow MPAS_PIPELINE {
     R_tar_dir_ch = Channel.fromPath(params.R_tar_dir, checkIfExists: true)
     SETUP_R_DEPENDENCIES(R_install_pkg_script_ch, R_tar_dir_ch, params.R_lib_dir)
     ch_versions = ch_versions.mix ( SETUP_R_DEPENDENCIES.out.versions )      
+
+    // Check for existence of metadata file and create channel 
+    validate_metadata_script_ch = Channel.fromPath(params.validate_metadata_script, checkIfExists: true)
+    metadata_ch = Channel.fromPath("${params.metadata}", checkIfExists: true)
+    VALIDATE_METADATA(validate_metadata_script_ch, metadata_ch, sample_ids_file_ch)
+    ch_versions = ch_versions.mix ( VALIDATE_METADATA.out.versions )      
 
     //                                                                          
     // MODULE: MultiQC                                                          

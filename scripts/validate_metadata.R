@@ -16,13 +16,11 @@ library(readxl)
 # if running from Rscript (called from the pipeline)
 if (!interactive()) {
   args = commandArgs(trailingOnly=TRUE)
-  r_bindir = args[1]
-  sample_metadata_file = args[2]
-  sample_ids_file = args[3]
+  sample_metadata_file = args[1]
+  sample_ids_file = args[2]
   output_dir = "./"
 } else {
   # if running via RStudio
-  r_bindir  =  "."
   sample_metadata_file = "../input/AK_metadata.xlsx"
   sample_ids_file = "../results/sample_ids.txt"
   output_dir = "../results/"
