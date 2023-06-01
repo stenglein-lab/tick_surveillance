@@ -4,20 +4,19 @@ workflow GENERATE_REFSEQ_FASTA {
   targets
 
   main:
-  generate_refseq_fastas(targets)
-  combine_refseq_fastas(generate_refseq_fastas.out.fasta.collect())
+  GENERATE_REFSEQ_FASTAS(targets)
+  COMBINE_REFSEQ_FASTAS(GENERATE_REFSEQ_FASTAS.out.fasta.collect())
   
   emit:
-  fasta = combine_refseq_fastas.out.fasta
+  fasta = COMBINE_REFSEQ_FASTAS.out.fasta
   // no specialized tool versions to emit
 }
 
 /*
   generate one fasta for each reference sequence
 */
-process generate_refseq_fastas {
+process GENERATE_REFSEQ_FASTAS {
   label 'process_low'
-  tag "$targets.refseq_name"
 
   input:
   val targets 
@@ -35,10 +34,9 @@ process generate_refseq_fastas {
 /*
   concatenate individual fasta into one big reference sequence file
 */
-process combine_refseq_fastas {
-  publishDir "${params.refseq_fasta_dir}", mode: 'link'
-
+process COMBINE_REFSEQ_FASTAS {
   label 'process_low'
+  publishDir "${params.outdir}", mode: "copy"
 
   input:
   path (individual_fastas) 
@@ -48,6 +46,9 @@ process combine_refseq_fastas {
 
   // makes fasta formatted records for each targets
   script:
+
+  def num_fasta = individual_fastas.size()
+
   """
   cat $individual_fastas > reference_sequences.fasta
   """

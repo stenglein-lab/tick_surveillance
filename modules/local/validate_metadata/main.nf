@@ -3,7 +3,9 @@
   format and contains the appropriate information.  Logic in the R script.
 */
 process VALIDATE_METADATA {
-  publishDir "${params.log_outdir}", mode: 'link', pattern: "*.txt"
+  tag        "${metadata}"
+  publishDir "${params.outdir}", mode: "copy"
+
 
   label 'process_low'
 

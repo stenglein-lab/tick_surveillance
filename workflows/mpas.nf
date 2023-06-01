@@ -56,25 +56,42 @@ Channel
 Channel
     .fromFilePairs("${params.fastq_dir}/${params.fastq_pattern}",
                    size: 2,
-                   // checkIfExists: true,
                    maxDepth: 1)
-    // this map step first strips off any _L### text from the end of the sample ID
-    // and then any _S## text from the end
-    // this is text added onto IDs from samplesheet that are added by Illumina bcl2fastq
     .map { untrimmed_sample_id, fastq  ->
+           // strip off any _L### text from the end of the sample ID
+           // and then any _S## text from the end
+           // this is text added onto IDs from samplesheet that are added by Illumina bcl2fastq
            def sample_id = untrimmed_sample_id.replaceFirst( /_L\d{3}$/, "")
            sample_id = sample_id.replaceFirst( /_S\d+$/, "")
-           [sample_id, fastq] }
-    .set {reads_ch}
 
+           // define a new empty map named meta for each sample                   
+           // and populate it with id and single_end values                       
+           // for compatibility with nf-core module expected parameters           
+           // reads are just the list of fastq                                    
+           def meta        = [:]      
+
+           // this map gets rid of any _S\d+ at the end of sample IDs but leaves fastq
+           // names alone.  E.g. strip _S1 from the end of a sample ID..          
+           // This is typically sample #s from Illumina basecalling.              
+           // could cause an issue if sequenced the same sample with              
+           // multiple barcodes so was repeated on a sample sheet.                
+           meta.id         = sample_id
+                                                                                  
+           // this pipeline only designed to work with paired-end data
+           meta.single_end =  false
+
+           // this last statement in the map closure is the return value          
+           [ meta, fastq ] }     
+      
+    .set {reads_ch}
 
 /*
   collect sample IDs in a file
 */
-reads_ch.map{sample_id, fastq -> sample_id}
+
+reads_ch.map{meta, reads -> meta.id}
   .collectFile(name: 'sample_ids.txt', newLine: true)
   .set{ sample_ids_file_ch }
-
 
 /*
    this combinatorially mixes the fastq file pairs with the primer sequences
@@ -82,7 +99,7 @@ reads_ch.map{sample_id, fastq -> sample_id}
    input fastq and primer pair
 */                 
     
-primers_and_samples_ch = primers_ch.combine(reads_ch)
+primers_and_reads_ch = primers_ch.combine(reads_ch)
 
 
 /*                                                                              
@@ -103,15 +120,18 @@ ch_multiqc_custom_methods_description = params.multiqc_methods_description ? fil
 */                                                                              
 
                                                                                 
-//                                                                              
+// local                                                                            
 include { GENERATE_REFSEQ_FASTA       } from '../modules/local/generate_refseq_fasta/main'
 include { SETUP_INDEXES               } from '../modules/local/setup_indexes/main'
 include { SETUP_PYTHON_ENVIRONMENT    } from '../modules/local/setup_python_env/main'
 include { SETUP_R_DEPENDENCIES        } from '../modules/local/setup_R_dependencies/main'
 include { VALIDATE_METADATA           } from '../modules/local/validate_metadata/main'
+include { TRIM_PRIMER_SEQS            } from '../modules/local/trim_primer_seqs/main'
+include { COLLECT_CUTADAPT_OUTPUT     } from '../modules/local/collect_cutadapt_output/main'
 
-
-include { FASTQC                      } from '../modules/nf-core/fastqc/main'
+// modules from NF-CORE 
+include { FASTQC as FASTQC_PRE        } from '../modules/nf-core/fastqc/main'
+include { FASTQC as FASTQC_POST       } from '../modules/nf-core/fastqc/main'
 include { MULTIQC                     } from '../modules/nf-core/multiqc/main'
 include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 
@@ -153,6 +173,23 @@ workflow MPAS_PIPELINE {
     VALIDATE_METADATA(validate_metadata_script_ch, metadata_ch, sample_ids_file_ch)
     ch_versions = ch_versions.mix ( VALIDATE_METADATA.out.versions )      
 
+    // run fastqc on input reads
+    FASTQC_PRE ( reads_ch )
+    ch_versions = ch_versions.mix ( FASTQC_PRE.out.versions )      
+
+    // identify and trim expected primer sequences
+    // this happens once per sample x primer combination
+    TRIM_PRIMER_SEQS ( primers_and_reads_ch )
+    ch_versions = ch_versions.mix ( TRIM_PRIMER_SEQS.out.versions )      
+ 
+    // concatenate individually-trimmed outputs and concatenate per sample
+    COLLECT_CUTADAPT_OUTPUT ( TRIM_PRIMER_SEQS.out.trimmed_reads.groupTuple())
+    ch_versions = ch_versions.mix ( COLLECT_CUTADAPT_OUTPUT.out.versions )      
+
+    // run fastqc on trimmed reads
+    FASTQC_POST ( COLLECT_CUTADAPT_OUTPUT.out.trimmed_reads )
+    ch_versions = ch_versions.mix ( FASTQC_POST.out.versions )      
+
     //                                                                          
     // MODULE: MultiQC                                                          
     //                                                                          
@@ -166,6 +203,8 @@ workflow MPAS_PIPELINE {
     ch_multiqc_files = ch_multiqc_files.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
     ch_multiqc_files = ch_multiqc_files.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml'))
     ch_multiqc_files = ch_multiqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
+    ch_multiqc_files = ch_multiqc_files.mix(FASTQC_PRE.out.zip.collect{it[1]}.ifEmpty([]))
+    // ch_multiqc_files = ch_multiqc_files.mix(FASTQC_POST.out.zip.collect{it[1]}.ifEmpty([]))
                                                                                 
     MULTIQC (                                                                   
         ch_multiqc_files.collect(),                                             

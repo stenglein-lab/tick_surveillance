@@ -7,7 +7,9 @@
 
 */
 process SETUP_PYTHON_ENVIRONMENT {
-  label 'process_low'
+  label      'process_low'
+  tag        "${venv_input_path}"
+  publishDir "${params.outdir}"
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
