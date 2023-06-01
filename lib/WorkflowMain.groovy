@@ -12,7 +12,7 @@ class WorkflowMain {
             "* The MPAS publication\n" +
             "  https://doi.org/10.1016/j.ttbdis.2020.101504\n\n" +
             "* The pipeline\n" +
-            "   reference pending  \n\n" +
+            "  https://pubmed.ncbi.nlm.nih.gov/37247570 \n\n" +
             "* The nf-core framework\n" +
             "  https://doi.org/10.1038/s41587-020-0439-x\n\n" +
             "* Software dependencies\n" +
