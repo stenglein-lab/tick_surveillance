@@ -17,7 +17,7 @@
                         "size": "Large",
                         "weight": "Bolder",
                         "color": "<% if (success) { %>Good<% } else { %>Attention<%} %>",
-                        "text": "stenglein-lab/dbtlc v${version} - ${runName}",
+                        "text": "stenglein-lab/tick_surveillance v${version} - ${runName}",
                         "wrap": true
                     },
                     {

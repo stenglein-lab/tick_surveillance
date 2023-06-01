@@ -1,10 +1,10 @@
 Run Name: $runName
 
 <% if (success){
-    out << "## stenglein-lab/dbtlc execution completed successfully! ##"
+    out << "## stenglein-lab/tick_surveillance execution completed successfully! ##"
 } else {
     out << """####################################################
-## stenglein-lab/dbtlc execution completed unsuccessfully! ##
+## stenglein-lab/tick_surveillance execution completed unsuccessfully! ##
 ####################################################
 The exit status of the task that caused the workflow execution to fail was: $exitStatus.
 The full error message was:
@@ -27,5 +27,5 @@ Pipeline Configuration:
 <% out << summary.collect{ k,v -> " - $k: $v" }.join("\n") %>
 
 --
-stenglein-lab/dbtlc
-https://github.com/stenglein-lab/dbtlc
+stenglein-lab/tick_surveillance
+https://github.com/stenglein-lab/tick_surveillance

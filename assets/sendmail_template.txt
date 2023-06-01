@@ -9,12 +9,12 @@ Content-Type: text/html; charset=utf-8
 $email_html
 
 --nfcoremimeboundary
-Content-Type: image/png;name="stenglein-lab-dbtlc_logo.png"
+Content-Type: image/png;name="stenglein-lab-tick_surveillance_logo.png"
 Content-Transfer-Encoding: base64
 Content-ID: <nfcorepipelinelogo>
-Content-Disposition: inline; filename="stenglein-lab-dbtlc_logo_light.png"
+Content-Disposition: inline; filename="stenglein-lab-tick_surveillance_logo_light.png"
 
-<% out << new File("$projectDir/assets/stenglein-lab-dbtlc_logo_light.png").
+<% out << new File("$projectDir/assets/stenglein-lab-tick_surveillance_logo_light.png").
     bytes.
     encodeBase64().
     toString().

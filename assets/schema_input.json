@@ -1,7 +1,7 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema",
-    "$id": "https://raw.githubusercontent.com/stenglein-lab/dbtlc/master/assets/schema_input.json",
-    "title": "stenglein-lab/dbtlc pipeline - params.input schema",
+    "$id": "https://raw.githubusercontent.com/stenglein-lab/tick_surveillance/main/assets/schema_input.json",
+    "title": "stenglein-lab/tick_surveillance pipeline - params.input schema",
     "description": "Schema for the file provided with params.input",
     "type": "array",
     "items": {
