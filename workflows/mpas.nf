@@ -152,6 +152,9 @@ include { TIDY_DADA_OUTPUT            } from '../modules/local/dada2/main'
 include { COMPARE_OBSERVED_SEQS       } from '../modules/local/assign_sequences/main'
 include { ASSIGN_OBSERVED_SEQS        } from '../modules/local/assign_sequences/main'
 include { GENERATE_TREES              } from '../subworkflows/generate_trees'
+include { SETUP_BLAST_DB_AND_TAX      } from '../subworkflows/setup_blast_db_and_tax'
+include { BLAST_UNASSIGNED_SEQUENCES  } from '../subworkflows/blast_unassigned_sequences'
+include { PREPEND_OUTPUT_FILENAMES    } from '../modules/local/prepend_filenames/main'
 
 // modules from NF-CORE 
 include { FASTQC as FASTQC_PRE        } from '../modules/nf-core/fastqc/main'
@@ -244,6 +247,18 @@ workflow MPAS_PIPELINE {
                     targets_file_ch)      
     ch_versions = ch_versions.mix ( GENERATE_TREES.out.versions )      
 
+    SETUP_BLAST_DB_AND_TAX()
+    ch_versions = ch_versions.mix ( SETUP_BLAST_DB_AND_TAX.out.versions )      
+
+    BLAST_UNASSIGNED_SEQUENCES(ASSIGN_OBSERVED_SEQS.out.unassigned_sequences,
+                               SETUP_BLAST_DB_AND_TAX.out.blast_db_dir,
+                               SETUP_BLAST_DB_AND_TAX.out.blast_tax_dir,
+                               SETUP_R_DEPENDENCIES.out.R_lib_dir)
+
+    ch_versions = ch_versions.mix ( BLAST_UNASSIGNED_SEQUENCES.out.versions )      
+
+
+
     //                                                                          
     // MODULE: MultiQC                                                          
     //                                                                          
@@ -267,6 +282,19 @@ workflow MPAS_PIPELINE {
         ch_multiqc_logo.toList()                                                
     )                                                                           
     multiqc_report = MULTIQC.out.report.toList()                                
+
+    // prepend main output file names
+    ch_main_output_files = Channel.empty()
+
+    ch_main_output_files = ch_main_output_files
+                             .mix(multiqc_report, 
+                             ASSIGN_OBSERVED_SEQS.out.surveillance_report,
+                             ASSIGN_OBSERVED_SEQS.out.all_data_csv,
+                             ASSIGN_OBSERVED_SEQS.out.txt,
+                             ASSIGN_OBSERVED_SEQS.out.pdf,
+                             BLAST_UNASSIGNED_SEQUENCES.out.report)
+                             .flatten()
+    PREPEND_OUTPUT_FILENAMES(ch_main_output_files)
 
 }                                                                               
                                                                                 

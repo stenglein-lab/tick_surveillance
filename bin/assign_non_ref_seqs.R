@@ -31,8 +31,10 @@ library(tidyverse)
 # load openxlsx, either from pipeline's R lib dir or from R environment
 if (r_libdir != "NA") {
   library(openxlsx, lib.loc=r_libdir)
+  library(zip,      lib.loc=r_libdir)
 } else {
   library(openxlsx)
+  library(zip)
 }
 
 # read in fasta-formatted unassigned sequences
@@ -125,3 +127,6 @@ addWorksheet(wb, "non_refseq_hits")
 writeData(wb, "non_refseq_hits", reporting_dataset)
 saveWorkbook(wb, paste0(output_path, "non_reference_sequence_assignments.xlsx"), overwrite = TRUE)
 
+# write out version info into versions.yml
+# TODO
+writeLines("", "versions.yml")
