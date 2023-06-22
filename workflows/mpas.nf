@@ -33,6 +33,16 @@ Channel
     .set { targets_ch }
 
 /*
+  A channel containing the path of the tsv file specifying surveillance targets
+  
+  This channel differs from targets_ch in that targets_ch contains a groovy
+  data structure from the parsed file.  This ch contains the file's path.
+*/
+Channel
+     .fromPath(params.targets, type: 'file', checkIfExists: true)
+     .set{ targets_file_ch }
+
+/*
 
  This channel generates the primer sequences that were
  used to amplify surveillance targets.  These primer sequences will be trimmed
@@ -44,6 +54,15 @@ Channel
     .fromPath(params.primers, checkIfExists: true)
     .splitCsv(header:true, sep:"\t", strip:true)
     .set { primers_ch }
+
+/*
+  A channel containing the tsv file specifying surveillance report columns
+*/
+Channel
+     .fromPath(params.surveillance_columns, type: 'file', checkIfExists: true)
+     .set{surveillance_columns_ch}
+
+
                                                                                 
 
 /*
@@ -128,6 +147,10 @@ include { SETUP_R_DEPENDENCIES        } from '../modules/local/setup_R_dependenc
 include { VALIDATE_METADATA           } from '../modules/local/validate_metadata/main'
 include { TRIM_PRIMER_SEQS            } from '../modules/local/trim_primer_seqs/main'
 include { COLLECT_CUTADAPT_OUTPUT     } from '../modules/local/collect_cutadapt_output/main'
+include { DADA2                       } from '../modules/local/dada2/main'
+include { TIDY_DADA_OUTPUT            } from '../modules/local/dada2/main'
+include { COMPARE_OBSERVED_SEQS       } from '../modules/local/assign_sequences/main'
+include { ASSIGN_OBSERVED_SEQS        } from '../modules/local/assign_sequences/main'
 
 // modules from NF-CORE 
 include { FASTQC as FASTQC_PRE        } from '../modules/nf-core/fastqc/main'
@@ -164,7 +187,7 @@ workflow MPAS_PIPELINE {
 
     R_install_pkg_script_ch = Channel.fromPath(params.R_install_pkg_script, checkIfExists: true)
     R_tar_dir_ch = Channel.fromPath(params.R_tar_dir, checkIfExists: true)
-    SETUP_R_DEPENDENCIES(R_install_pkg_script_ch, R_tar_dir_ch, params.R_lib_dir)
+    SETUP_R_DEPENDENCIES(R_install_pkg_script_ch, R_tar_dir_ch)
     ch_versions = ch_versions.mix ( SETUP_R_DEPENDENCIES.out.versions )      
 
     // Check for existence of metadata file and create channel 
@@ -190,6 +213,30 @@ workflow MPAS_PIPELINE {
     FASTQC_POST ( COLLECT_CUTADAPT_OUTPUT.out.trimmed_reads )
     ch_versions = ch_versions.mix ( FASTQC_POST.out.versions )      
 
+    // run dada2 on trimmed reads
+    // DADA2 ( COLLECT_CUTADAPT_OUTPUT.out.trimmed_reads.collect() )
+    ch_all_trimmed_reads = COLLECT_CUTADAPT_OUTPUT.out.trimmed_reads
+                            .map { meta, reads -> [ reads ] }                                   
+                            .flatten().collect()
+    DADA2(ch_all_trimmed_reads)
+    ch_versions = ch_versions.mix ( DADA2.out.versions )      
+
+    TIDY_DADA_OUTPUT(DADA2.out.seqtab)
+    ch_versions = ch_versions.mix ( TIDY_DADA_OUTPUT.out.versions )      
+
+    COMPARE_OBSERVED_SEQS(TIDY_DADA_OUTPUT.out.observed_sequences,
+                          TIDY_DADA_OUTPUT.out.sequence_abundance_table,
+                          GENERATE_REFSEQ_FASTA.out.fasta,
+                          SETUP_INDEXES.out.db)
+    ch_versions = ch_versions.mix ( COMPARE_OBSERVED_SEQS.out.versions )      
+
+    ASSIGN_OBSERVED_SEQS (VALIDATE_METADATA.out.validated_metadata,
+                          COMPARE_OBSERVED_SEQS.out.sequence_abundance_table,
+                          COMPARE_OBSERVED_SEQS.out.blast_output,
+                          SETUP_R_DEPENDENCIES.out.R_lib_dir,
+                          surveillance_columns_ch,
+                          targets_file_ch)
+    ch_versions = ch_versions.mix ( ASSIGN_OBSERVED_SEQS.out.versions )      
     //                                                                          
     // MODULE: MultiQC                                                          
     //                                                                          

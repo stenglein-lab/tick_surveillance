@@ -18,13 +18,12 @@ if (!interactive()) {
   # if running from Rscript
   args = commandArgs(trailingOnly=TRUE)
   # TODO: check CLAs
-  r_bindir=args[1]
-  trimmed_path=args[2]
+  trimmed_path=args[1]
   outdir="./"
 } else {
   # if running via RStudio (for development or troubleshooting)
   r_bindir = "."
-  trimmed_path = "../results/trimmed_fastq"
+  trimmed_path = NA
   outdir="../results/"
 }
 
@@ -147,5 +146,8 @@ t$dataset <- rownames(t)
 
 # write the output to a table
 write.table(t, paste0(outdir, "dada_seqtab.txt"), sep="\t", col.names=T, quote=F)
+
+# write out version info into versions.yml
+writeLines(c("DADA2:", paste0("    R: ", paste0(R.Version()[c("major","minor")], collapse = ".")),paste0("    dada2: ", packageVersion("dada2")),paste0("    ShortRead: ", packageVersion("ShortRead")) ), "versions.yml")
 
 

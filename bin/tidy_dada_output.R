@@ -15,14 +15,12 @@ library(openssl)
 if (!interactive()) {
   # if running from Rscript
   args = commandArgs(trailingOnly=TRUE)
-  r_bindir=args[1]
-  dada_seqtab=args[2]
+  dada_seqtab=args[1]
   outdir="./"
 } else {
   # if running via RStudio
-  r_bindir = "."
   trimmed_path = "../results/dada2/dada_seqtab.txt"
-  outdir="../results/"
+  outdir="../results/dada2"
 }
 
 # read in dada2 output
@@ -39,7 +37,6 @@ sequences <- tidy_sequence_table %>%
 	       group_by(sequence) %>% 
 	       summarize () %>% 
 	       mutate(sequence_number = sha1(sequence))
-	       # mutate(sequence_number = row_number())
 
 # join these sequence #s back into the tidy table
 tidy_sequence_table <- left_join(tidy_sequence_table, sequences, by="sequence")
@@ -63,7 +60,5 @@ writeFasta <- function(data, filename){
 # write out the sequences in fasta format
 writeFasta(sequences, paste0(outdir, "observed_sequences.fasta"))
 
-
-
-
-
+# write out version info into versions.yml
+writeLines("", "versions.yml")
