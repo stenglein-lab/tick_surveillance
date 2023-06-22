@@ -140,7 +140,7 @@ ch_multiqc_custom_methods_description = params.multiqc_methods_description ? fil
 
                                                                                 
 // local                                                                            
-include { GENERATE_REFSEQ_FASTA       } from '../modules/local/generate_refseq_fasta/main'
+include { GENERATE_REFSEQ_FASTA       } from '../subworkflows/generate_refseq_fasta'
 include { SETUP_INDEXES               } from '../modules/local/setup_indexes/main'
 include { SETUP_PYTHON_ENVIRONMENT    } from '../modules/local/setup_python_env/main'
 include { SETUP_R_DEPENDENCIES        } from '../modules/local/setup_R_dependencies/main'
@@ -151,6 +151,7 @@ include { DADA2                       } from '../modules/local/dada2/main'
 include { TIDY_DADA_OUTPUT            } from '../modules/local/dada2/main'
 include { COMPARE_OBSERVED_SEQS       } from '../modules/local/assign_sequences/main'
 include { ASSIGN_OBSERVED_SEQS        } from '../modules/local/assign_sequences/main'
+include { GENERATE_TREES              } from '../subworkflows/generate_trees'
 
 // modules from NF-CORE 
 include { FASTQC as FASTQC_PRE        } from '../modules/nf-core/fastqc/main'
@@ -237,6 +238,12 @@ workflow MPAS_PIPELINE {
                           surveillance_columns_ch,
                           targets_file_ch)
     ch_versions = ch_versions.mix ( ASSIGN_OBSERVED_SEQS.out.versions )      
+
+    GENERATE_TREES (ASSIGN_OBSERVED_SEQS.out.surveillance_report,
+                    SETUP_PYTHON_ENVIRONMENT.out.venv_path,
+                    targets_file_ch)      
+    ch_versions = ch_versions.mix ( GENERATE_TREES.out.versions )      
+
     //                                                                          
     // MODULE: MultiQC                                                          
     //                                                                          
