@@ -3,6 +3,7 @@
 */
 process DADA2 {      
   publishDir "${params.dada_outdir}", mode: 'link'
+  publishDir "${params.QC_and_summary_stats}", pattern: 'dada_read_clean_all.csv', mode: 'copy'
   tag        "all"
 
   label 'process_high'
@@ -21,7 +22,8 @@ process DADA2 {
   output:
   path("dada_seqtab.txt")                    , emit: seqtab
   path("dada_filtered")                      , emit: dada_filtered_dir
-  path "versions.yml"                        , emit: versions                                         
+  path "versions.yml"                        , emit: versions 
+  path ("dada_read_clean_all.csv")           , emit: dada_read_tracking_all                                        
 
   script:
   """
@@ -32,6 +34,7 @@ process DADA2 {
 
 process TIDY_DADA_OUTPUT {      
   publishDir "${params.dada_outdir}", mode: 'link'
+  publishDir "${params.QC_and_summary_stats}", pattern: 'dada_read_clean_summary.csv', mode: 'copy'
   tag        "all"
 
   label 'process_low'
@@ -42,11 +45,13 @@ process TIDY_DADA_OUTPUT {
   }
 
   input:
-  path(dada_seqtab) 
+  path(dada_seqtab)
+  path(dada_read_tracking_all)  
 
   output:
   path "observed_sequences.fasta"      , emit: observed_sequences
   path "sequence_abundance_table.tsv"  , emit: sequence_abundance_table
+  path "dada_read_clean_summary.csv"   , emit: dada_read_tracking_summary
   path "versions.yml"                  , emit: versions                                         
 
   script:
@@ -55,7 +60,7 @@ process TIDY_DADA_OUTPUT {
   # unique sequences observed in the amplicon dataset
   # and a sequence_abundance_table.tsv, which lists the abundances of these
   # sequences in each dataset
-  Rscript ${params.script_dir}/tidy_dada_output.R $dada_seqtab
+  Rscript ${params.script_dir}/tidy_dada_output.R $dada_seqtab $dada_read_tracking_all
   """
 }
 

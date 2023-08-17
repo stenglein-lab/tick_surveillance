@@ -151,3 +151,12 @@ write.table(t, paste0(outdir, "dada_seqtab.txt"), sep="\t", col.names=T, quote=F
 writeLines(c("DADA2:", paste0("    R: ", paste0(R.Version()[c("major","minor")], collapse = ".")),paste0("    dada2: ", packageVersion("dada2")),paste0("    ShortRead: ", packageVersion("ShortRead")) ), "versions.yml")
 
 
+# Track reads and create output file (https://benjjneb.github.io/dada2/tutorial.html)
+getN <- function(x) sum(getUniques(x))
+track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+# If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
+colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+rownames(track) <- sample.names
+
+# write read tracking info to csv file
+write.csv(track, paste0(outdir, "dada_read_clean_all.csv"), col.names=T)
