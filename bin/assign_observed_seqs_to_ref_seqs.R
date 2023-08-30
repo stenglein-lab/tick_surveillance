@@ -401,7 +401,7 @@ for (row in 1:nrow(targets_df)) {
   # what reporting columns are defined in the targets file?
   reporting_columns <- filter(targets_df, row_number() == row) %>% 
     pull(reporting_columns) %>% 
-    str_split(pattern = ',', simplify = T)
+    str_split(pattern = ';', simplify = T)
   
   # collect targets for each reporting column into a named list
   for (col in reporting_columns) {
