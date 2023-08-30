@@ -41,9 +41,14 @@ if (!interactive()) {
   output_dir                  = "../results/"
 }
 
+# these libraries are part of the tidyverse, so will be availabile in the
+# tidyverse singularity image we are using (or analogous conda env)
 library(tidyverse)
 library(lubridate)
 library(readxl)
+
+# openxlsx is not part of standard tidyverse, so may have to load it 
+# from a specified path
 # load openxlsx, either from pipeline's R lib dir or from R environment
 if (r_libdir != "NA") {
   library(openxlsx, lib.loc=r_libdir)
@@ -111,10 +116,15 @@ blast_df_all <- blast_df_all %>% rename(query = qaccver,
 # take the highest scoring blast hit for each query
 blast_df <- blast_df_all %>% group_by(query) %>% arrange(-bitscore, .by_group = T) %>% filter(row_number() == 1)
 
-# TODO: Deal with the case when a sequence hits multiple refseqs equally well 
+# possibly TODO: Deal with the case when a sequence hits multiple refseqs equally well 
 # This would be the case when a sequence is equally close to 
 # two of the reference sequences.  E.g. a Borrelia burgdorferi equally similar to B31 and N40
-blast_df_equal_hits <- blast_df_all %>% group_by(query) %>% mutate(max_bitscore = max(bitscore)) %>% filter(bitscore == max_bitscore) %>% summarize(n=n()) %>% filter(n>1)
+blast_df_equal_hits <- blast_df_all %>% 
+  group_by(query) %>% 
+  mutate(max_bitscore = max(bitscore)) %>% 
+  filter(bitscore == max_bitscore) %>% 
+  summarize(n=n()) %>% 
+  filter(n>1)
 
 # merge the sequence info and the blast output
 blast_df <- left_join(blast_df, sequences, by=c("query" = "sequence_number")) 
@@ -156,12 +166,14 @@ metadata_df <- read_excel(sample_metadata_file)
 original_metadata_names <- names(metadata_df)
 
 # fix the metadata names using tidyverse make.names function
+# in case some metadata column names have disallowed characters like - or + 
+# (disallowed for tidyverse column names)
 names(metadata_df) <- make.names(names(metadata_df),unique = TRUE)
 
 # Make sure the Index column is character data, in case Indexes have integer values (1, 2, etc.)
 metadata_df$Index <- as.character(metadata_df$Index)
 
-# assign datasets to batches
+# assign datasets to batches based on an optional metadata column named batch
 if ( ! "batch" %in% colnames(metadata_df)) {
   # if no batch column specified in the metadata,
   # then consider all of the datasets as belonging to a single batch
@@ -170,6 +182,7 @@ if ( ! "batch" %in% colnames(metadata_df)) {
 }
 
 # Metadata columns in Excel date format get output as in integer that is the # of days since Jan 1, 1900 
+# We want to make sure to output them as human-readable dates
 # which columns have POSIXct date format?
 posix_date_columns <- which(sapply(metadata_df, is.POSIXct))
 # This converts columns with POSIXct format into Date format
@@ -185,7 +198,8 @@ targets_df$internal_control <- as.logical(targets_df$internal_control)
 
 # rename target sequences to be clear that they include primer sequences, 
 # which are stripped off of the actual observed sequences 
-# since primer-derived bases are unreliable
+# since primer-derived bases in sequence reads are unreliable 
+# (they derive from the primers and not the template)
 targets_df <- targets_df %>% rename(target_sequence_incl_primers = sequence)
 
 # convert empty strings in reporting column to NA values
@@ -193,7 +207,7 @@ targets_df$reporting_columns <- na_if(targets_df$reporting_columns, "")
 
 # join target info with blast info
 # This is necessary because the targets file contains info about minimum percent
-# identity for an alingment between an observed an expected sequence, etc. 
+# identity for an alignment between an observed an expected sequence, etc. 
 blast_df <- left_join(blast_df, targets_df, by=c("subject" = "ref_sequence_name"))
 
 # ----------------------------
@@ -216,14 +230,15 @@ assign_blast_hits_to_refseqs <- function() {
   
   # <<- is the global assignment operator 
   # (it modifies the global blast_df variable instead of creating a new variable 
-  # with the same name in the function scope)
+  # with the same name in this function scope)
   blast_df <<- blast_df %>%  mutate(
     
     # assigned_to_target will be TRUE if this particular sequence
     # aligns to the relevant reference sequence above the thresholds
-    # the min_percent_identity and min_percent_aligned come from the targets_tsv_file
+    # Note that the min_percent_identity and min_percent_aligned values 
+    # are columns in the dataframe: they come from the targets_tsv_file
     # so can be assigned separately for each target
-    assigned_to_target = if_else( (percent_identity >= min_percent_identity & 
+    assigned_to_target = if_else( (  percent_identity >= min_percent_identity & 
                                      percent_query_aligned >= min_percent_aligned &
                                      percent_of_alignment_gaps <= max_percent_gaps),
                                   TRUE, 
@@ -247,7 +262,7 @@ assigned_plot <- ggplot(blast_df) +
   ylab("% identity between query and reference sequence") 
 
 # render the plot and output to PDF
-ggsave(paste0(output_dir, "/assigned_targets_plot.pdf"), plot = assigned_plot, width=7, height=5, units="in")
+ggsave(paste0(output_dir, "/assigned_targets_plot.pdf"), plot = assigned_plot, width=10, height=7.5, units="in")
 
 # --------------------------------------------------------------------------------------
 # separate assigned and unassigned sequences and write out unassigned sequences in fasta
@@ -265,19 +280,22 @@ writeFasta(unassigned_sequences$sequence_number,
            paste0(output_dir, "unassigned_sequences.fasta"))
 
 
-# get rid of 0 counts
+# get rid of 0 counts in sequence abundance table
 sparse_sat <- filter(sequence_abundance_table, abundance > 0) 
 
+# join sparse sat with columns from blast_df indicating whether the sequences
+# have been assigned to a refseq 
 sat_with_assigned <- left_join(sparse_sat, 
                                select(blast_df, query, assigned_to_target), 
                                by=c("sequence_number" = "query"))  
 
-# turn NA values in assigned_to_target, resulting from queries producing no blast hits at all, into F values
-sat_with_assigned$assigned_to_target <-  replace(sat_with_assigned$assigned_to_target, 
-                                                 is.na(sat_with_assigned$assigned_to_target), 
-                                                 FALSE)
+# turn NA values in assigned_to_target, resulting from queries producing no blast hits at all, 
+# into F values
+sat_with_assigned$assigned_to_target <- replace(sat_with_assigned$assigned_to_target, 
+                                                is.na(sat_with_assigned$assigned_to_target), 
+                                                FALSE)
 
-# calculate fraction of reads that are assigned or not
+# calculate fraction of reads in each dataset that are assigned or not
 assigned_unassigned_counts <- sat_with_assigned %>% 
   group_by(dataset, assigned_to_target) %>% 
   summarize(reads = sum(abundance), .groups="drop") %>%
@@ -296,14 +314,14 @@ fraction_assigned <- assigned_unassigned_counts %>%
 write.table(fraction_assigned, file=paste0(output_dir, "fraction_reads_assigned.txt"),  
             quote=F, sep="\t", row.names=F, col.names=T)
 
-# calculate_stats (for paper revisions)
+# calculate_stats about numbers of reads assigned or not
 assigned_stats <- fraction_assigned %>% ungroup() %>% summarize(mean_fraction_assigned = mean(fraction),
                                                   median_fraction_assigned = median(fraction),
                                                   sd_fraction_assigned = sd(fraction),
                                                   min_fraction_assigned = min(fraction),
                                                   max_fraction_assigned = max(fraction))
 
-# output dataframe
+# output dataframe with stats
 write.table(assigned_stats, file=paste0(output_dir, "fraction_reads_assigned_summary_stats.txt"),  
             quote=F, sep="\t", row.names=F, col.names=T)
 
@@ -317,16 +335,17 @@ assigned_histogram = ggplot(fraction_assigned) +
 ggsave(paste0(output_dir, "/Fraction_of_reads_assigned_histogram.pdf"), plot = assigned_histogram, width=10, height=7.5, units="in")
 
 
-
 # -----------------------
 # consolidate dataframes
 # -----------------------
-
 
 # keep track of metadata rows
 metadata_key <- metadata_df %>% select(Index, Pathogen_Testing_ID, batch)
 
 # join sparse SAT with metadata
+# the resulting dataframe, dataset_df, initially just has basic metadata and 
+# sequence info.  We will join in a lot of more info and this will be the 
+# main table keepting track of results
 dataset_df <- full_join(metadata_key, sparse_sat, by=c("Index" = "dataset"))  
 
 # join blast results into dataset_df
@@ -341,25 +360,29 @@ dataset_df <- left_join(dataset_df, blast_df, by=c("sequence_number" = "query"))
 # this corresponds to the Acceptable DNA column in the reporting data
 # ---------------------------------------------------------------------
 
-# calculate the # of tick actin mapping reads in real tick (non-control) datasets
-non_control_dataset_batch_averages <- dataset_df %>%
+# calculate the log10 # of tick internal-control mapping reads in datasets by batch
+internal_control_batch_averages <- dataset_df %>%
   filter(internal_control == TRUE) %>%
   group_by(batch, Index) %>%
   mutate(per_sample_internal_ctrl_reads = log10(sum(abundance))) %>%
   ungroup() %>%
   group_by(batch) %>%
   summarize(mean_batch_internal_ctrl_reads = mean(per_sample_internal_ctrl_reads),
-            sd_batch_internal_ctrl_reads = sd(per_sample_internal_ctrl_reads))
+            sd_batch_internal_ctrl_reads   = sd  (per_sample_internal_ctrl_reads))
 
-# join in info about batch averages 
-dataset_df <- left_join(dataset_df, non_control_dataset_batch_averages, by="batch")
+# ------------------------------
+# cutoffs to call a positive hit
+# ------------------------------
 
-# cutoffs
-dataset_df <- dataset_df %>%
+# for internal control targets, this is the mean of the batch log10 read # - 3 standard deviations
+internal_control_batch_averages <- internal_control_batch_averages %>%
   mutate(minimum_internal_control_log_reads =
            mean_batch_internal_ctrl_reads - (3 * sd_batch_internal_ctrl_reads),
-         # this could be defined on a per-target basis
-         minimum_non_control_reads = input_min_non_control_reads)
+# for non-internal control targets, this is a simple cutoff passed in as an argument (e.g. 50 reads)
+         minimum_non_control_reads = input_min_non_control_reads)  
+
+# join in info about internal control cutoffs
+dataset_df <- left_join(dataset_df, internal_control_batch_averages, by="batch")
 
 # create a plot of internal control (tick actin) reads in individual datasets
 tick_reads_p <- dataset_df %>% 
@@ -373,7 +396,7 @@ tick_reads_p <- dataset_df %>%
   scale_fill_manual(values=c("red", "darkslateblue")) +
   scale_y_log10() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  ylab("Reads mapping to tick actin") +
+  ylab("Reads mapping to tick internal control targets") +
   xlab("Batch") +
   ggtitle("Number of tick-mapping reads in individual tick or control datasets\n")
 
@@ -385,16 +408,20 @@ ggsave(paste0(output_dir, "/tick_reads_per_dataset.pdf"), plot = tick_reads_p,  
 # Generate and output surveillance table
 # ----------------------------------------
 
-# create maps of surveillance columns -> targets and vice versa
+# create map of targets to surveillance columns 
+# this mapping will be used to populate values in surveillance report
 targets_to_surv_df <- data.frame(target = character(),
                                  surveillance_column = character(),
                                  surveillance_column_type = character())
+                                
 
+# for each row in targets table
 for (row in 1:nrow(targets_df)) {
   
+  # what is the target name?
   target <- filter(targets_df, row_number() == row) %>% pull(ref_sequence_name)
   
-  # what reporting columns are defined in the targets file?
+  # what reporting columns are defined for this target?
   reporting_columns <- filter(targets_df, row_number() == row) %>% 
     pull(reporting_columns) %>% 
     str_split(pattern = ';', simplify = T)
@@ -430,8 +457,10 @@ for (row in 1:nrow(targets_df)) {
   }
 }
 
+
 # -------------------------------------------------------
 # collapse unique sequences to level of targeted species
+# this info will be output as its own table
 # -------------------------------------------------------
 
 # collapse all hits for same target species in each dataset 
@@ -451,46 +480,75 @@ dataset_by_spp <- dataset_df %>%
          percent_query_aligned, richness, internal_control, 
          minimum_internal_control_log_reads, minimum_non_control_reads)
 
-# join in surveillance column info
+# ----------------------------------------------------------------------
+# Collect information that will be used to populate surveillance report
+# ----------------------------------------------------------------------
+
+# join in surveillance column info into targets file
+# because each target can be mapped to >1 surveillance column, this will result in rows with
+# duplicate target info but multiple surveillance columns
 dataset_with_surv_df <- left_join(dataset_df, targets_to_surv_df, by=c("subject" = "target"))
 
-dataset_with_surv_df %>% group_by(Index, surveillance_column) %>% mutate()
-
-# collapse all hits for same surveillance column in each dataset 
-dataset_by_surv_column <- dataset_with_surv_df %>% 
-  group_by(Index, surveillance_column) %>%
+# keep track of whether individual (dataset x target) combinations have sufficient reads to be
+# called positive
+dataset_with_surv_df <- dataset_with_surv_df %>% 
   mutate(
-    abundance = sum(abundance),   
-    contributing_target_names = paste0(unique(species), sep = " ", collapse=""),
-    percent_identity = mean(percent_identity),
+    individual_pos_neg_call = 
+      case_when((internal_control & (log10(abundance) >= minimum_internal_control_log_reads)) ~ "Positive",
+                (!internal_control & (abundance >= minimum_non_control_reads)) ~ "Positive",
+                TRUE ~ "Negative"))
+
+# ------------------
+# name-type columns
+# ------------------
+
+# for each name-type surveillance column, keep track of which targets had sufficient #s 
+# to be reported 
+# dataset_by_names_surv_column <- dataset_with_surv_df %>% 
+name_type_surveillance_values <- dataset_with_surv_df %>% 
+  filter(surveillance_column_type == "name" & 
+           individual_pos_neg_call == "Positive") %>%
+  group_by(Index, batch, surveillance_column) %>%
+  summarize(
+    contributing_target_names = str_trim(paste0(unique(species), sep = " ", collapse="")),
+    .groups="drop"
+  ) 
+
+# -------------------
+# count-type columns
+# -------------------
+# for each dataset and surveillance column, sum all read counts 
+# for targets that contribute to that surveillance columns 
+count_type_surveillance_values <- dataset_with_surv_df %>% 
+  filter(surveillance_column_type == "count") %>%
+  group_by(Index, batch, surveillance_column) %>%
+  summarize(
+    abundance             = sum(abundance),   
+    percent_identity      = mean(percent_identity),
     percent_query_aligned = mean(percent_query_aligned),
-    richness = n(),
-  ) %>%
-  filter(row_number() == 1) %>%
-  ungroup() %>%
-  # get rid of unneeded columns
-  select(Index, batch, species, abundance, percent_identity, 
-         percent_query_aligned, richness, internal_control, 
-         minimum_internal_control_log_reads, minimum_non_control_reads, surveillance_column, 
-         contributing_target_names, surveillance_column_type)
+    richness              = n(),
+    internal_control      = any(internal_control),   
+    .groups="drop"
+  ) 
+
+# join back in info about minimum # of internal control reads
+count_type_surveillance_values <- left_join(count_type_surveillance_values, internal_control_batch_averages, by="batch")
+
+# make positive negative calls for count-type surveillance columns
+# based on summed abundances for all targets that contributed to that column
+# and cutoffs for internal-control or non-control targets
+count_type_surveillance_values <- count_type_surveillance_values %>% 
+  mutate(pos_neg_call = 
+           case_when(( internal_control & (log10(abundance) >= minimum_internal_control_log_reads)) ~ "Positive", 
+                     (!internal_control & (abundance >= minimum_non_control_reads)) ~ "Positive", 
+                     TRUE ~ "Negative"))
 
 
-# ------------------------------
-# make positive / negative calls
-# ------------------------------
-dataset_df_calls <- dataset_by_surv_column %>% 
-  mutate(pos_neg_call = case_when((internal_control & (log10(abundance) >= minimum_internal_control_log_reads)) ~ "Positive", 
-                                  (!internal_control & (abundance >= minimum_non_control_reads)) ~ "Positive", 
-                                  TRUE ~ "Negative"),
-         .groups="drop") %>%
-  select(Index, surveillance_column, abundance, pos_neg_call, contributing_target_names, surveillance_column_type)
-
-# contributing target names should not be filled out if overall call is negative
-# see: https://github.com/stenglein-lab/tick_surveillance/issues/14
-dataset_df_calls <- dataset_df_calls %>% mutate(contributing_target_names = if_else(pos_neg_call == "Positive", contributing_target_names, NA_character_)) 
+# keep only necessary columns
+count_type_surveillance_columns <- count_type_surveillance_values %>% select(Index, batch, surveillance_column, abundance, pos_neg_call)
 
 # ----------------------------
-# create a surveillance table
+# populate surveillance table
 # ----------------------------
 
 # columns in this table are defined in the surveillance_columns.txt file (param --surveillance_columns)
@@ -553,34 +611,65 @@ surv_df_abundances <- surv_df
 surv_df_abundances [surv_df_abundances == "Negative"] <- ""
 
 # Populate surveillance tables with observed positive calls and abundances
-# TODO: calling this function is quite slow.  Why?
-populate_surveillance_calls <- function(surv_df, surv_df_abundances, dataset_df_calls, column_names) {
+# TODO: calling this function is slow.  Why?
+populate_surveillance_calls <- function(surv_df, 
+                                        surv_df_abundances, 
+                                        name_type_surveillance_data, 
+                                        count_type_surveillance_data, 
+                                        observed_surveillance_columns) {
   
-  for (column_name in column_names) {
-    # fill in value from dataset_df_calls
+  # for each observed surveillance column
+  for (i in 1:nrow(observed_surveillance_columns)) {
+    
+    column_name = observed_surveillance_columns$surveillance_column[i]
+    column_type = observed_surveillance_columns$surveillance_column_type[i]
+    
+    # for each index defined in metadata
     for (each_index in surv_df$Index) {
-      # pull out possible hits for this Index (dataset) and this column
-      this_call <- dataset_df_calls %>% filter(each_index == Index & surveillance_column == column_name) %>% select(abundance, pos_neg_call, contributing_target_names, surveillance_column_type)
-      num_hits <- nrow(this_call)
-      if (num_hits > 1){
-        message (paste0("ERROR: more than one hit for index", each_index, " and column: ", this_column))
-        quit(status = 1)
-      } else if (num_hits == 1) {
-        surveillance_column_type = this_call %>% pull(surveillance_column_type)
+      
+      # count-type column
+      if (column_type == "count") {
         
-        # there are 2 possible types of surveillance columns: "count" or "name"
-        # these are defined in targets.tsv
-        # count columns contain positive/negative calls (and summed read counts)
-        # name columns report the species names of detected target(s)
-        if (surveillance_column_type == "count") {
-          # manually replace single values in the data frame with pos/neg call or abundance
+        # pull out data for this index/column
+        this_call <- count_type_surveillance_data %>% 
+          filter(Index == each_index & surveillance_column == column_name) %>% 
+          select(abundance, pos_neg_call)
+        
+        # should only have a single data point
+        num_hits <- nrow(this_call)
+        if (num_hits > 1){
+          message (paste0("ERROR: more than one hit for index", each_index, " and column: ", this_column))
+          quit(status = 1)
+        } else if (num_hits == 1) {
+          
+          # populate pos/neg calls
           surv_df[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(pos_neg_call)
-        } else if (surveillance_column_type == "name") {
-          surv_df[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(contributing_target_names)
+          
+          # populate abundances 
+          surv_df_abundances[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(abundance)
         }
-        surv_df_abundances[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(abundance)
+        # don't need to deal with case of 0 hits
+        
+      } else if (column_type == "name") {
+        # name type column
+        
+        # pull out data for this index/column
+        this_call <- name_type_surveillance_data %>% 
+          filter(Index == each_index & surveillance_column == column_name) %>% 
+          select(contributing_target_names)
+        
+        # should only have a single data point
+        num_hits <- nrow(this_call)
+        if (num_hits > 1){
+          message (paste0("ERROR: more than one hit for index", each_index, " and column: ", this_column))
+          quit(status = 1)
+        } else if (num_hits == 1) {
+          
+          # populate names that contributed to this hit
+          surv_df[column_name][surv_df["Index"] == each_index] <- this_call %>% pull(contributing_target_names)
+          
+        }
       }
-      # if num_hits == 0 don't need to do anything
     }
   }
   
@@ -590,22 +679,43 @@ populate_surveillance_calls <- function(surv_df, surv_df_abundances, dataset_df_
 }
 
 # which surveillance targets were actually observed in the data?
-observed_surveillance_targets <- dataset_df_calls %>% 
+observed_surveillance_targets <- tibble(dataset_with_surv_df %>% 
   filter(!is.na(surveillance_column)) %>% 
   group_by(surveillance_column) %>% 
-  summarize() %>% 
-  pull(surveillance_column)
+  summarize())
+
+# pull out surveillance column types, inferred from how they are defined in the targets file
+surveillance_column_types <-  targets_to_surv_df %>% 
+  select(-target) %>% 
+  group_by(surveillance_column, surveillance_column_type) %>% 
+  distinct() %>%
+  summarize(n_types = n(), .groups="drop")
+
+# check to make sure each column is only defined as one type
+more_than_one_type <- surveillance_column_types %>% filter(n_types > 1)
+if (nrow(more_than_one_type) > 0) {
+  offending_columns <- paste(unique(more_than_one_type %>% pull(surveillance_column)), collapse=" and ")
+  message (paste0("ERROR: more than one type (name/column) defined for surveillance column(s): ", offending_columns))
+  quit(status = 1)
+}
+
+# get rid of no-longer needed column
+surveillance_column_types <- surveillance_column_types %>% select(-n_types)
+
+# join in type of surv columns to those that were observed
+observed_surveillance_targets <- left_join(observed_surveillance_targets, surveillance_column_types)
 
 # this weird structure because multiple return values from R functions must be in a list
-returned_dfs <- populate_surveillance_calls(surv_df, surv_df_abundances, dataset_df_calls, observed_surveillance_targets)
+returned_dfs <- populate_surveillance_calls(surv_df, 
+                                            surv_df_abundances, 
+                                            name_type_surveillance_values, 
+                                            count_type_surveillance_values,
+                                            observed_surveillance_targets)
 surv_df <- returned_dfs$surv_df
 surv_df_abundances <- returned_dfs$surv_df_abundances
 
 # rename Acceptable_DNA column from Pos/Neg -> True/False 
 surv_df$Acceptable_DNA <- recode(surv_df$Acceptable_DNA, Positive = "TRUE", Negative = "FALSE")
-
-# TODO: Borrelia_other_species_names
-
 
 # -------------------
 # Write out results
