@@ -19,18 +19,16 @@
 # if running from Rscript (called from the pipeline)
 if (!interactive()) {
   args = commandArgs(trailingOnly=TRUE)
-  r_bindir                    = args[1]
-  r_libdir                    = args[2]
-  tidy_table_path             = args[3]
-  blast_output_path           = args[4]
-  sample_metadata_file        = args[5]
-  targets_tsv_file            = args[6]
-  surveillance_columns_file   = args[7]
-  input_min_non_control_reads = args[8]
+  r_libdir                    = args[1]
+  tidy_table_path             = args[2]
+  blast_output_path           = args[3]
+  sample_metadata_file        = args[4]
+  targets_tsv_file            = args[5]
+  surveillance_columns_file   = args[6]
+  input_min_non_control_reads = args[7]
   output_dir                  = "./"
 } else {
   # else if running via RStudio
-  r_bindir                    = "./"
   r_libdir                    = "../lib/R/"
   tidy_table_path             = "../results/dada2/sequence_abundance_table.tsv"
   blast_output_path           = "../results/blast/observed_sequences.fasta.bn_refseq"
@@ -52,8 +50,11 @@ library(readxl)
 # load openxlsx, either from pipeline's R lib dir or from R environment
 if (r_libdir != "NA") {
   library(openxlsx, lib.loc=r_libdir)
+  library(zip, lib.loc=r_libdir)
+
 } else {
   library(openxlsx)
+  library(zip)
 }
 
 # a function to write out sequences in fasta format
@@ -908,6 +909,6 @@ addStyle(wb, "surveillance_counts", integer_cell_style, rows=1:nrow(surv_df_abun
 # write out the workbook
 saveWorkbook(wb, paste0(output_dir, "sequencing_report.xlsx"), overwrite = TRUE)
 
-
-
-
+# write out version info into versions.yml
+# TODO
+writeLines("", "versions.yml")
