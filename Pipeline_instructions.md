@@ -163,7 +163,7 @@ Reference sequence (aka targets) are defined in the [targets.tsv](./refseq/targe
 | ref_sequence_name      | The reference sequecne name |
 | species                | The species for this reference sequence.  This will be reported but is not used to populate the surveillance table (reporting_columns is used for that). |
 | primer_name            | The name of the primers expected to amplify this target.  Provided for reference only.
-| reporting_columns      | A comma-separate list of column names in the reporting table.  Reads that are assigned to this reference sequence will be assigned to these columns in the surveillance table. |
+| reporting_columns      | A semicolon-separated list of column names in the reporting table.  Reads that are assigned to this reference sequence will be assigned to these columns in the surveillance table. |
 | min_percent_identity   | The minimum percent identity of the alignment between an observed sequence and this reference sequence to be assigned as a positive hit |
 | min_percent_aligned    | The minimum percent of the observed sequence that must align to this reference sequence to be assigned as a positive hit |
 | max_percent_gaps       | The maximum percent gap characters in alignments of observed sequences and this reference sequence to be assigned as a positive hit|

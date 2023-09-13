@@ -159,7 +159,9 @@ include { PREPEND_OUTPUT_FILENAMES    } from '../modules/local/prepend_filenames
 // modules from NF-CORE 
 include { FASTQC as FASTQC_PRE        } from '../modules/nf-core/fastqc/main'
 include { FASTQC as FASTQC_POST       } from '../modules/nf-core/fastqc/main'
-include { MULTIQC                     } from '../modules/nf-core/multiqc/main'
+include { MULTIQC as MULTIQC_PRE     } from '../modules/nf-core/multiqc/main'
+include { MULTIQC as MULTIQC_POST     } from '../modules/nf-core/multiqc/main'
+include { MULTIQC as MULTIQC_TRIM     } from '../modules/nf-core/multiqc/main'
 include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 
 
@@ -170,7 +172,9 @@ include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoft
 */                                                                              
                                                                                 
 // Info required for completion email and summary                               
-def multiqc_report = []                                                         
+def multiqc_report1 = []
+def multiqc_report2 = []
+def multiqc_report3 = []                                                        
                                                                                 
 workflow MPAS_PIPELINE {                                                                
                                                                                 
@@ -225,7 +229,7 @@ workflow MPAS_PIPELINE {
     DADA2(ch_all_trimmed_reads)
     ch_versions = ch_versions.mix ( DADA2.out.versions )      
 
-    TIDY_DADA_OUTPUT(DADA2.out.seqtab)
+    TIDY_DADA_OUTPUT(DADA2.out.seqtab, DADA2.out.dada_read_tracking_all)
     ch_versions = ch_versions.mix ( TIDY_DADA_OUTPUT.out.versions )      
 
     COMPARE_OBSERVED_SEQS(TIDY_DADA_OUTPUT.out.observed_sequences,
@@ -268,26 +272,53 @@ workflow MPAS_PIPELINE {
     methods_description    = WorkflowMPAS.methodsDescriptionText(workflow, ch_multiqc_custom_methods_description)
     ch_methods_description = Channel.value(methods_description)                 
                                                                                 
-    ch_multiqc_files = Channel.empty()                                          
-    ch_multiqc_files = ch_multiqc_files.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
-    ch_multiqc_files = ch_multiqc_files.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml'))
-    ch_multiqc_files = ch_multiqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
-    ch_multiqc_files = ch_multiqc_files.mix(FASTQC_PRE.out.zip.collect{it[1]}.ifEmpty([]))
-    // ch_multiqc_files = ch_multiqc_files.mix(FASTQC_POST.out.zip.collect{it[1]}.ifEmpty([]))
+    ch_multiqc_files1 = Channel.empty()                                          
+    ch_multiqc_files1 = ch_multiqc_files1.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
+    ch_multiqc_files1 = ch_multiqc_files1.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml'))
+    ch_multiqc_files1 = ch_multiqc_files1.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
+    ch_multiqc_files1 = ch_multiqc_files1.mix(FASTQC_PRE.out.zip.collect{it[1]}.ifEmpty([]))
+    
+    ch_multiqc_files2 = Channel.empty()                                          
+    ch_multiqc_files2 = ch_multiqc_files2.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
+    ch_multiqc_files2 = ch_multiqc_files2.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml'))
+    ch_multiqc_files2 = ch_multiqc_files2.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
+    ch_multiqc_files2 = ch_multiqc_files2.mix(FASTQC_POST.out.zip.collect{it[1]}.ifEmpty([]))
+
+    ch_multiqc_files3 = Channel.empty()                                          
+    ch_multiqc_files3 = ch_multiqc_files3.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
+    ch_multiqc_files3 = ch_multiqc_files3.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml'))
+    ch_multiqc_files3 = ch_multiqc_files3.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
+    ch_multiqc_files3= ch_multiqc_files3.mix(TRIM_PRIMER_SEQS.out.cutadapt_trim_report.collectFile(name: '*_summary.txt'))
                                                                                 
-    MULTIQC (                                                                   
-        ch_multiqc_files.collect(),                                             
+    MULTIQC_PRE (                                                                   
+        ch_multiqc_files1.collect(),                                             
         ch_multiqc_config.toList(),                                             
         ch_multiqc_custom_config.toList(),                                      
         ch_multiqc_logo.toList()                                                
-    )                                                                           
-    multiqc_report = MULTIQC.out.report.toList()                                
+    )
+    MULTIQC_POST (                                                                   
+        ch_multiqc_files2.collect(),                                             
+        ch_multiqc_config.toList(),                                             
+        ch_multiqc_custom_config.toList(),                                      
+        ch_multiqc_logo.toList()                                                
+    )
+    MULTIQC_TRIM (                                                                   
+        ch_multiqc_files3.collect(),                                             
+        ch_multiqc_config.toList(),                                             
+        ch_multiqc_custom_config.toList(),                                      
+        ch_multiqc_logo.toList()                                                
+    )
+
+    multiqc_report1 = MULTIQC_PRE.out.report.collectFile(name: 'MultiQC_FastQC_PRE_TRIM.html', storeDir: "${params.multiQC_reports}")
+    multiqc_report2 = MULTIQC_POST.out.report.collectFile(name: 'MultiQC_FastQC_POST_TRIM.html', storeDir: "${params.multiQC_reports}")
+    multiqc_report3 = MULTIQC_TRIM.out.report.collectFile(name: 'MultiQC_Cutadapt_Report.html', storeDir: "${params.multiQC_reports}")                                    
+                                                              
 
     // prepend main output file names
     ch_main_output_files = Channel.empty()
 
     ch_main_output_files = ch_main_output_files
-                             .mix(multiqc_report, 
+                             .mix( 
                              ASSIGN_OBSERVED_SEQS.out.surveillance_report,
                              ASSIGN_OBSERVED_SEQS.out.all_data_csv,
                              ASSIGN_OBSERVED_SEQS.out.txt,

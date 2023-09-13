@@ -16,10 +16,12 @@ if (!interactive()) {
   # if running from Rscript
   args = commandArgs(trailingOnly=TRUE)
   dada_seqtab=args[1]
+  track_reads=args[2]
   outdir="./"
 } else {
   # if running via RStudio
   trimmed_path = "../results/dada2/dada_seqtab.txt"
+  track_reads= "../results/dada2/dada_read_clean_all.csv"
   outdir="../results/dada2"
 }
 
@@ -62,3 +64,22 @@ writeFasta(sequences, paste0(outdir, "observed_sequences.fasta"))
 
 # write out version info into versions.yml
 writeLines("", "versions.yml")
+
+# read in dada read tracking csv
+track_reads <- read.csv("dada_read_clean_all.csv")
+
+# Add column that output the percentage of reads that passed dada2 cleanup
+track_reads$PercentPass <- (track_reads$nonchim/track_reads$input)*100
+
+# Create summary stats table
+track_sum <- track_reads %>%
+  summarise(across(where(is.numeric), .fns =
+                     list(Min = min,
+                          Median = median,
+                          Mean = mean,
+                          Max = max,
+                          SD = sd))) %>%
+  pivot_longer(everything(), names_sep = "_", names_to = c(".value", "Variable"))
+
+# write read tracking to csv
+write.csv(track_sum, paste0(outdir, "dada_read_clean_summary.csv"), col.names=T)

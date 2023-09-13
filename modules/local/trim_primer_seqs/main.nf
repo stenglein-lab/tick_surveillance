@@ -36,6 +36,7 @@ process TRIM_PRIMER_SEQS {
   label 'many_forks'
   label 'process_low'
   tag   "${meta.id}/${primers.primer_name}"
+  publishDir "${params.cutadapt_trim_reports}", pattern: '*_summary.txt', mode: 'copy'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -53,7 +54,8 @@ process TRIM_PRIMER_SEQS {
   tuple val(meta), 
         path("*R1_${primers.primer_name}.fastq.gz"), 
         path("*R2_${primers.primer_name}.fastq.gz")         , emit: trimmed_reads
-  path "versions.yml"                                       , emit: versions                                         
+  path "versions.yml"                                       , emit: versions
+  path("${meta.id}_${primers.primer_name}_summary.txt")     , emit: cutadapt_trim_report                                         
 
                                              
   script:
@@ -83,7 +85,8 @@ process TRIM_PRIMER_SEQS {
     $f1 \
     $f2 \
     -o ${meta.id}.R1_${primers.primer_name}.fastq.gz \
-    -p ${meta.id}.R2_${primers.primer_name}.fastq.gz
+    -p ${meta.id}.R2_${primers.primer_name}.fastq.gz \
+    > ${meta.id}_${primers.primer_name}_summary.txt
 
   cat <<-END_VERSIONS > versions.yml                                          
     "${task.process}":                                                          
