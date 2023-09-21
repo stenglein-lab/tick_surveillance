@@ -1,5 +1,4 @@
-include { BLAST_MAKEBLASTDB } from '../../../modules/nf-core/blast/makeblastdb/main'                                                                                                                                                       
-
+include { BLAST_MAKEBLASTDB } from '../modules/nf-core/blast/makeblastdb/main'                                                                                                                                                       
 /*
    Setup indexes and dictionaries needed by downstream processes.
 */
@@ -15,4 +14,3 @@ workflow SETUP_INDEXES {
   db       = BLAST_MAKEBLASTDB.out.db
   versions = BLAST_MAKEBLASTDB.out.versions
 }
-

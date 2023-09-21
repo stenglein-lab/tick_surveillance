@@ -1,3 +1,7 @@
+/* 
+  This workflow generates phylogenetic trees that include predefined reference
+  sequences and observed sequences
+ */
 workflow GENERATE_TREES {
 
   take: 

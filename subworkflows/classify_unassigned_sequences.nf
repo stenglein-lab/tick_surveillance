@@ -1,4 +1,8 @@
-workflow BLAST_UNASSIGNED_SEQUENCES {
+/*
+ This workflow taxonomically classifies unassigned sequences (those sequences
+ that were observed but not assigned to any of the predefined reference seqs).
+ */
+workflow CLASSIFY_UNASSIGNED_SEQUENCES {
 
   take: 
   unassigned_sequences

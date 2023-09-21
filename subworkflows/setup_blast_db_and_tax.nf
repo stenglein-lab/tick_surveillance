@@ -1,6 +1,11 @@
+/*
+  This workflow ensures that the local nt blast database and blast taxonomy 
+  database are valid.  These are used to taxonomically assign unassigned sequences.
+*/
 workflow SETUP_BLAST_DB_AND_TAX {
 
   take: 
+  // no input 
 
   main:
   
@@ -53,8 +58,6 @@ workflow SETUP_BLAST_DB_AND_TAX {
   versions      = ch_versions
 }
 
-
-
 /*
   This process confirms that the local NT database is valid 
   (if applicable: if going to blast unassigned sequences and 
@@ -79,7 +82,7 @@ process CHECK_LOCAL_BLAST_DATABASE {
   path(local_nt_database_dir) 
 
   output:
-  path(local_nt_database_dir), emit: checked_db_dir 
+  path(local_nt_database_dir)     , emit: checked_db_dir 
   path "versions.yml"             , emit: versions                                         
 
   script:                                                                       
@@ -109,9 +112,14 @@ process CHECK_LOCAL_BLAST_DATABASE {
   """
 }
 
-
 /* 
-  Confirm that local blast will be taxonomically aware
+  This process confirms that the NCBI blast taxdb is installed locally.
+
+  This db is required for BLAST to produce taxonomically aware results.
+
+  This process will check the db if it is defined (that is, if 
+  params.blast_tax_dir is defined), or will download the db if 
+  params.blast_tax_dir is not defined
  */
 process CHECK_BLAST_TAX {
   label 'process_low'
@@ -169,4 +177,5 @@ process CHECK_BLAST_TAX {
     rm taxdb.tar.gz
   """
 }
+
 

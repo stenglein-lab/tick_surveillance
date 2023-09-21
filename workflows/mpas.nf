@@ -140,26 +140,26 @@ ch_multiqc_custom_methods_description = params.multiqc_methods_description ? fil
 
                                                                                 
 // local                                                                            
-include { GENERATE_REFSEQ_FASTA       } from '../subworkflows/generate_refseq_fasta'
-include { SETUP_INDEXES               } from '../modules/local/setup_indexes/main'
-include { SETUP_PYTHON_ENVIRONMENT    } from '../modules/local/setup_python_env/main'
-include { SETUP_R_DEPENDENCIES        } from '../modules/local/setup_R_dependencies/main'
-include { VALIDATE_METADATA           } from '../modules/local/validate_metadata/main'
-include { TRIM_PRIMER_SEQS            } from '../modules/local/trim_primer_seqs/main'
-include { COLLECT_CUTADAPT_OUTPUT     } from '../modules/local/collect_cutadapt_output/main'
-include { DADA2                       } from '../modules/local/dada2/main'
-include { TIDY_DADA_OUTPUT            } from '../modules/local/dada2/main'
-include { COMPARE_OBSERVED_SEQS       } from '../modules/local/assign_sequences/main'
-include { ASSIGN_OBSERVED_SEQS        } from '../modules/local/assign_sequences/main'
-include { GENERATE_TREES              } from '../subworkflows/generate_trees'
-include { SETUP_BLAST_DB_AND_TAX      } from '../subworkflows/setup_blast_db_and_tax'
-include { BLAST_UNASSIGNED_SEQUENCES  } from '../subworkflows/blast_unassigned_sequences'
-include { PREPEND_OUTPUT_FILENAMES    } from '../modules/local/prepend_filenames/main'
+include { GENERATE_REFSEQ_FASTA         } from '../subworkflows/generate_refseq_fasta'
+include { SETUP_INDEXES                 } from '../subworkflows/setup_indexes'
+include { SETUP_PYTHON_ENVIRONMENT      } from '../modules/local/setup_python_env/main'
+include { SETUP_R_DEPENDENCIES          } from '../modules/local/setup_R_dependencies/main'
+include { VALIDATE_METADATA             } from '../modules/local/validate_metadata/main'
+include { TRIM_PRIMER_SEQS              } from '../modules/local/trim_primer_seqs/main'
+include { COLLECT_CUTADAPT_OUTPUT       } from '../modules/local/collect_cutadapt_output/main'
+include { DADA2                         } from '../modules/local/dada2/main'
+include { TIDY_DADA_OUTPUT              } from '../modules/local/dada2/main'
+include { COMPARE_OBSERVED_SEQS         } from '../modules/local/assign_sequences/main'
+include { ASSIGN_OBSERVED_SEQS          } from '../modules/local/assign_sequences/main'
+include { GENERATE_TREES                } from '../subworkflows/generate_trees'
+include { SETUP_BLAST_DB_AND_TAX        } from '../subworkflows/setup_blast_db_and_tax'
+include { CLASSIFY_UNASSIGNED_SEQUENCES } from '../subworkflows/classify_unassigned_sequences'
+include { PREPEND_OUTPUT_FILENAMES      } from '../modules/local/prepend_filenames/main'
 
 // modules from NF-CORE 
 include { FASTQC as FASTQC_PRE        } from '../modules/nf-core/fastqc/main'
 include { FASTQC as FASTQC_POST       } from '../modules/nf-core/fastqc/main'
-include { MULTIQC as MULTIQC_PRE     } from '../modules/nf-core/multiqc/main'
+include { MULTIQC as MULTIQC_PRE      } from '../modules/nf-core/multiqc/main'
 include { MULTIQC as MULTIQC_POST     } from '../modules/nf-core/multiqc/main'
 include { MULTIQC as MULTIQC_TRIM     } from '../modules/nf-core/multiqc/main'
 include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoftwareversions/main'
@@ -222,7 +222,6 @@ workflow MPAS_PIPELINE {
     ch_versions = ch_versions.mix ( FASTQC_POST.out.versions )      
 
     // run dada2 on trimmed reads
-    // DADA2 ( COLLECT_CUTADAPT_OUTPUT.out.trimmed_reads.collect() )
     ch_all_trimmed_reads = COLLECT_CUTADAPT_OUTPUT.out.trimmed_reads
                             .map { meta, reads -> [ reads ] }                                   
                             .flatten().collect()
@@ -254,12 +253,12 @@ workflow MPAS_PIPELINE {
     SETUP_BLAST_DB_AND_TAX()
     ch_versions = ch_versions.mix ( SETUP_BLAST_DB_AND_TAX.out.versions )      
 
-    BLAST_UNASSIGNED_SEQUENCES(ASSIGN_OBSERVED_SEQS.out.unassigned_sequences,
-                               SETUP_BLAST_DB_AND_TAX.out.blast_db_dir,
-                               SETUP_BLAST_DB_AND_TAX.out.blast_tax_dir,
-                               SETUP_R_DEPENDENCIES.out.R_lib_dir)
+    CLASSIFY_UNASSIGNED_SEQUENCES(ASSIGN_OBSERVED_SEQS.out.unassigned_sequences,
+                                  SETUP_BLAST_DB_AND_TAX.out.blast_db_dir,
+                                  SETUP_BLAST_DB_AND_TAX.out.blast_tax_dir,
+                                  SETUP_R_DEPENDENCIES.out.R_lib_dir)
 
-    ch_versions = ch_versions.mix ( BLAST_UNASSIGNED_SEQUENCES.out.versions )      
+    ch_versions = ch_versions.mix ( CLASSIFY_UNASSIGNED_SEQUENCES.out.versions )      
 
 
 
@@ -323,7 +322,7 @@ workflow MPAS_PIPELINE {
                              ASSIGN_OBSERVED_SEQS.out.all_data_csv,
                              ASSIGN_OBSERVED_SEQS.out.txt,
                              ASSIGN_OBSERVED_SEQS.out.pdf,
-                             BLAST_UNASSIGNED_SEQUENCES.out.report)
+                             CLASSIFY_UNASSIGNED_SEQUENCES.out.report)
                              .flatten()
     PREPEND_OUTPUT_FILENAMES(ch_main_output_files)
 

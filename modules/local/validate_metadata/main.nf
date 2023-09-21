@@ -20,7 +20,7 @@ process VALIDATE_METADATA {
   path (sample_ids) 
 
   output:
-  path(metadata)       ,   emit: validated_metadata
+  path(metadata)       , emit: validated_metadata
   path(sample_ids)     , emit: sample_ids
   path "versions.yml"  , emit: versions                                         
 

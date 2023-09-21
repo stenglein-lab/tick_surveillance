@@ -1,3 +1,7 @@
+/* 
+ This workflow creates a fasta file containing all of the predefined reference
+ sequences (defined in the targets file).
+ */
 workflow GENERATE_REFSEQ_FASTA {
 
   take: 
