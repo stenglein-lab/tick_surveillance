@@ -3,8 +3,6 @@
 */
 
 process PREPEND_OUTPUT_FILENAMES {
-  publishDir "${params.outdir}", mode: 'link'
-
   label 'process_low'
 
   input:
@@ -15,7 +13,9 @@ process PREPEND_OUTPUT_FILENAMES {
 
   script:
   """
-  cp $output_file ${params.output_prefix}${output_file}
+  # -L forces the resulting link to be a hard link 
+  # even if it was created via a symlink
+  ln -L $output_file ${params.output_prefix}${output_file}
   """
 }
 
