@@ -22,7 +22,6 @@ for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true
 WorkflowMPAS.initialise(params, log)                                           
 
 
-
 /*
   Read in the targets tsv-format file that describes the expected target sequences.
   and create channel
@@ -139,7 +138,7 @@ ch_multiqc_custom_methods_description = params.multiqc_methods_description ? fil
 */                                                                              
 
                                                                                 
-// local                                                                            
+// local modules and subworkflows
 include { GENERATE_REFSEQ_FASTA         } from '../subworkflows/generate_refseq_fasta'
 include { SETUP_INDEXES                 } from '../subworkflows/setup_indexes'
 include { SETUP_PYTHON_ENVIRONMENT      } from '../modules/local/setup_python_env/main'
@@ -178,27 +177,32 @@ def multiqc_report3 = []
                                                                                 
 workflow MPAS_PIPELINE {                                                                
                                                                                 
+    // this will keep track of all software versions
     ch_versions = Channel.empty()                                               
                                                                                 
     CUSTOM_DUMPSOFTWAREVERSIONS (                                               
         ch_versions.unique().collectFile(name: 'collated_versions.yml')         
     )                     
 
+    // generate fasta file for all reference sequences defined in targets file
     GENERATE_REFSEQ_FASTA(targets_ch)
 
+    // create a blast db of reference sequences
     SETUP_INDEXES (GENERATE_REFSEQ_FASTA.out.fasta)
     ch_versions = ch_versions.mix ( SETUP_INDEXES.out.versions )      
 
+    // setup python venv to handle python dependencies for tree-building
     python_req_ch = Channel.fromPath(params.python_requirements, checkIfExists: true)
     SETUP_PYTHON_ENVIRONMENT(params.python_venv_path, python_req_ch)
     ch_versions = ch_versions.mix ( SETUP_PYTHON_ENVIRONMENT.out.versions )      
 
+    // setup R packages not included in base environment 
     R_install_pkg_script_ch = Channel.fromPath(params.R_install_pkg_script, checkIfExists: true)
     R_tar_dir_ch = Channel.fromPath(params.R_tar_dir, checkIfExists: true)
     SETUP_R_DEPENDENCIES(R_install_pkg_script_ch, R_tar_dir_ch)
     ch_versions = ch_versions.mix ( SETUP_R_DEPENDENCIES.out.versions )      
 
-    // Check for existence of metadata file and create channel 
+    // Check for existence of metadata file and validate it
     validate_metadata_script_ch = Channel.fromPath(params.validate_metadata_script, checkIfExists: true)
     metadata_ch = Channel.fromPath("${params.metadata}", checkIfExists: true)
     VALIDATE_METADATA(validate_metadata_script_ch, metadata_ch, sample_ids_file_ch)
@@ -228,15 +232,19 @@ workflow MPAS_PIPELINE {
     DADA2(ch_all_trimmed_reads)
     ch_versions = ch_versions.mix ( DADA2.out.versions )      
 
+    // tidy dada2 output 
     TIDY_DADA_OUTPUT(DADA2.out.seqtab, DADA2.out.dada_read_tracking_all)
     ch_versions = ch_versions.mix ( TIDY_DADA_OUTPUT.out.versions )      
 
+    // compare (align) observed sequences to predefined reference sequences
     COMPARE_OBSERVED_SEQS(TIDY_DADA_OUTPUT.out.observed_sequences,
                           TIDY_DADA_OUTPUT.out.sequence_abundance_table,
                           GENERATE_REFSEQ_FASTA.out.fasta,
                           SETUP_INDEXES.out.db)
     ch_versions = ch_versions.mix ( COMPARE_OBSERVED_SEQS.out.versions )      
 
+    // logic to assign observed sequences to reference sequences
+    // and generate surveillance report
     ASSIGN_OBSERVED_SEQS (VALIDATE_METADATA.out.validated_metadata,
                           COMPARE_OBSERVED_SEQS.out.sequence_abundance_table,
                           COMPARE_OBSERVED_SEQS.out.blast_output,
@@ -245,21 +253,23 @@ workflow MPAS_PIPELINE {
                           targets_file_ch)
     ch_versions = ch_versions.mix ( ASSIGN_OBSERVED_SEQS.out.versions )      
 
+    // generate phylogenetic trees
     GENERATE_TREES (ASSIGN_OBSERVED_SEQS.out.surveillance_report,
                     SETUP_PYTHON_ENVIRONMENT.out.venv_path,
                     targets_file_ch)      
     ch_versions = ch_versions.mix ( GENERATE_TREES.out.versions )      
 
+    // setup BLAST db for classification of unassigned sequences
     SETUP_BLAST_DB_AND_TAX()
     ch_versions = ch_versions.mix ( SETUP_BLAST_DB_AND_TAX.out.versions )      
 
+    // BLAST (vs. NCBI nt database) then classify unassigned sequences
     CLASSIFY_UNASSIGNED_SEQUENCES(ASSIGN_OBSERVED_SEQS.out.unassigned_sequences,
                                   SETUP_BLAST_DB_AND_TAX.out.blast_db_dir,
                                   SETUP_BLAST_DB_AND_TAX.out.blast_tax_dir,
                                   SETUP_R_DEPENDENCIES.out.R_lib_dir)
 
     ch_versions = ch_versions.mix ( CLASSIFY_UNASSIGNED_SEQUENCES.out.versions )      
-
 
 
     //                                                                          
