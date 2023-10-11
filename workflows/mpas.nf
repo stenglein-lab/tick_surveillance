@@ -4,28 +4,21 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */                                                                              
                                                                                 
+
+/*
+   This uses the parameter schema defined in nextflow_schema.json
+   to validate parameters.  It does things like make sure required
+   parameters are defined and that parameters have appropriate values.
+ */
 def summary_params = NfcoreSchema.paramsSummaryMap(workflow, params)            
 
-// This list includes a list of files or paths that are required
-// to exist.  Check that they exist and fail if not.
-checkPathParamList = [
-  params.fastq_dir,
-  params.script_dir,
-  params.targets,
-  params.metadata,
-  params.primers
-]
-// log.info("Checking for required input paths and files...")
-for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true) } }
-                                                                                
 // Validate input parameters                                                    
 WorkflowMPAS.initialise(params, log)                                           
-
 
 /*
   Read in the targets tsv-format file that describes the expected target sequences.
   and create channel
-*/
+ */
 Channel
     .fromPath(params.targets, checkIfExists: true)
     .splitCsv(header:true, sep:"\t", strip:true)
@@ -35,41 +28,35 @@ Channel
   A channel containing the path of the tsv file specifying surveillance targets
   
   This channel differs from targets_ch in that targets_ch contains a groovy
-  data structure from the parsed file.  This ch contains the file's path.
-*/
+  data structure from the parsed file.  This ch just contains the file's path.
+ */
 Channel
      .fromPath(params.targets, type: 'file', checkIfExists: true)
      .set{ targets_file_ch }
 
 /*
 
- This channel generates the primer sequences that were
- used to amplify surveillance targets.  These primer sequences will be trimmed
- off of read pairs and used to identify legitimate PCR products, which will
- contain an expected F/R primer pair at the ends.
+ This channel contains the primer sequences that were
+ used to amplify surveillance targets read from the primers.tsv file.  
 
-*/
+ These primer sequences will be trimmed off of read pairs and used to 
+ identify legitimate PCR products, which contain an expected F/R primer pair 
+ at their ends.
+ */
 Channel
     .fromPath(params.primers, checkIfExists: true)
     .splitCsv(header:true, sep:"\t", strip:true)
     .set { primers_ch }
 
-/*
-  A channel containing the tsv file specifying surveillance report columns
-*/
+//  A channel containing the tsv file specifying surveillance report columns 
 Channel
      .fromPath(params.surveillance_columns, type: 'file', checkIfExists: true)
      .set{surveillance_columns_ch}
 
 
-                                                                                
-
 /*
  These fastq files represent the main input to this workflow
- 
- Expecting files with _R1 or _R2 in their names corresponding to paired-end reads
-*/
-
+ */
 
 Channel
     .fromFilePairs("${params.fastq_dir}/${params.fastq_pattern}",

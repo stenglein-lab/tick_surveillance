@@ -5,56 +5,91 @@
   "description": "A pipeline to analyze amplicon sequencing data for tick-borne pathogens",
   "type": "object",
   "definitions": {
-    "primer_trimming_options": {
-      "title": "Primer trimming options",
+    "primer_and_adapter_trimming_options": {
+      "title": "Primer and adapter trimming options",
       "type": "object",
       "description": "",
       "default": "",
       "properties": {
         "primers": {
           "type": "string",
-          "default": "/home/mdstengl/2023_1_issues/refseq//primers.tsv"
+          "default": "refseq/primers.tsv",
+          "format": "file-path",
+          "description": "A file containing the names and sequences of primers used to amplify targets."
         },
         "post_trim_min_length": {
           "type": "integer",
-          "default": 100
+          "default": 100,
+          "description": "After trimming of adapter and primer sequences, amplicons shorter than this length will be discarded.",
+          "minimum": 1,
+          "maximum": 10000
         },
         "amplicon_primers_max_error_fraction": {
           "type": "number",
-          "default": 0.2
+          "default": 0.2,
+          "description": "This specifies the error tolerance (fraction) used when searching for adapters sequences to trim. This value is passed to the the cutadapt -e parameter.",
+          "minimum": 0,
+          "maximum": 1
         },
         "adapters_min_overlap": {
           "type": "integer",
-          "default": 10
+          "default": 10,
+          "description": "Used in trimming of Illumina adapter sequences.  Specifies the minimum length of overlap between adapter sequence and read sequence for trimming to occur.  Passed to cutadapt -O parameter.",
+          "minimum": 1,
+          "maximum": 20
         }
-      }
+      },
+      "required": [
+        "primers",
+        "post_trim_min_length",
+        "amplicon_primers_max_error_fraction",
+        "adapters_min_overlap"
+      ]
     },
-    "surveillance_report": {
-      "title": "Surveillance Report",
+    "calling_of_positives_and_surveillance_report": {
+      "title": "Calling of positives and Surveillance Report",
       "type": "object",
       "description": "",
       "default": "",
       "properties": {
         "surveillance_columns": {
           "type": "string",
-          "default": "/home/mdstengl/2023_1_issues/refseq//surveillance_columns.txt"
+          "default": "refseq/surveillance_columns.txt",
+          "description": "This file specifies what columns will be included in the surveillance report and optional default values.",
+          "format": "file-path"
         },
         "min_reads_for_positive_surveillance_call": {
           "type": "integer",
-          "default": 50
+          "default": 50,
+          "description": "The number of read pairs assigned to a particular target in order for that target to be called positive.",
+          "minimum": 1
         },
         "max_blast_refseq_evalue": {
           "type": "number",
-          "default": 1e-10
+          "default": 1e-10,
+          "description": "The maximum BLASTN e-value for an ASV to be initially assigned to a target sequence.  Final assignment will be based on additional criteria.",
+          "minimum": 0,
+          "maximum": 10
         }
-      }
+      },
+      "required": [
+        "surveillance_columns",
+        "min_reads_for_positive_surveillance_call",
+        "max_blast_refseq_evalue"
+      ]
     },
     "input_output_options": {
       "title": "Input/output options",
       "type": "object",
       "fa_icon": "fas fa-terminal",
       "description": "Define where the pipeline should find input data and save output data.",
-      "required": ["fastq_dir"],
+      "required": [
+        "fastq_dir",
+        "fastq_pattern",
+        "outdir",
+        "targets",
+        "output_prefix"
+      ],
       "properties": {
         "fastq_pattern": {
           "type": "string",
@@ -64,33 +99,39 @@
         "fastq_dir": {
           "type": "string",
           "default": "input/fastq/",
-          "description": "A directory containing"
+          "description": "A directory containing fastq files that will be input to the pipeline.",
+          "format": "directory-path"
         },
         "outdir": {
           "type": "string",
           "format": "directory-path",
-          "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
+          "description": "The output directory where results will be saved. You have to use absolute paths to store on Cloud infrastructure.",
           "fa_icon": "fas fa-folder-open",
           "default": "./results/"
         },
         "targets": {
           "type": "string",
-          "default": "/refseq//targets.tsv"
+          "default": "refseq//targets.tsv",
+          "description": "A file containing the target sequences and other information about these sequences.",
+          "format": "file-path"
         },
         "tracedir": {
           "type": "string",
-          "description": "Directory to keep pipeline Nextflow logs and reports.",
+          "description": "Directory in which Nextflow logs and reports will be placed.",
           "default": "${params.outdir}/pipeline_info",
           "fa_icon": "fas fa-cogs",
-          "hidden": true
+          "format": "directory-path"
         },
         "log_outdir": {
           "type": "string",
-          "default": "./results/log"
+          "default": "${params.outdir}/log",
+          "description": "Directory in which pipeline logs and reports will be placed.",
+          "format": "directory-path"
         },
         "output_prefix": {
           "type": "string",
-          "default": "2023_01_12_"
+          "default": "Today's date in YYYY_MM_DD format",
+          "description": "Main pipeline output file names will contain this prefix."
         }
       }
     },
@@ -106,7 +147,6 @@
           "description": "Maximum number of CPUs that can be requested for any single job.",
           "default": 16,
           "fa_icon": "fas fa-microchip",
-          "hidden": true,
           "help_text": "Use to set an upper-limit for the CPU requirement for each process. Should be an integer e.g. `--max_cpus 1`"
         },
         "max_memory": {
@@ -115,7 +155,6 @@
           "default": "128.GB",
           "fa_icon": "fas fa-memory",
           "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
-          "hidden": true,
           "help_text": "Use to set an upper-limit for the memory requirement for each process. Should be a string in the format integer-unit e.g. `--max_memory '8.GB'`"
         },
         "max_time": {
@@ -124,7 +163,6 @@
           "default": "240.h",
           "fa_icon": "far fa-clock",
           "pattern": "^(\\d+\\.?\\s*(s|m|h|day)\\s*)+$",
-          "hidden": true,
           "help_text": "Use to set an upper-limit for the time requirement for each process. Should be a string in the format integer-unit e.g. `--max_time '2.h'`"
         }
       }
@@ -151,9 +189,11 @@
       "properties": {
         "dada_outdir": {
           "type": "string",
-          "default": "./results/dada2"
+          "default": "${params.outdir}/dada2",
+          "description": "Directory in which DADA2 output files will be placed."
         }
-      }
+      },
+      "required": ["dada_outdir"]
     },
     "blasting_of_unassigned_sequences": {
       "title": "BLASTing of unassigned sequences",
@@ -162,27 +202,38 @@
       "default": "",
       "properties": {
         "blast_unassigned_sequences": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "A flag to turn off or on this BLAST / assignment step."
         },
         "max_blast_nt_evalue": {
           "type": "number",
-          "default": 1e-10
+          "default": 1e-10,
+          "description": "The maximum BLAST e-value."
         },
         "blast_perc_identity": {
           "type": "number",
-          "default": 70.0
+          "default": 70,
+          "description": "The minimum percent identity for BLAST hits to be considered.",
+          "minimum": 0,
+          "maximum": 100
         },
         "blast_qcov_hsp_perc": {
           "type": "number",
-          "default": 70.0
+          "default": 70,
+          "description": "The minimum query coverage percentage for BLAST hits to be considered.",
+          "minimum": 0,
+          "maximum": 100
         },
         "local_nt_database_dir": {
           "type": "string",
-          "default": "None"
+          "default": "None",
+          "description": "The path to a directory containing a local copy of the NCBI nt database (or whatever database you wish to search).  Note that this is not the path of the database, but is the path of the directory containing the database.",
+          "format": "directory-path"
         },
         "local_nt_database_name": {
           "type": "string",
-          "default": "nt"
+          "default": "nt",
+          "description": "The name of the local BLAST database to be searched in this step."
         },
         "remote_blast_nt": {
           "type": "boolean",
@@ -190,33 +241,49 @@
         },
         "blast_tax_dir": {
           "type": "string",
-          "default": "None"
+          "default": "None",
+          "description": "The directory containing local copies of the files contained in https://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz.  This is optional and if you don't specify it (recommended), the pipeine will download these automatically.",
+          "format": "directory-path"
         }
-      }
+      },
+      "required": [
+        "blast_unassigned_sequences",
+        "max_blast_nt_evalue",
+        "blast_perc_identity",
+        "blast_qcov_hsp_perc",
+        "local_nt_database_dir",
+        "local_nt_database_name",
+        "remote_blast_nt",
+        "blast_tax_dir"
+      ]
     },
-    "new_group_4": {
-      "title": "New Group 4",
+    "tree_building": {
+      "title": "Tree-building",
       "type": "object",
-      "description": "",
+      "description": "Parameters related to the construction of phylogenetic trees that include observed sequences and pre-defined reference sequences.",
       "default": "",
       "properties": {
         "make_trees": {
           "type": "boolean",
-          "default": true
+          "default": true,
+          "description": "A flag to turn on or off this step."
         },
         "tree_outdir": {
           "type": "string",
-          "default": "./results/trees"
+          "default": "${params.outdir}/trees",
+          "description": "A directory in which tree files will be placed.",
+          "format": "directory-path"
         }
-      }
+      },
+      "required": ["tree_outdir", "make_trees"]
     }
   },
   "allOf": [
     {
-      "$ref": "#/definitions/primer_trimming_options"
+      "$ref": "#/definitions/primer_and_adapter_trimming_options"
     },
     {
-      "$ref": "#/definitions/surveillance_report"
+      "$ref": "#/definitions/calling_of_positives_and_surveillance_report"
     },
     {
       "$ref": "#/definitions/input_output_options"
@@ -234,46 +301,38 @@
       "$ref": "#/definitions/blasting_of_unassigned_sequences"
     },
     {
-      "$ref": "#/definitions/new_group_4"
+      "$ref": "#/definitions/tree_building"
     }
   ],
   "properties": {
     "python_venv_path": {
       "type": "string",
-      "default": "/home/mdstengl/2023_1_issues/python_venv/",
+      "default": "python_venv/",
       "hidden": true
     },
     "script_dir": {
       "type": "string",
-      "default": "/home/mdstengl/2023_1_issues/scripts"
-    },
-    "R_lib_dir": {
-      "type": "string",
-      "default": "/home/mdstengl/2023_1_issues/lib/R/"
+      "default": "scripts/"
     },
     "initial_fastqc_dir": {
       "type": "string",
-      "default": "./results/initial_fastqc/"
+      "default": "${params.outdir}/initial_fastqc/"
     },
     "post_trim_fastqc_dir": {
       "type": "string",
-      "default": "./results/post_trim_fastqc/"
+      "default": "${params.outdir}/post_trim_fastqc/"
     },
     "trimmed_outdir": {
       "type": "string",
-      "default": "./results/trimmed_fastq"
+      "default": "${params.outdir}/trimmed_fastq"
     },
     "blast_outdir": {
       "type": "string",
-      "default": "./results/blast"
+      "default": "${params.outdir}/blast"
     },
     "refseq_dir": {
       "type": "string",
       "default": "/home/mdstengl/2023_1_issues/refseq/"
-    },
-    "refseq_fasta_dir": {
-      "type": "string",
-      "default": "./results/refseq_fasta/"
     },
     "singularity_pull_docker_container": {
       "type": "boolean"
@@ -281,6 +340,83 @@
     "metadata": {
       "type": "string",
       "default": "None"
+    },
+    "publish_dir_mode": {
+      "type": "string",
+      "default": "link"
+    },
+    "multiqc_title": {
+      "type": "string"
+    },
+    "multiqc_config": {
+      "type": "string"
+    },
+    "multiqc_logo": {
+      "type": "string"
+    },
+    "max_multiqc_email_size": {
+      "type": "string",
+      "default": "25.MB"
+    },
+    "multiqc_methods_description": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string",
+      "default": "mark.stenglein@colostate.edu"
+    },
+    "email_on_fail": {
+      "type": "string",
+      "default": "mark.stenglein@colostate.edu"
+    },
+    "plaintext_email": {
+      "type": "string"
+    },
+    "monochrome_logs": {
+      "type": "string"
+    },
+    "hook_url": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "validate_params": {
+      "type": "string"
+    },
+    "show_hidden_params": {
+      "type": "string"
+    },
+    "python_requirements": {
+      "type": "string",
+      "default": "/home/mdstengl/2023_8_dsl2_dev/lib/requirements.txt"
+    },
+    "QC_and_summary_stats": {
+      "type": "string",
+      "default": "results/QC_and_summary_stats"
+    },
+    "cutadapt_trim_reports": {
+      "type": "string",
+      "default": "results/QC_and_summary_stats/cutadapt_trim_reports"
+    },
+    "multiQC_reports": {
+      "type": "string",
+      "default": "results/QC_and_summary_stats/multiqc"
+    },
+    "schema_ignore_params": {
+      "type": "string"
+    },
+    "R_tar_dir": {
+      "type": "string",
+      "default": "/home/mdstengl/2023_8_dsl2_dev/lib/R/"
+    },
+    "R_install_pkg_script": {
+      "type": "string",
+      "default": "/home/mdstengl/2023_8_dsl2_dev/bin/install_R_packages.R"
+    },
+    "validate_metadata_script": {
+      "type": "string",
+      "default": "/home/mdstengl/2023_8_dsl2_dev/bin/validate_metadata.R"
     }
   }
 }
