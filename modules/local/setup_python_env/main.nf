@@ -19,8 +19,7 @@ process SETUP_PYTHON_ENVIRONMENT {
   }
 
   when:
-  params.make_trees
-
+  params.make_trees && (workflow.containerEngine == 'singularity')
 
   input:
   val(venv_input_path)
@@ -49,8 +48,10 @@ process SETUP_PYTHON_ENVIRONMENT {
     END_VERSIONS
   """
   } else {
+  // only need to make a python venv when using singularity
   """
-    echo "only need to make a venv when using singularity"
+    # just make an empty directory to pass to processes expecting it.
+    mkdir $venv_input_path
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         python: \$(python --version 2>&1 | sed 's/Python //g')

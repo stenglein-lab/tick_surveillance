@@ -39,6 +39,8 @@ process SETUP_R_DEPENDENCIES {
   } else {
   """
     echo "setup not necessary for conda environment"
+    # just create an empty directory 
+    mkdir R_lib_dir
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

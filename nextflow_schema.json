@@ -384,9 +384,6 @@
     "validate_params": {
       "type": "string"
     },
-    "show_hidden_params": {
-      "type": "string"
-    },
     "python_requirements": {
       "type": "string",
       "default": "/home/mdstengl/2023_8_dsl2_dev/lib/requirements.txt"
