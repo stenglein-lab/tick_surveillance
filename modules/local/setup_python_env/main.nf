@@ -19,7 +19,7 @@ process SETUP_PYTHON_ENVIRONMENT {
   }
 
   when:
-  params.make_trees && (workflow.containerEngine == 'singularity')
+  params.make_trees 
 
   input:
   val(venv_input_path)
@@ -52,10 +52,8 @@ process SETUP_PYTHON_ENVIRONMENT {
   """
     # just make an empty directory to pass to processes expecting it.
     mkdir $venv_input_path
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version 2>&1 | sed 's/Python //g')
-    END_VERSIONS
+
+    touch versions.yml
   """
   }
 }

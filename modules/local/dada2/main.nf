@@ -9,7 +9,9 @@ process DADA2 {
   label 'process_high'
   label 'error_retry'
 
-  // singularity info for this process
+  // if using conda
+  conda "bioconda::bioconductor-dada2=1.22.0"
+  // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/bioconductor-dada2:1.22.0--r41h399db7b_0"
   } else {
@@ -39,7 +41,9 @@ process TIDY_DADA_OUTPUT {
 
   label 'process_low'
 
-  // singularity info for this process
+  // if using conda
+  conda "conda-forge::r-tidyverse=1.3.1"                                        
+  // if using singularity 
   if (workflow.containerEngine == 'singularity'){
       container "docker://rocker/tidyverse:4.2.2"
   }

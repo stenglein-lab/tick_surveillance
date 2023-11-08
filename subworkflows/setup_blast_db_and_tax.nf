@@ -68,7 +68,10 @@ process CHECK_LOCAL_BLAST_DATABASE {
   label 'process_low'
   tag "all"
 
-  // singularity info for this process
+  // if using conda
+  conda "bioconda::blast=2.12.*"
+
+  // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/blast:2.12.0--pl5262h3289130_0"
   } else {
@@ -125,7 +128,10 @@ process CHECK_BLAST_TAX {
   label 'process_low'
   tag "all"
 
-  // singularity info for this process
+  // if using conda 
+  conda "conda-forge::curl=8.4.0"
+
+  // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/curl:7.80.0"
   } else {

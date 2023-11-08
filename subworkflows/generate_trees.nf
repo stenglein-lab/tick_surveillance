@@ -41,6 +41,9 @@ process CREATE_FASTA_FOR_TREES {
 
   label 'process_low'
 
+  // if using conda 
+  conda "$baseDir/conda/python_conda_environment.yaml"                               
+
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/python:3.10.4" 
@@ -85,7 +88,10 @@ process MAKE_TREE_ALIGNMENT {
 
   label 'process_medium'
 
-  // singularity info for this process 
+  // if using conda 
+  conda "bioconda::mafft=7.508"
+
+  // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/mafft:7.505--hec16e2b_0"
   } else {
@@ -120,7 +126,10 @@ process MAKE_ML_TREE {
   label 'process_medium'
   tag "all"
 
-  // singularity info for this process
+  // if using conda 
+  conda "bioconda::iqtree=2.2.0.3"
+
+  // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/iqtree:2.2.0.3--hb97b32f_1"
   } else {
@@ -156,7 +165,10 @@ process VIEW_PHYLO_TREE {
 
   label 'process_low'
 
-  // singularity info for this process
+  // if using conda 
+  conda "$baseDir/conda/python_conda_environment.yaml"                               
+
+  // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/python:3.10.4" 
   } else {

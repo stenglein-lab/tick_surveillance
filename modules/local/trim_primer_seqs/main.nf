@@ -38,7 +38,10 @@ process TRIM_PRIMER_SEQS {
   tag   "${meta.id}/${primers.primer_name}"
   publishDir "${params.cutadapt_trim_reports}", pattern: '*_summary.txt', mode: 'copy'
 
-  // singularity info for this process
+  // if using conda
+  conda "bioconda::cutadapt=3.5"
+
+  // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
     container "https://depot.galaxyproject.org/singularity/cutadapt:3.5--py39h38f01e4_0"
   } else {

@@ -40,7 +40,10 @@ process BLASTN_UNASSIGNED_SEQUENCES {
   label 'process_high_memory'
   label 'error_retry'
 
-  // singularity info for this process
+  // if using conda  
+  conda "bioconda::blast=2.12.*"
+
+  // if using singularity  
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
       container "https://depot.galaxyproject.org/singularity/blast:2.12.0--pl5262h3289130_0"
   } else {
@@ -115,7 +118,10 @@ process ASSIGN_UNASSIGNED_SEQUENCES {
   label 'process_low'
   tag "all"
 
-  // singularity info for this process
+  // if using conda
+  conda "$baseDir/conda/R_conda_environment.yaml"                               
+
+  // if using singularity 
   if (workflow.containerEngine == 'singularity'){
       container "docker://rocker/tidyverse:4.2.2"
   }     

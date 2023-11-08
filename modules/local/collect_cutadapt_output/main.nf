@@ -15,7 +15,10 @@ process COLLECT_CUTADAPT_OUTPUT {
   tag        "${meta.id}"
   publishDir "${params.trimmed_outdir}", pattern: "*.fastq.gz"
                                                                    
-  // singularity info for this process
+  // if using conda
+  conda "bioconda::cutadapt=3.5"                                        
+
+  // if using singularity
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
     container "https://depot.galaxyproject.org/singularity/cutadapt:3.5--py39h38f01e4_0"
   } else {
