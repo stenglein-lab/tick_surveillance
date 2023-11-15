@@ -32,13 +32,12 @@ process BLASTN_UNASSIGNED_SEQUENCES {
   publishDir "${params.blast_outdir}", mode: 'link'
   tag "all"
 
-  label 'process_high'
-  label 'process_high_memory'
+  label 'process_medium'
   label 'error_retry'
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/blast:2.12.0--pl5262h3289130_0"
+      container "https://depot.galaxyproject.org/singularity/blast:2.14.1--pl5321h6f7f691_0"
   } else {
       container "quay.io/biocontainers/blast:2.12.0--pl5262h3289130_0"
   }
@@ -77,12 +76,12 @@ process BLASTN_UNASSIGNED_SEQUENCES {
   }
   else {
     // local blastn: faster but requires locally installed nt database
-    blast_db_params = "-db ${local_nt_database}"
+    blast_db_params = "-db $local_nt_database"
   }
 
 
   """
-  export BLASTDB="$blast_tax_dir"
+  #export BLASTDB="$blast_tax_dir"
 
   # run blastn
   blastn $blast_db_params -task megablast -perc_identity ${params.blast_perc_identity} -qcov_hsp_perc ${params.blast_qcov_hsp_perc} -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header

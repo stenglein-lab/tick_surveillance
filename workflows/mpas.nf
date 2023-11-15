@@ -226,10 +226,16 @@ workflow MPAS_PIPELINE {
     ch_all_trimmed_reads = COLLECT_CUTADAPT_OUTPUT.out.trimmed_reads
                             .map { meta, reads -> [ reads ] }                                   
                             .flatten().collect()
-    DADA2(ch_all_trimmed_reads)
+    DADA2(
+        ch_all_trimmed_reads
+    )
+    
     ch_versions = ch_versions.mix ( DADA2.out.versions )      
 
-    TIDY_DADA_OUTPUT(DADA2.out.seqtab, DADA2.out.dada_read_tracking_all)
+    TIDY_DADA_OUTPUT(
+        DADA2.out.seqtab, DADA2.out.dada_read_tracking_all
+    )
+
     ch_versions = ch_versions.mix ( TIDY_DADA_OUTPUT.out.versions )      
 
     COMPARE_OBSERVED_SEQS(TIDY_DADA_OUTPUT.out.observed_sequences,
@@ -260,7 +266,6 @@ workflow MPAS_PIPELINE {
                                SETUP_R_DEPENDENCIES.out.R_lib_dir)
 
     ch_versions = ch_versions.mix ( BLAST_UNASSIGNED_SEQUENCES.out.versions )      
-
 
 
     //                                                                          

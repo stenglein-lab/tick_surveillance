@@ -34,19 +34,18 @@ workflow SETUP_BLAST_DB_AND_TAX {
     // from this path and set a boolean to true to indicate it's an existing
     // directory
     if (params.blast_tax_dir) {
-       blast_tax_ch = Channel.fromPath( params.blast_tax_dir )
-                             .map { path -> [ path , true ] }  
+       blast_tax_ch = Channel.fromPath( params.blast_tax_dir ).map { path -> [ path , true ] }  
     } else {
        // if this path was *not* provided as a parameter, then create a channel
        // from a bogus path "blast_tax_dir" and set a boolean to false 
        // to indicate it *doesn't* refer to an existing
-       blast_tax_ch = Channel.fromPath( "blast_tax_dir" )
-                             .map { path -> [ path , false ] }  
+       blast_tax_ch = Channel.fromPath( "blast_tax_dir" ).map { path -> [ path , false ] }  
     }
   } 
 
   CHECK_BLAST_TAX(blast_tax_ch)
 
+  output:
   emit:
   blast_db_dir  = CHECK_LOCAL_BLAST_DATABASE.out.checked_db_dir
   blast_tax_dir = CHECK_BLAST_TAX.out.checked_blast_tax_dir
@@ -135,7 +134,7 @@ process CHECK_BLAST_TAX {
 
   script:
   // if a local blast_tax_dir is specified, check that it contains the expected files
-  existing_db ? 
+  if (existing_db) { 
   """
     # check that the directory exists
     if [ ! -d "${blast_tax_dir}" ] ; then
@@ -152,7 +151,8 @@ process CHECK_BLAST_TAX {
       exit 1
     fi 
   
-  """ :
+  """ }
+  else {
   // if tax db doesn't already exist : download the necessary files and keep track of directory 
   """
     # make a new local directory to contain the files
@@ -168,5 +168,6 @@ process CHECK_BLAST_TAX {
     # get rid of archive
     rm taxdb.tar.gz
   """
+  }
 }
 

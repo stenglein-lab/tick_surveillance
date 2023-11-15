@@ -6,7 +6,7 @@ process DADA2 {
   publishDir "${params.QC_and_summary_stats}", pattern: 'dada_read_clean_all.csv', mode: 'copy'
   tag        "all"
 
-  label 'process_high'
+  label 'process_medium'
   label 'error_retry'
 
   // singularity info for this process
@@ -28,7 +28,7 @@ process DADA2 {
   script:
   """
   # Run dada2 using trimmed fastq as input and create a tabular output of results
-  Rscript ${params.script_dir}/run_dada_on_trimmed.R .
+  Rscript ../../../bin/run_dada_on_trimmed.R .
   """
 }
 
