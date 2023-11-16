@@ -81,7 +81,7 @@ process BLASTN_UNASSIGNED_SEQUENCES {
 
 
   """
-  #export BLASTDB="$blast_tax_dir"
+  export BLASTDB="$blast_tax_dir"
 
   # run blastn
   blastn $blast_db_params -task megablast -perc_identity ${params.blast_perc_identity} -qcov_hsp_perc ${params.blast_qcov_hsp_perc} -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
