@@ -4,6 +4,42 @@ This repository contains a bioinformatics pipeline for the analysis of amplicon 
 
 This pipeline is [described in this paper](https://pubmed.ncbi.nlm.nih.gov/37247570/).
 
+
+## Table of Contents
+
+- [Running the pipeline](#Running-the-pipeline)
+    - [Running from github](#Running-from-github)
+    - [Running test datasets](#Running-test-datasets)
+    - [Running a specific version from github:](#Running-a-specific-version-from-github)
+    - [Making sure that you are running the latest version when running from github.](#Making-sure-that-you-are-running-the-latest-version-when-running-from-github)
+    - [Running in different computing environments](#Running-in-different-computing-environments)
+    - [Running by cloning the pipeline's repository](#Running-by-cloning-the-pipeline's-repository)
+- [Inputs](#Inputs)
+    - [Metadata file](#Metadata-file)
+    - [Input fastq](#Input-fastq)
+- [Outputs](#Outputs)
+    - [Output directory](#Output-directory)
+    - [Output file name prefixes ](#Output-file-name-prefixes)
+- [Surveillance Report](#Surveillance-Report)
+    - [Surveillance targets](#Surveillance-targets)
+    - [Reference sequences](#Reference-sequences)
+    - [Assignment of observed sequences to reference sequences](#Assignment-of-observed-sequences-to-reference-sequences)
+    - [Mapping of reference sequence to surveillance targets ](#Mapping-of-reference-sequence-to-surveillance-targets)
+    - [Calling positive hits](#Calling-positive-hits)
+- [Primers and primer trimming](#Primers-and-primer-trimming)
+- [QC reports](#QC-reports)
+- [BLASTing of unassigned sequences](#BLASTing-of-unassigned-sequences)
+- [Dependencies](#Dependencies)
+    - [Nextflow](#Nextflow)
+    - [Singularity ](#Singularity)
+    - [Conda](#Conda)
+    - [R libraries](#R-libraries)
+    - [Python dependencies](#Python-dependencies)
+- [Additional parameter information](#Additional-parameter-information)
+
+
+
+
 ## Running the pipeline
 
 See the [dependencies section](#dependencies) below for information about the main dependencies required for running this pipeline(including nextflow and singularity).
@@ -33,11 +69,9 @@ Or to run with conda:
 nextflow run stenglein-lab/tick_surveillance -profile conda,test
 ```
 
-##### Test outputs:
-
 The results of the test run will be placed in a `test/results` sub-directory.
 
-#### Running a specific version from github:
+### Running a specific version from github:
 
 To run a specific version of the pipeline, use the -r option, for example:
 
@@ -45,13 +79,12 @@ To run a specific version of the pipeline, use the -r option, for example:
 nextflow run stenglein-lab/tick_surveillance -profile singularity,test -r v1.0.7
 ```
 
-#### Making sure that you are running the latest version when running from github.
+### Making sure that you are running the latest version when running from github.
 
 Nextflow will cache the pipeline in `$HOME/.nextflow/assets/` and continue to use the cached version, even if the pipeline has newer versions on github.  To remove the locally cached version, which will force nextflow to download and cache the latest version, run:
 
 ```
 nextflow drop stenglein-lab/tick_surveillance
-# now run with latest version
 nextflow run stenglein-lab/tick_surveillance -profile singularity,test
 ```
 
@@ -63,8 +96,7 @@ rm -rf ~/.nextflow/assets/stenglein-lab/tick_surveillance/
 Running nextflow pipelines from github is [described in more detail here](https://www.nextflow.io/docs/latest/sharing.html).  
 
 
-
-#### Running in different computing environments
+### Running in different computing environments
 
 You will want to use a profile that matches your computing environment.  So, for instance, if running on an SGE HPC environment, you'd run something like:
 
@@ -72,7 +104,7 @@ You will want to use a profile that matches your computing environment.  So, for
 nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,sge 
 ```
 
-#### Running by cloning the pipeline's repository
+### Running by cloning the pipeline's repository
 
 It is also possible to download the pipeline code to a directory of your choosing.  This can be useful if, for instance, you want to modify or debug the code.  You can do this by cloning the repository (or a fork of the repository):
 
@@ -114,7 +146,7 @@ It is expected that sample IDs are not repeated in the Illumina sample sheet.
 
 It is not advised that datasets from multiple sequencing runs be analyzed together because error-correction in dada2 is based on the assumption that different runs have different run-specific error profiles.  This is [discussed in more detail here](https://github.com/benjjneb/dada2/issues/1177).
 
-## Output
+## Outputs
 
 The main outputs of the pipeline are:
 
@@ -122,7 +154,7 @@ The main outputs of the pipeline are:
 2. [QC reports](#qc-reports)
 3. Information about [observed sequences that were not assigned to any reference sequences](#unassigned-sequences).
 
-#### Output directory
+### Output directory
 
 Output files are placed by default in a `results` directory (or `test/results` when running with `-profile test`).  The output directory location can be overridden using the `--outdir` parameter.  For instance:
 
@@ -130,7 +162,7 @@ Output files are placed by default in a `results` directory (or `test/results` w
 nextflow run stenglein-lab/tick_surveillance ... --outdir some_other_results_directory_name
 ````
 
-#### Output file name prefixes 
+### Output file name prefixes 
 
 The main pipeline output file names will be prefixed by a value that is by default the date the pipeline is run (e.g. `2023_04_06_sequencing_report.xlsx`).  This filename prefix can be changed using the `--output_prefix` parameter.  For instance, running:
 
@@ -140,35 +172,23 @@ nextflow run stenglein-lab/tick_surveillance ... --output_prefix Run_XYZ
 
 Will create a file named `Run_XYZ_sequencing_report.xlsx`
 
-### Surveillance Report
+## Surveillance Report
 
-The pipeline outputs a surveillance report table in Microsoft Excel format that is named `<output_prefix>_sequencing_report.xlsx`.  
+The pipeline outputs a surveillance report in Microsoft Excel format that is named `<output_prefix>_sequencing_report.xlsx`.  
 
 This first tab of this spreadsheet contains the main surveillance report table with positive/negative calls.  Other tabs contrain additional information, such as the number of reads assigned to each surveillance target, a copy of the input metadata, detailed information about specific reference sequence assignments, etc.
 
-#### Surveillance_targets
+### Surveillance targets
 
 Surveillance targets are defined in [the surveillance_columns file](./refseq/surveillance_columns.txt).  Each surveillance target corresponds to a column in the main surveillance report table.  
 
-It is possible to add or remove surveillance targets (columns in the surveillance table) by adding or removing them from this file.  
-
 This is a 2-column tab-delimited file.  The first column contains the names of the columns that will form the surveillance report table.  The second column contains optional default text for thiis column.
 
-To add, remove columns from the surveillance report table, add or remove lines from this file.  Columns can also be reordered by reordering lines in this file.
+It is possible to add or remove surveillance targets (columns in the surveillance table) by adding or removing them from this file. The path to a custom surveillance columns file can be specified using the `--surveillance_columns` parameter.
 
-#### Data in surveillance report
-
-The values in the surveillance report come from two possible sources:
-
-1. **Metadata**.   Metadata values will be populated from the input [metadata spreadsheet](#Metadata_file).
-
-2. **Read counts from the sequence data and associated positive/negative calls.**  Read counts are populated using amplicon sequence variant (ASV) counts output from dada2, and mapping of reference sequences to surveillance targets, as described in the following sections.
-
-## Reference sequences
+### Reference sequences
 
 Reference sequences are sequences that are expected to be observed.  Observed sequences that are sufficiently similar to a reference sequences will be assigned to that reference sequence.
-
-### To add a new reference sequence 
 
 Reference sequence are defined in the [targets.tsv](./refseq/targets.tsv) file.  This tab-delimited file contains the following columns: 
 
@@ -186,16 +206,20 @@ Reference sequence are defined in the [targets.tsv](./refseq/targets.tsv) file. 
 
 Note that the names of the reporting_columns specified in this file must match exactly the names of columns defined in the surveillance columns definition file.
 
+To add a new sequence to the targets.tsv file, you will need to edit this file.  It is a plain-text [tab-delimited file](https://en.wikipedia.org/wiki/Tab-separated_values) that can be edited in google sheets or Microsoft Excel or similar software.  Add a new row for the new referencesequence.  From google sheets, download the file in tab-separated value format and transfer it to the computer where you will be running this pipeline.  
 
-#### Assignment of observed sequences to reference sequences
+The default location of the targets.tsv file can be overriden by specifying the --targets option on the nextflow command line.  For instance:
+
+```
+nextflow run main.nf -profile singularity --targets /path/to/targets.tsv
+```
+
+### Assignment of observed sequences to reference sequences
 
 Dada2 reports observed sequences, known as amplicon sequence variants, or ASVs.  The pipeline uses BLASTN to align ASVs to the set of reference sequences defined in [targets.tsv](./refseq/targets.tsv).  ASVs that produce BLASTN alignments to a reference sequence that meet the percent alignment identity and alignment length criteria defined in the targets table will be assigned to that reference_sequence.  If an ASV produces alignments to more than one reference sequence, only the highest scoring alignment will be considered.
 
-### Calling_positive_hits
 
-An important output of this pipeline is the [surveillance report](#Surveillance_Report), which defines whether specific samples are positive for particular pathogens.  The positive/negative calls for this report are made in the following way:
-
-#### Mapping of reference sequence to surveillance targets 
+### Mapping of reference sequence to surveillance targets 
 
 Surveillance targets (for instance `Borrelia_burgdorferi_sensu_stricto`) are defined in the [`surveillance_columns.txt` file](#Surveillance_columns_file).  Multiple reference sequences can map to a single surveillance target.  For instance, both the `Bor_burgdorferi_B31` and the `Bor_burgdorferi_N40` reference sequences map to the `Borrelia_burgdorferi_sensu_stricto` target.  The ASV counts for all mapped reference sequences are summed to produce the count for each surveillance target for the purpose of making positive calls.  These summed counts are output in the surveillance_counts tab of the main sequencing_report output speadsheet.
 
@@ -219,9 +243,9 @@ This means that reads assigned to Bor_burgdorferi_B31 would be assigned to two s
 
 This means that reads counts for this reference sequence will be included in the catch-all Borrelia_sp target, and the species name *Borrelia_andersoni* will be added to the Borrelia_Other_species_name target, provided that reference sequence had enough reads to be called positive individually.  
 
-#### Threshold for calling a positive hit
+### Calling positive hits
 
-There are two ways to call a positive hit, depending on whether the surveillance target is a positive control target or not.
+An important output of this pipeline is the [surveillance report](#Surveillance_Report), which defines whether specific samples are positive for particular pathogens.  There are two ways to call a positive hit, depending on whether the surveillance target is a positive control target or not.
 
 **Positive control targets**: these targets are defined as `internal_control` in [targets.tsv](./refseq/targets.tsv).  These are targets that are expected to amplify from any tick DNA sample (e.g tick actin, or a "tick ID" target).   These targets are called positive according to the following procedure:
 
@@ -231,17 +255,8 @@ There are two ways to call a positive hit, depending on whether the surveillance
 
 **All other targets**: These are any surveillance target that is not defined as an internal control in [targets.tsv](./refseq/targets.tsv).  If the summed ASV counts for a surveillance target are >= 50, the target will be called positive.  The value of 50 is a default cutoff that can be overridden using the `--min_reads_for_positive_surveillance_call` parameter on the nextflow command line.
 
-### To add a new reference sequence 
 
-To add a new sequence to the targets.tsv file, you will need to edit this file.  It is a plain-text [tab-delimited file](https://en.wikipedia.org/wiki/Tab-separated_values) that can be edited in google sheets or Microsoft Excel or similar software.  Add a new row for the new referencesequence.  From google sheets, download the file in tab-separated value format and transfer it to the computer where you will be running this pipeline.  
-
-The default location of the targets.tsv file can be overriden by specifying the --targets option on the nextflow command line.  For instance:
-
-```
-nextflow run main.nf -profile singularity --targets /path/to/targets.tsv
-```
-
-## To add new primer pairs
+## Primers and primer trimming
 
 Primers are defined in the [primers.tsv](./refseq/primers.tsv) file.  Primer sequences defined in this file are used for two purposes:
 
@@ -264,10 +279,35 @@ If primer sequences are not entered in the correct orientation, trimming will no
 
 Two QC reports in HTML format from initial input sequence data (`...initial_qc_report.html`) and from sequence data after trimming low quality and adapter bases (`...post_trim_qc_report.html`) are output.
 
-## Unassigned sequences
+## BLASTing of unassigned sequences
 
-Observed sequences that were not assigned to any reference sequence are used as queries to a BLASTN search against the NCBI nt database.  The output of this blast search is summarized in a `non_reference_sequence_assignments.xlsx` output file: an MS Excel spreadsheet.
+It is possible that amplicon sequencing will generate sequences that are off-target or not closely related enough to be assigned to one of the predefined reference sequences.  The pipeline can BLAST these "unassigned" sequences against the NCBI nt database to try to figure out what they are.  
 
+Enabling BLASTing of unassigned sequences is controlled by the `blast_unassigned_sequences` parameter, which is turned off by default.  
+
+There are two ways to run the BLAST:
+
+1. **Remote option:** By using BLASTn with the -remote option.  This is very slow but doesn't require a local copy of the BLAST database.  To run this way, set the `remote_blast_nt` parameter to true.  This sends the sequences to a remote NCBI server for BLASTing.
+2. **Local option:** Alternatively, if you have a local copy of the nt BLAST database installed, you can specify its location using the `local_nt_database_dir` parameter, which should be the path to a directory containing a local nt database.  The name of this database is expected to be "nt", but this name can be changed by overriding the `local_nt_database_name` parameter.
+
+These options can be configured on the command line, for example:
+
+```
+nextflow run stenglein-lab/tick_surveillance -profile test,singularity --blast_unassigned_sequences --remote_blast_nt true
+```
+
+Or in a nextflow config file, for instance:
+
+```
+  // profile for local BLAST of unassigned sequences
+  local_blast {
+    params.blast_unassigned_sequences = true
+    params.local_nt_database_dir ="/home/NCBI_databases/nt/"
+    params.remote_blast_nt = false
+  }
+```
+
+The output from BLASTing unassigned sequences is contained in a file named `<run_prefix>_non_reference_sequence_assignments.xlsx`
 
 ## Dependencies
 
@@ -307,40 +347,7 @@ Some of the pipeline code is implemented in [R scripts](./scripts/).  Some of th
 
 Some of the pipeline code is implemented in [Python scripts](./scripts/).  In particular, the tree-building scripts.  These python scripts require various python modules.  This is handled by creating a python virtual environment (venv), which happens in [nextflow process `setup_python_venv`](./modules/local/setup_python_env/main.nf).  Versions of pythons packages are defined [in this file](./lib/requirements.txt)).  This venv is then activated from a basic python singularity image (for instance [in process `CREATE_FASTA_FOR_TREES`](./subworkflows/generate_trees.nf)).
 
-## BLASTing of unassigned sequences
 
-It is possible that amplicon sequencing will generate sequences that are off-target or not closely related enough to be assigned to one of the predefined reference sequences.  The pipeline can BLAST these "unassigned" sequences against the NCBI nt database to try to figure out what they are.  
-
-Enabling BLASTing of unassigned sequences is controlled by the `blast_unassigned_sequences` parameter, which is turned off by default.  
-
-There are two ways to run the BLAST:
-
-1. **Remote option:** By using BLASTn with the -remote option.  This is very slow but doesn't require a local copy of the BLAST database.  To run this way, set the `remote_blast_nt` parameter to true.  This sends the sequences to a remote NCBI server for BLASTing.
-2. **Local option:** Alternatively, if you have a local copy of the nt BLAST database installed, you can specify its location using the `local_nt_database_dir` parameter, which should be the path to a directory containing a local nt database.  The name of this database is expected to be "nt", but this name can be changed by overriding the `local_nt_database_name` parameter.
-
-These options can be configured on the command line, for example:
-
-```
-nextflow run stenglein-lab/tick_surveillance -profile test,singularity --blast_unassigned_sequences --remote_blast_nt true
-```
-
-Or in a nextflow config file, for instance:
-
-```
-  // profile for local BLAST of unassigned sequences
-  local_blast {
-    params.blast_unassigned_sequences = true
-    params.local_nt_database_dir ="/home/NCBI_databases/nt/"
-    params.remote_blast_nt = false
-  }
-```
-
-The output from BLASTing unassigned sequences is contained in a file named `<run_prefix>_non_reference_sequence_assignments.xlsx`
-
-#### BLAST Taxonomy 
-
-BLAST can provide taxonomic information about database hits.  The pipeline downloads these files automatically as part of each run. BLAST output for unassigned sequences will contain taxonomic information for the highest scoring BLAST hits.
-
-## Parameter information
+## Additional parameter information
 
 For a complete description of pipeline parameters, see [this page](./parameters.md)
