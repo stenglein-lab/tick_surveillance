@@ -16,7 +16,7 @@ The simplest way to run the pipeline is directly from github, like this:
 nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity
 ```
 
-A copy of this pipeline is [also maintained in the CDCgov repository](https://github.com/CDCgov/tick_surveillance), so could be runf rom their, by replacing `stenglein-lab` with `CDCgov` in the above command.
+A copy of this pipeline is [also maintained in the CDCgov repository](https://github.com/CDCgov/tick_surveillance), so could be run from there, by replacing `stenglein-lab` with `CDCgov` in the above command.
 
 You must specify two required inputs to the pipeline: the path to a metadata excel spreadsheet and the path to a directory containing input fastq.  See [this section](#inputs) for more information on required inputs.
 
@@ -108,7 +108,7 @@ Input sequence data is assumed to be Illumina paired-end data in separate read1 
 
 The expected names of the fastq files are defined by the parameter `fastq_pattern`, whose default value is defined in nextflow.config as `*_R[12]_*.fastq*`.  This pattern can be overridden on the nextflow command line using the `--fastq_pattern` parameter.
 
-The location of the fastq files is specified by the `fastq_dir` parameter, whose default value is `./input/fastq` (relative to your present working directory from which you are running the nextflow command).
+The location of the fastq files is specified by the required `fastq_dir` parameter.  
 
 It is expected that sample IDs are not repeated in the Illumina sample sheet.  
 
