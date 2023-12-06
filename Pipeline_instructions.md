@@ -86,11 +86,11 @@ nextflow run main.nf -resume --metadata /path/to/metadata_xls --fastq_dir /path/
 
 The pipeline requires two inputs:
 
-1. [A metadata file](#Metadata_file).
+1. [A metadata file](#metadata-file).
 
-2. [Sequence datasets in fastq format](#Input_fastq).  
+2. [Sequence datasets in fastq format](#Input-fastq).  
 
-### Metadata_file
+### Metadata file
 
 A metadata file in Microsoft Excel format must be input to the pipeline.  
 
@@ -102,7 +102,7 @@ A metadata file in Microsoft Excel format must be input to the pipeline.
 
 An example of a working metadata file [can be found here](./test/test_metadata.xlsx)
 
-### Input_fastq
+### Input fastq
 
 Input sequence data is assumed to be Illumina paired-end data in separate read1 and read2 files.  Files can be compressed or not but it would be preferred to leave them as compressed files to save disk space.
 
@@ -118,7 +118,7 @@ It is not advised that datasets from multiple sequencing runs be analyzed togeth
 
 The main outputs of the pipeline are:
 
-1. [A surveillance report](#surveillance-report)
+1. [A surveillance report](#Surveillance_Report)
 2. [QC reports](#qc-reports)
 3. Information about [observed sequences that were not assigned to any reference sequences](#unassigned-sequences).
 
