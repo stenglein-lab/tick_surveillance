@@ -214,12 +214,12 @@ nextflow run main.nf -profile singularity --targets /path/to/targets.tsv
 
 ### Assignment of observed sequences to reference sequences
 
-Dada2 outputs observed sequences, known as amplicon sequence variants, or ASVs.  The pipeline uses BLASTN to align ASVs to the set of reference sequences defined in [targets.tsv](./refseq/targets.tsv).  ASVs that produce BLASTN alignments to a reference sequence that meet the percent identity and length criteria defined in the targets table will be assigned to that reference_sequence.  If an ASV produces alignments to more than one reference sequence, only the highest scoring alignment will be considered.
+Dada2 outputs observed sequences known as amplicon sequence variants, or ASVs.  The pipeline uses BLASTN to align ASVs to the set of reference sequences defined in [targets.tsv](./refseq/targets.tsv).  ASVs that produce BLASTN alignments to a reference sequence that meet the percent identity and length criteria defined in the targets table will be assigned to that reference_sequence.  If an ASV produces alignments to more than one reference sequence, only the highest scoring alignment will be considered.
 
 
 ### Mapping of reference sequence to surveillance targets 
 
-Surveillance targets (for instance `Borrelia_burgdorferi_sensu_stricto`) are defined in the [`surveillance_columns.txt` file](#Surveillance_columns_file).  Multiple reference sequences can map to a single surveillance target.  For instance, both the `Bor_burgdorferi_B31` and the `Bor_burgdorferi_N40` reference sequences map to the `Borrelia_burgdorferi_sensu_stricto` target.  The ASV counts for all mapped reference sequences are summed to produce the count for each surveillance target for the purpose of making positive calls.  These summed counts are output in the surveillance_counts tab of the main sequencing_report output speadsheet.
+Surveillance targets (for instance Borrelia_burgdorferi_sensu_stricto) are defined in the [surveillance_columns.txt file](#Surveillance_columns_file).  Multiple reference sequences can map to a single surveillance target.  For instance, both the Bor_burgdorferi_B31 and the Bor_burgdorferi_N40 reference sequences map to the Borrelia_burgdorferi_sensu_stricto target.  The ASV counts for all mapped reference sequences are summed to produce the count for each surveillance target for the purpose of making positive calls.  These summed counts are output in the surveillance_counts tab of the main sequencing_report output speadsheet.
 
 Just as multiple reference sequences can be mapped to one surveillance target, each reference sequence can be mapped to multiple surveillance targets. (This is a [many-to-many](https://en.wikipedia.org/wiki/Many-to-many_(data_model)) mapping).
 
