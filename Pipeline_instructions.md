@@ -22,7 +22,7 @@ You must specify two required inputs to the pipeline: the path to a metadata exc
 
 ### Running test datasets
 
-The pipeline includes a handful of small datasets (<= 1000 read) that are derived from real known positive (or known negative) datasets.  These are included in the [test directory](./test/) of the repository.  These datasets serve as positive and negative controls and allow you to test that the pipeline is working as expected.  To use these test datasets, run with the test profile, for instance:
+The pipeline includes a handful of small datasets (<= 1000 read pairs) that are derived from real known positive (or known negative) datasets.  These are included in the [test directory](./test/) of the repository.  These datasets serve as positive and negative controls and allow you to test that the pipeline is working as expected.  To use these test datasets, run with the test profile, for instance:
 
 ```
 nextflow run stenglein-lab/tick_surveillance -profile singularity,test
@@ -64,7 +64,7 @@ Running nextflow pipelines from github is [described in more detail here](https:
 
 
 
-#### Running in different environments
+#### Running in different computing environments
 
 You will want to use a profile that matches your computing environment.  So, for instance, if running on an SGE HPC environment, you'd run something like:
 
@@ -72,7 +72,7 @@ You will want to use a profile that matches your computing environment.  So, for
 nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,sge 
 ```
 
-### Running by cloning the pipeline's repository
+#### Running by cloning the pipeline's repository
 
 It is also possible to download the pipeline code to a directory of your choosing.  This can be useful if, for instance, you want to modify or debug the code.  You can do this by cloning the repository (or a fork of the repository):
 
@@ -86,9 +86,9 @@ nextflow run main.nf -resume --metadata /path/to/metadata_xls --fastq_dir /path/
 
 The pipeline requires two inputs:
 
-1. [A metadata file](#metadata-file).
+1. [A metadata file](#Metadata_file).
 
-2. [Sequence datasets in fastq format](#input-fastq).  
+2. [Sequence datasets in fastq format](#Input_fastq).  
 
 ### Metadata_file
 
@@ -112,7 +112,7 @@ The location of the fastq files is specified by the required `fastq_dir` paramet
 
 It is expected that sample IDs are not repeated in the Illumina sample sheet.  
 
-It is not advised that datasets from multiple sequencing runs be analyzed together because error-correction in dada2 is based on the assumption that different runs have different, run-specific, error profiles.  This is [discussed in more detail here](https://github.com/benjjneb/dada2/issues/1177).
+It is not advised that datasets from multiple sequencing runs be analyzed together because error-correction in dada2 is based on the assumption that different runs have different run-specific error profiles.  This is [discussed in more detail here](https://github.com/benjjneb/dada2/issues/1177).
 
 ## Output
 
@@ -124,7 +124,7 @@ The main outputs of the pipeline are:
 
 #### Output directory
 
-Output files are placed in a `results` directory (or `test/results` when running with `-profile test`).  The output directory can be specified using the `--outdir` parameter.  For instance:
+Output files are placed by default in a `results` directory (or `test/results` when running with `-profile test`).  The output directory location can be overridden using the `--outdir` parameter.  For instance:
 
 ```
 nextflow run stenglein-lab/tick_surveillance ... --outdir some_other_results_directory_name
@@ -135,10 +135,10 @@ nextflow run stenglein-lab/tick_surveillance ... --outdir some_other_results_dir
 The main pipeline output file names will be prefixed by a value that is by default the date the pipeline is run (e.g. `2023_04_06_sequencing_report.xlsx`).  This filename prefix can be changed using the `--output_prefix` parameter.  For instance, running:
 
 ```
-nextflow run stenglein-lab/tick_surveillance ... --output_prefix my_new_run
+nextflow run stenglein-lab/tick_surveillance ... --output_prefix Run_XYZ
 ``` 
 
-Will create a file named `my_new_run_sequencing_report.xlsx`
+Will create a file named `Run_XYZ_sequencing_report.xlsx`
 
 ### Surveillance_Report
 
