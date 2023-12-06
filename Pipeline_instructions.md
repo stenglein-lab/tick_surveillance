@@ -110,7 +110,9 @@ The expected names of the fastq files are defined by the parameter `fastq_patter
 
 The location of the fastq files is specified by the `fastq_dir` parameter, whose default value is `./input/fastq` (relative to your present working directory from which you are running the nextflow command).
 
-It is expected that sample IDs are not repeated in the Illumina sample sheet.
+It is expected that sample IDs are not repeated in the Illumina sample sheet.  
+
+It is not advised that datasets from multiple sequencing runs are analyzed together because error-correction in dada2 is based on the assumption that different runs have different, run-specific error profiles.  This is [discussed in more detail here](https://github.com/benjjneb/dada2/issues/1177).
 
 ## Output
 
@@ -128,11 +130,11 @@ Output files are placed in a `results` directory (or `test/results` when running
 
 The main pipeline output file names will be prefixed by a value that is by default the date the pipeline is run (e.g. `2023_04_06_sequencing_report.xlsx`).  This filename prefix can be changed using the `--output_prefix` parameter.  For instance, running `nextflow run stenglein-lab/tick_surveillance ... --output_prefix my_new_run` will create a file named `my_new_run_sequencing_report.xlsx`)
 
-### Surveillance Report
+### Surveillance_Report
 
-The pipeline outputs a surveillance report in Microsoft Excel format.
+The pipeline outputs a surveillance report table in Microsoft Excel format.  This table is the first worksheet (first tab) of a multi-sheet spreadsheet named `<output_prefix>_sequencing_report.xlsx`.
 
-#### Surveillance columns
+#### Surveillance_columns_file
 
 The columns in this report are defined in [this file](./refseq/surveillance_columns.txt).  It is possible to add or remove columns from this report by adding or removing them from this file.  
 
@@ -146,7 +148,7 @@ The values in the surveillance report come from two possible sources:
 
 1. **Metadata**.   Metadata values will be populated from the input [metadata spreadsheet](#Metadata_file).
 
-2. **Read counts from the sequence data.**
+2. **Read counts from the sequence data.**  These read counts are populated using amplicon sequence variant (ASV) counts output from dada2, and mapping of target reference sequences to surveillance columns, as [described below](#Calling_positive_hits).
 
 ### QC reports
 
@@ -176,9 +178,33 @@ Reference sequence (aka targets) are defined in the [targets.tsv](./refseq/targe
 
 Note that the names of the reporting_columns specified in this file must match exactly the names of columns defined in the surveillance columns definition file.
 
-#### To add a new reference sequence (a new target)
+#### Assignment of observed sequences to target reference sequences
 
-To add a new sequence to the targets.tsv file, you will need to edit this file.  It is a plain-text [tab-delimited file](https://en.wikipedia.org/wiki/Tab-separated_values) that can be edited in google sheets or similar software.  Add a new row for the new target sequence.  From google sheets, download the file in tab-separated value format and transfer it to the computer where you will be running this pipeline.  
+Dada2 reports observed sequences, known as amplicon sequence variants, or ASVs.  The pipeline uses BLASTN to align ASVs to the set of reference sequences defined in [targets.tsv](./refseq/targets.tsv).  ASVs that produce BLASTN alignments to a reference sequence that meet the percent alignment identity and alignment length criteria defined in the targets table will be assigned to that target.  If an ASV produces alignments to more than one reference sequence, only the highest scoring alignment will be considered.
+
+### Calling_positive_hits
+
+An important output of this pipeline is the [surveillance report](#Surveillance_Report), which defines whether specific samples are positive for targeted pathogens.  The positive/negative calls for this report are made in the following way:
+
+#### Mapping of reference sequence targets to surveillance targets 
+
+Surveillance targets (for instance `Borrelia_burgdorferi_sensu_stricto`) are defined in the [`surveillance_columns.txt` file](#Surveillance_columns_file).  Multiple reference sequence targets can map to a single surveillance target.  For instance, both the `Bor_burgdorferi_B31` and the `Bor_burgdorferi_N40` targets map to the `Borrelia_burgdorferi_sensu_stricto` target.  The ASV counts for all targets are summed to produce the count for each surveillance target for the purpose of making positive calls.  These summed counts are output in the surveillance_counts tab of the main sequencing_report output speadsheet.
+
+#### Threshold for calling a positive hit
+
+There are two ways to call a positive hit, depending on whether the surveillance target is a positive control target or not.
+
+**Positive control targets**: these targets are defined as `internal_control` in [targets.tsv](./refseq/targets.tsv).  These are targets that are expected to amplify from any tick DNA sample (e.g tick actin, or a "tick ID" target).   These targets are called positive according to the following procedure:
+
+- The mean number of reads for the target is calculated for each batch of datasets.  Samples can be binned into batches in [the metadata file](#Metadata_file) using the batch column.  If batches are not defined in the metadata, then all datasets will be binnned into a single batch.
+- For each sample, if the number of reads assigned to this target is >= the mean value less 3 standard deviations, the sample is called positive for this target
+- For all calculations, the log10(# reads) are used, because we observed that read counts for internal control targets exhibited log-normal distributions.
+
+**All other targets**: These are any surveillance target that is not defined as an internal control in [targets.tsv](./refseq/targets.tsv).  If the summed ASV counts for a surveillance target are >= 50, the target will be called positive.  The value of 50 is a default cutoff that can be overridden using the `--min_reads_for_positive_surveillance_call` parameter on the nextflow command line.
+
+### To add a new reference sequence (a new target)
+
+To add a new sequence to the targets.tsv file, you will need to edit this file.  It is a plain-text [tab-delimited file](https://en.wikipedia.org/wiki/Tab-separated_values) that can be edited in google sheets or Microsoft Excel or similar software.  Add a new row for the new target sequence.  From google sheets, download the file in tab-separated value format and transfer it to the computer where you will be running this pipeline.  
 
 The default location of the targets.tsv file can be overriden by specifying the --targets option on the nextflow command line.  For instance:
 
@@ -191,7 +217,7 @@ nextflow run main.nf -profile singularity --targets /path/to/targets.tsv
 Primers are defined in the [primers.tsv](./refseq/primers.tsv) file.  Primer sequences defined in this file are used for two purposes:
 
 1. To identify read pairs that have expected forward and reverse primers at their ends in the expected F/R orientation.  Only read pairs with a pair of expected primers in the expected orientation will be kept for further analysis.
-2. Primer sequences will be trimmed off of observed sequences, since primer-derived sequences do not reliably reflect the template sequence (in case of primer-template mismatches).
+2. Primer sequences will be trimmed off of observed sequences, since primer-derived sequences do not reliably reflect the template sequence (in case of amplification despite primer-template mismatches).
 
 To add a new primer pair to the pipeline, you will need to edit this file.  It is a plain-text [tab-delimited file](https://en.wikipedia.org/wiki/Tab-separated_values) that can be edited in google sheets or similar software.  Add a new row for the new primer pair.  From google sheets, download the file in tab-separated value format and transfer it to the computer where you will be running this pipeline.  
 
@@ -235,17 +261,17 @@ It is possible to run this pipeline using an all-in-one [conda](https://docs.con
 
 ### R libraries
 
-Some of the pipeline code is implemented in [R scripts](./scripts/).  Some of these scripts require R packages like [openxlsx](https://www.rdocumentation.org/packages/openxlsx/versions/4.2.5.2), for writing output in Excel format.  These packages are installed locally, on top of a Rocker tidyverse singularity image.  This occurs in nextflow process `setup_R_dependencies`, which invokes [this script](./scripts/install_R_packages.R).
+Some of the pipeline code is implemented in [R scripts](./scripts/).  Some of these scripts require R packages like [openxlsx](https://www.rdocumentation.org/packages/openxlsx/versions/4.2.5.2), for writing output in Excel format.  These packages are installed locally, on top of a [Rocker tidyverse singularity image](https://rocker-project.org/images/).  This occurs in nextflow process `setup_R_dependencies`, which invokes [this script](./scripts/install_R_packages.R).
 
 ### Python dependencies
 
-Some of the pipeline code is implemented in [Python scripts](./scripts/).  In particular, the tree-building scripts.  These python scripts require various python modules.  This is handled by creating a python virtual environment (venv), which happens in nextflow process `setup_python_venv`.  This venv is then activated from a basic python singularity image (for instance in process `create_fasta_for_trees`).
+Some of the pipeline code is implemented in [Python scripts](./scripts/).  In particular, the tree-building scripts.  These python scripts require various python modules.  This is handled by creating a python virtual environment (venv), which happens in [nextflow process `setup_python_venv`](./modules/local/setup_python_env/main.nf).  Versions of pythons packages are defined [in this file](./lib/requirements.txt)).  This venv is then activated from a basic python singularity image (for instance [in process `CREATE_FASTA_FOR_TREES`](./subworkflows/generate_trees.nf)).
 
 ## BLASTing of unassigned sequences
 
 It is possible that amplicon sequencing will generate sequences that are off-target or not closely related enough to be assigned to one of the predefined reference sequences.  The pipeline can BLAST these "unassigned" sequences against the NCBI nt database to try to figure out what they are.  
 
-Enabling BLASTing of unassigned sequences is controlled by the `blast_unassigned_sequences` parameter.  
+Enabling BLASTing of unassigned sequences is controlled by the `blast_unassigned_sequences` parameter, which is turned off by default.  
 
 There are two ways to run the BLAST:
 
@@ -269,10 +295,11 @@ Or in a nextflow config file, for instance:
   }
 ```
 
+The output from BLASTing unassigned sequences is contained in a file named `<run_prefix>_non_reference_sequence_assignments.xlsx`
+
 #### BLAST Taxonomy 
 
-BLAST can provide taxonomic information about database hits.  The pipeline downloads these files automatically as part of each run.
-
+BLAST can provide taxonomic information about database hits.  The pipeline downloads these files automatically as part of each run. BLAST output for unassigned sequences will contain taxonomic information for the highest scoring BLAST hits.
 
 ## Parameter information
 
