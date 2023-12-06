@@ -118,7 +118,7 @@ It is not advised that datasets from multiple sequencing runs be analyzed togeth
 
 The main outputs of the pipeline are:
 
-1. [A surveillance report](#Surveillance_Report)
+1. [A surveillance report](#Surveillance-report)
 2. [QC reports](#qc-reports)
 3. Information about [observed sequences that were not assigned to any reference sequences](#unassigned-sequences).
 
@@ -140,7 +140,7 @@ nextflow run stenglein-lab/tick_surveillance ... --output_prefix Run_XYZ
 
 Will create a file named `Run_XYZ_sequencing_report.xlsx`
 
-### Surveillance_Report
+### Surveillance Report
 
 The pipeline outputs a surveillance report table in Microsoft Excel format that is named `<output_prefix>_sequencing_report.xlsx`.  
 
