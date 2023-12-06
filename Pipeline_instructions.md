@@ -144,11 +144,13 @@ Will create a file named `my_new_run_sequencing_report.xlsx`
 
 The pipeline outputs a surveillance report table in Microsoft Excel format that is named `<output_prefix>_sequencing_report.xlsx`.  
 
-This first tab of this spreadsheet contains the main surveillance report table with positive/negative calls.  Other tabs contrain additional information, such as the number of reads assigned to each surveillance target, a copy of the input metadata, detailed information about specific target reference sequence assignments, etc.
+This first tab of this spreadsheet contains the main surveillance report table with positive/negative calls.  Other tabs contrain additional information, such as the number of reads assigned to each surveillance target, a copy of the input metadata, detailed information about specific reference sequence assignments, etc.
 
-#### Surveillance_columns_file
+#### Surveillance_targets
 
-The columns in this report are defined in [the surveillance_columns file](./refseq/surveillance_columns.txt).  It is possible to add or remove columns from this report by adding or removing them from this file.  
+Surveillance targets are defined in [the surveillance_columns file](./refseq/surveillance_columns.txt).  Each surveillance target corresponds to a column in the main surveillance report table.  
+
+It is possible to add or remove surveillance targets (columns in the surveillance table) by adding or removing them from this file.  
 
 This is a 2-column tab-delimited file.  The first column contains the names of the columns that will form the surveillance report table.  The second column contains optional default text for thiis column.
 
@@ -160,39 +162,62 @@ The values in the surveillance report come from two possible sources:
 
 1. **Metadata**.   Metadata values will be populated from the input [metadata spreadsheet](#Metadata_file).
 
-2. **Read counts from the sequence data and associated positive/negative calls.**  These read counts are populated using amplicon sequence variant (ASV) counts output from dada2, and mapping of target reference sequences to surveillance columns, as described in the following sections.
+2. **Read counts from the sequence data and associated positive/negative calls.**  Read counts are populated using amplicon sequence variant (ASV) counts output from dada2, and mapping of reference sequences to surveillance targets, as described in the following sections.
 
 ## Reference sequences
 
-### To add a new reference sequence (a new target)
+Reference sequences are sequences that are expected to be observed.  Observed sequences that are sufficiently similar to a reference sequences will be assigned to that reference sequence.
 
-Reference sequence (aka targets) are defined in the [targets.tsv](./refseq/targets.tsv) file.  This tab-delimited file contains the following columns: 
+### To add a new reference sequence 
+
+Reference sequence are defined in the [targets.tsv](./refseq/targets.tsv) file.  This tab-delimited file contains the following columns: 
 
 | Column                 | Description |
 | -----------            | ----------- |
 | ref_sequence_name      | The reference sequecne name |
-| species                | The species for this reference sequence.  This will be reported but is not used to populate the surveillance table (reporting_columns is used for that). |
+| species                | The species for this reference sequence.  This value will be reported but is not used to map reference sequences to surveillance targets (reporting_columns is used for that).
 | primer_name            | The name of the primers expected to amplify this target.  Provided for reference only.
-| reporting_columns      | A semicolon-separated list of column names in the reporting table.  Reads that are assigned to this reference sequence will be assigned to these columns in the surveillance table. |
+| reporting_columns      | A semicolon-separated list of surveillance targets.  Reads that are assigned to this reference sequence will be assigned to these targets, as described below. |
 | min_percent_identity   | The minimum percent identity of the alignment between an observed sequence and this reference sequence to be assigned as a positive hit |
 | min_percent_aligned    | The minimum percent of the observed sequence that must align to this reference sequence to be assigned as a positive hit |
 | max_percent_gaps       | The maximum percent gap characters in alignments of observed sequences and this reference sequence to be assigned as a positive hit|
-| internal_control       | True if this corresponds to an internal control target, such as tick actin |
+| internal_control       | True if this corresponds to an internal control target, such as tick actin or a "tick ID" amplicon|
 | sequence               | The expected reference sequence, including primers |
 
 Note that the names of the reporting_columns specified in this file must match exactly the names of columns defined in the surveillance columns definition file.
 
-#### Assignment of observed sequences to target reference sequences
 
-Dada2 reports observed sequences, known as amplicon sequence variants, or ASVs.  The pipeline uses BLASTN to align ASVs to the set of reference sequences defined in [targets.tsv](./refseq/targets.tsv).  ASVs that produce BLASTN alignments to a reference sequence that meet the percent alignment identity and alignment length criteria defined in the targets table will be assigned to that target.  If an ASV produces alignments to more than one reference sequence, only the highest scoring alignment will be considered.
+#### Assignment of observed sequences to reference sequences
+
+Dada2 reports observed sequences, known as amplicon sequence variants, or ASVs.  The pipeline uses BLASTN to align ASVs to the set of reference sequences defined in [targets.tsv](./refseq/targets.tsv).  ASVs that produce BLASTN alignments to a reference sequence that meet the percent alignment identity and alignment length criteria defined in the targets table will be assigned to that reference_sequence.  If an ASV produces alignments to more than one reference sequence, only the highest scoring alignment will be considered.
 
 ### Calling_positive_hits
 
-An important output of this pipeline is the [surveillance report](#Surveillance_Report), which defines whether specific samples are positive for targeted pathogens.  The positive/negative calls for this report are made in the following way:
+An important output of this pipeline is the [surveillance report](#Surveillance_Report), which defines whether specific samples are positive for particular pathogens.  The positive/negative calls for this report are made in the following way:
 
-#### Mapping of reference sequence targets to surveillance targets 
+#### Mapping of reference sequence to surveillance targets 
 
-Surveillance targets (for instance `Borrelia_burgdorferi_sensu_stricto`) are defined in the [`surveillance_columns.txt` file](#Surveillance_columns_file).  Multiple reference sequence targets can map to a single surveillance target.  For instance, both the `Bor_burgdorferi_B31` and the `Bor_burgdorferi_N40` targets map to the `Borrelia_burgdorferi_sensu_stricto` target.  The ASV counts for all targets are summed to produce the count for each surveillance target for the purpose of making positive calls.  These summed counts are output in the surveillance_counts tab of the main sequencing_report output speadsheet.
+Surveillance targets (for instance `Borrelia_burgdorferi_sensu_stricto`) are defined in the [`surveillance_columns.txt` file](#Surveillance_columns_file).  Multiple reference sequences can map to a single surveillance target.  For instance, both the `Bor_burgdorferi_B31` and the `Bor_burgdorferi_N40` reference sequences map to the `Borrelia_burgdorferi_sensu_stricto` target.  The ASV counts for all mapped reference sequences are summed to produce the count for each surveillance target for the purpose of making positive calls.  These summed counts are output in the surveillance_counts tab of the main sequencing_report output speadsheet.
+
+Just as multiple reference sequences can be mapped to one surveillance target, each reference sequence can be mapped to multiple surveillance targets. (This is a [many-to-many](https://en.wikipedia.org/wiki/Many-to-many_(data_model)) mapping).
+
+The reporting_columns column in [targets.tsv](./refseq/targets.tsv) defines mapping of reference sequences to surveillance targets.  The value of this column takes the following format for mapping the reference sequence to one surveillance target:
+
+`surveillance_target_name:[count|name]`
+
+Multiple mappings for one reference sequence can be defined, seperated by semicolons.  For instance, the Bor_burgdorferi_B31 reference sequence is mapped to 2 surveillance targets:
+
+`Borrelia_sp:count;Borrelia_burgdorferi_sensu_stricto:count`
+
+This means that reads assigned to Bor_burgdorferi_B31 would be assigned to two surveillance targets: Borrelia_sp, a catch-all target for many different types of Borrelia, and Borrelia_burgdorferi_sensu_stricto, a target for *B. burgdorferi sensu stricto*.
+
+**Count mapping**: As in the example above, count type mapping of reference sequences to targets means that counts assigned to those reference sequences will contribute to the summed count for that target.
+
+**Name mapping**: Some surveillance targets report species names instead of read counts.  For instance, the Borrelia_Other_species_name target is meant to report the name of any *Borrelia* species that was called positive in that dataset.  Reference sequences can be mapped to both name and count type targets..   For example, the Bor_andersoni_BC_1_AF264908 reference sequence is mapped to two targets:
+
+`Borrelia_sp:count;Borrelia_Other_species_name:name`
+
+This means that reads counts for this reference sequence will be included in the catch-all Borrelia_sp target, and the species name *Borrelia_andersoni* will be added to the Borrelia_Other_species_name target, provided that reference sequence had enough reads to be called positive individually.  
 
 #### Threshold for calling a positive hit
 
@@ -206,9 +231,9 @@ There are two ways to call a positive hit, depending on whether the surveillance
 
 **All other targets**: These are any surveillance target that is not defined as an internal control in [targets.tsv](./refseq/targets.tsv).  If the summed ASV counts for a surveillance target are >= 50, the target will be called positive.  The value of 50 is a default cutoff that can be overridden using the `--min_reads_for_positive_surveillance_call` parameter on the nextflow command line.
 
-### To add a new reference sequence (a new target)
+### To add a new reference sequence 
 
-To add a new sequence to the targets.tsv file, you will need to edit this file.  It is a plain-text [tab-delimited file](https://en.wikipedia.org/wiki/Tab-separated_values) that can be edited in google sheets or Microsoft Excel or similar software.  Add a new row for the new target sequence.  From google sheets, download the file in tab-separated value format and transfer it to the computer where you will be running this pipeline.  
+To add a new sequence to the targets.tsv file, you will need to edit this file.  It is a plain-text [tab-delimited file](https://en.wikipedia.org/wiki/Tab-separated_values) that can be edited in google sheets or Microsoft Excel or similar software.  Add a new row for the new referencesequence.  From google sheets, download the file in tab-separated value format and transfer it to the computer where you will be running this pipeline.  
 
 The default location of the targets.tsv file can be overriden by specifying the --targets option on the nextflow command line.  For instance:
 
