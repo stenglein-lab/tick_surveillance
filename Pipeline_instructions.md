@@ -142,7 +142,9 @@ Will create a file named `my_new_run_sequencing_report.xlsx`
 
 ### Surveillance_Report
 
-The pipeline outputs a surveillance report table in Microsoft Excel format.  This table is the first worksheet (first tab) of a multi-sheet spreadsheet named `<output_prefix>_sequencing_report.xlsx`.
+The pipeline outputs a surveillance report table in Microsoft Excel format that is named `<output_prefix>_sequencing_report.xlsx`.  
+
+This first tab of this spreadsheet contains the main surveillance report table with positive/negative calls.  Other tabs contrain additional information, such as the number of reads assigned to each surveillance target, a copy of the input metadata, detailed information about specific target reference sequence assignments, etc.
 
 #### Surveillance_columns_file
 
