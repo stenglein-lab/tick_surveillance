@@ -180,7 +180,7 @@ This first tab of this spreadsheet contains the main surveillance report table w
 
 Surveillance targets are defined in [the surveillance_columns file](./refseq/surveillance_columns.txt).  Each surveillance target corresponds to a column in the main surveillance report table.  
 
-This is a 2-column tab-delimited file.  The first column contains the names of the columns that will form the surveillance report table.  The second column contains optional default text for thiis column.
+This is a 2-column tab-delimited file.  The first column contains the names of the columns that will form the surveillance report table.  The second column contains optional default text for this column.
 
 It is possible to add or remove surveillance targets (columns in the surveillance table) by adding or removing them from this file. The path to a custom surveillance columns file can be specified using the `--surveillance_columns` parameter.
 
@@ -192,10 +192,10 @@ Reference sequence are defined in the [targets.tsv](./refseq/targets.tsv) file. 
 
 | Column                 | Description |
 | -----------            | ----------- |
-| ref_sequence_name      | The reference sequecne name |
+| ref_sequence_name      | The reference sequence name |
 | species                | The species for this reference sequence.  This value will be reported but is not used to map reference sequences to surveillance targets (reporting_columns is used for that).
-| primer_name            | The name of the primers expected to amplify this target.  Provided for reference only.
-| reporting_columns      | A semicolon-separated list of surveillance targets.  Reads that are assigned to this reference sequence will be assigned to these targets, as described below. |
+| primer_name            | The name of the primers expected to amplify this target (e.g., FlaB).  Provided for reference only.
+| reporting_columns      | A semicolon-separated list of surveillance targets.  Reads that are assigned to this reference sequence will be assigned to these targets, as described [below](#Mapping-of-reference-sequence-to-surveillance-targets). |
 | min_percent_identity   | The minimum percent identity of the alignment between an observed sequence and this reference sequence to be assigned as a positive hit |
 | min_percent_aligned    | The minimum percent of the observed sequence that must align to this reference sequence to be assigned as a positive hit |
 | max_percent_gaps       | The maximum percent gap characters in alignments of observed sequences and this reference sequence to be assigned as a positive hit|
