@@ -10,8 +10,8 @@ This pipeline is [described in this paper](https://pubmed.ncbi.nlm.nih.gov/37247
 - [Running the pipeline](#Running-the-pipeline)
     - [Running from github](#Running-from-github)
     - [Running test datasets](#Running-test-datasets)
-    - [Running a specific version from github:](#Running-a-specific-version-from-github)
-    - [Making sure that you are running the latest version when running from github.](#Making-sure-that-you-are-running-the-latest-version-when-running-from-github)
+    - [Running a specific version:](#Running-a-specific-version)
+    - [Making sure that you are running the latest version](#Making-sure-that-you-are-running-the-latest-version)
     - [Running in different computing environments](#Running-in-different-computing-environments)
     - [Running by cloning the pipeline's repository](#Running-by-cloning-the-pipeline's-repository)
 - [Inputs](#Inputs)
@@ -71,7 +71,7 @@ nextflow run stenglein-lab/tick_surveillance -profile conda,test
 
 The results of the test run will be placed in a `test/results` sub-directory.
 
-### Running a specific version from github:
+### Running a specific version
 
 To run a specific version of the pipeline, use the -r option, for example:
 
@@ -79,7 +79,7 @@ To run a specific version of the pipeline, use the -r option, for example:
 nextflow run stenglein-lab/tick_surveillance -profile singularity,test -r v1.0.7
 ```
 
-### Making sure that you are running the latest version when running from github.
+### Making sure that you are running the latest version
 
 Nextflow will cache the pipeline in `$HOME/.nextflow/assets/` and continue to use the cached version, even if the pipeline has newer versions on github.  To remove the locally cached version, which will force nextflow to download and cache the latest version, run:
 
