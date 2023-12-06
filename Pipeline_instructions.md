@@ -214,7 +214,7 @@ nextflow run main.nf -profile singularity --targets /path/to/targets.tsv
 
 ### Assignment of observed sequences to reference sequences
 
-Dada2 reports observed sequences, known as amplicon sequence variants, or ASVs.  The pipeline uses BLASTN to align ASVs to the set of reference sequences defined in [targets.tsv](./refseq/targets.tsv).  ASVs that produce BLASTN alignments to a reference sequence that meet the percent alignment identity and alignment length criteria defined in the targets table will be assigned to that reference_sequence.  If an ASV produces alignments to more than one reference sequence, only the highest scoring alignment will be considered.
+Dada2 outputs observed sequences, known as amplicon sequence variants, or ASVs.  The pipeline uses BLASTN to align ASVs to the set of reference sequences defined in [targets.tsv](./refseq/targets.tsv).  ASVs that produce BLASTN alignments to a reference sequence that meet the percent identity and length criteria defined in the targets table will be assigned to that reference_sequence.  If an ASV produces alignments to more than one reference sequence, only the highest scoring alignment will be considered.
 
 
 ### Mapping of reference sequence to surveillance targets 
