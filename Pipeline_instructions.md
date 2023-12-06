@@ -248,10 +248,10 @@ A key output of the pipeline is to define whether specific samples are positive 
 **Positive control targets**: these targets are defined as `internal_control` in [targets.tsv](./refseq/targets.tsv).  These are targets that are expected to amplify from any tick DNA sample (e.g tick actin, or a "tick ID" target).   These targets are called positive according to the following procedure:
 
 - The mean number of reads for the target is calculated for each batch of datasets.  Samples can be binned into batches in [the metadata file](#Metadata-file) using the batch column.  If batches are not defined in the metadata, then all datasets will be binnned into a single batch.
-- For each sample, if the number of reads assigned to this target is >= the mean value less 3 standard deviations, the sample is called positive for this target
+- For each sample, if the number of reads assigned to this target is ≥ the mean value less 3 standard deviations, the sample is called positive for this target
 - For all calculations, the log10(# reads) are used, because we observed that read counts for internal control targets exhibited log-normal distributions.
 
-**All other targets**: These are any surveillance target that is not defined as an internal control in [targets.tsv](./refseq/targets.tsv).  If the summed ASV counts for a surveillance target are >= 50, the target will be called positive.  The value of 50 is a default cutoff that can be overridden using the `--min_reads_for_positive_surveillance_call` parameter on the nextflow command line.
+**All other targets**: These are any surveillance target that is not defined as an internal control in [targets.tsv](./refseq/targets.tsv).  If the summed ASV counts for a surveillance target are ≥50, the target will be called positive.  The value of 50 is a default cutoff that can be overridden using the `--min_reads_for_positive_surveillance_call` parameter on the nextflow command line.
 
 
 ## Primers and primer trimming
