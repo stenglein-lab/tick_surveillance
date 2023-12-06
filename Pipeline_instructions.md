@@ -16,6 +16,8 @@ The simplest way to run the pipeline is directly from github, like this:
 nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity
 ```
 
+A copy of this pipeline is [also maintained in the CDCgov repository](https://github.com/CDCgov/tick_surveillance), so could be runf rom their, by replacing `stenglein-lab` with `CDCgov` in the above command.
+
 You must specify two required inputs to the pipeline: the path to a metadata excel spreadsheet and the path to a directory containing input fastq.  See [this section](#inputs) for more information on required inputs.
 
 ### Running test datasets
@@ -58,7 +60,7 @@ Alternatively, you can just delete the cached pipeline directory:
 rm -rf ~/.nextflow/assets/stenglein-lab/tick_surveillance/
 ```
 
-Running from github is [described in more detail here](https://www.nextflow.io/docs/latest/sharing.html).  
+Running nextflow pipelines from github is [described in more detail here](https://www.nextflow.io/docs/latest/sharing.html).  
 
 
 
@@ -88,7 +90,7 @@ The pipeline requires two inputs:
 
 2. [Sequence datasets in fastq format](#input-fastq).  
 
-### Metadata file
+### Metadata_file
 
 A metadata file in Microsoft Excel format must be input to the pipeline.  
 
@@ -100,7 +102,7 @@ A metadata file in Microsoft Excel format must be input to the pipeline.
 
 An example of a working metadata file [can be found here](./test/test_metadata.xlsx)
 
-### Input fastq
+### Input_fastq
 
 Input sequence data is assumed to be Illumina paired-end data in separate read1 and read2 files.  Files can be compressed or not but it would be preferred to leave them as compressed files to save disk space.
 
@@ -120,11 +122,11 @@ The main outputs of the pipeline are:
 
 #### Output directory
 
-Output files are placed in a `results` directory (or `test/results` when running with -profile test).  The output directory can be specified using the `--outdir` parameter (e.g. `nextflow run stenglein-lab/tick_surveillance ... --outdir a_results_directory`
+Output files are placed in a `results` directory (or `test/results` when running with `-profile test`).  The output directory can be specified using the `--outdir` parameter (e.g. `nextflow run stenglein-lab/tick_surveillance ... --outdir a_results_directory`
 
 #### Output file name prefixes 
 
-The main pipeline output file names will be prefixed by a value that is by default the date the pipeline is run (e.g. `2023_04_06_sequencing_report.xlsx`).  This filename prefix can be changed using the --output_prefix parameter.  For instance, running `nextflow run stenglein-lab/tick_surveillance ... --output_prefix my_new_run` will create a file named `my_new_run_sequencing_report.xlsx`)
+The main pipeline output file names will be prefixed by a value that is by default the date the pipeline is run (e.g. `2023_04_06_sequencing_report.xlsx`).  This filename prefix can be changed using the `--output_prefix` parameter.  For instance, running `nextflow run stenglein-lab/tick_surveillance ... --output_prefix my_new_run` will create a file named `my_new_run_sequencing_report.xlsx`)
 
 ### Surveillance Report
 
@@ -142,7 +144,7 @@ To add, remove columns from the surveillance report table, add or remove lines f
 
 The values in the surveillance report come from two possible sources:
 
-1. **Metadata**.  
+1. **Metadata**.   Metadata values will be populated from the input [metadata spreadsheet](#Metadata_spreadsheet).
 
 2. **Read counts from the sequence data.**
 
