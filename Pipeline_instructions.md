@@ -160,15 +160,7 @@ The values in the surveillance report come from two possible sources:
 
 1. **Metadata**.   Metadata values will be populated from the input [metadata spreadsheet](#Metadata_file).
 
-2. **Read counts from the sequence data.**  These read counts are populated using amplicon sequence variant (ASV) counts output from dada2, and mapping of target reference sequences to surveillance columns, as [described below](#Calling_positive_hits).
-
-### QC reports
-
-Two QC reports in HTML format from initial input sequence data (`...initial_qc_report.html`) and from sequence data after trimming low quality and adapter bases (`...post_trim_qc_report.html`) are output.
-
-### Unassigned sequences
-
-Observed sequences that were not assigned to any reference sequence are used as queries to a BLASTN search against the NCBI nt database.  The output of this blast search is summarized in a `non_reference_sequence_assignments.xlsx` output file: an MS Excel spreadsheet.
+2. **Read counts from the sequence data and associated positive/negative calls.**  These read counts are populated using amplicon sequence variant (ASV) counts output from dada2, and mapping of target reference sequences to surveillance columns, as described in the following sections.
 
 ## Reference sequences
 
@@ -242,6 +234,15 @@ nextflow run stenglein-lab/tick_surveillance -profile singularity --primers /pat
 If primer sequences are not entered in the correct orientation, trimming will not work and targets amplified by these sequences will not be detected by the pipeline.  The solution in this case will most likely just be to swap the F/R orientation of the primers in this file.  
 
 **Correct primer orientation:**  The forward primer (primer_f) should appear at the beginning of Illumina read 1 and be in the same orientation as R1.  The reverse primer (primer_r) should appear at the beginning of read 2 and be in the same orientation as read 2.  In other words, relative to the PCR product as a whole, the primers should point towards each other.
+
+## QC reports
+
+Two QC reports in HTML format from initial input sequence data (`...initial_qc_report.html`) and from sequence data after trimming low quality and adapter bases (`...post_trim_qc_report.html`) are output.
+
+## Unassigned sequences
+
+Observed sequences that were not assigned to any reference sequence are used as queries to a BLASTN search against the NCBI nt database.  The output of this blast search is summarized in a `non_reference_sequence_assignments.xlsx` output file: an MS Excel spreadsheet.
+
 
 ## Dependencies
 
