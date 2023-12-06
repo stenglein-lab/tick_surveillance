@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript 
 #
 # This script runs dada2 on a set of trimmed fastq files 
 # 

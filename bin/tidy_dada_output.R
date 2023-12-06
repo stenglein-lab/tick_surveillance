@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript 
 #
 # This script tidies dada2 output
 #

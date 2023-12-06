@@ -139,6 +139,6 @@ process ASSIGN_UNASSIGNED_SEQUENCES {
   // only use R lib dir for singularity
   def r_lib_dir = workflow.containerEngine == 'singularity' ? "${R_lib_dir_input}" : "NA"
   """                                                                           
-  Rscript ${params.script_dir}/assign_non_ref_seqs.R $r_lib_dir $unassigned_sequences $blast_output
+  assign_non_ref_seqs.R $r_lib_dir $unassigned_sequences $blast_output
   """             
 }

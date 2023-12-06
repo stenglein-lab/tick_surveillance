@@ -184,15 +184,13 @@ workflow MPAS_PIPELINE {
     ch_versions = ch_versions.mix ( SETUP_PYTHON_ENVIRONMENT.out.versions )      
 
     // setup R packages not included in base environment 
-    R_install_pkg_script_ch = Channel.fromPath(params.R_install_pkg_script, checkIfExists: true)
     R_tar_dir_ch = Channel.fromPath(params.R_tar_dir, checkIfExists: true)
-    SETUP_R_DEPENDENCIES(R_install_pkg_script_ch, R_tar_dir_ch)
+    SETUP_R_DEPENDENCIES(R_tar_dir_ch)
     ch_versions = ch_versions.mix ( SETUP_R_DEPENDENCIES.out.versions )      
 
     // Check for existence of metadata file and validate it
-    validate_metadata_script_ch = Channel.fromPath(params.validate_metadata_script, checkIfExists: true)
     metadata_ch = Channel.fromPath("${params.metadata}", checkIfExists: true)
-    VALIDATE_METADATA(validate_metadata_script_ch, metadata_ch, sample_ids_file_ch)
+    VALIDATE_METADATA(metadata_ch, sample_ids_file_ch)
     ch_versions = ch_versions.mix ( VALIDATE_METADATA.out.versions )      
 
     // run fastqc on input reads

@@ -1,4 +1,5 @@
-#
+#!/usr/bin/env Rscript 
+
 # This script:
 #
 #   1. Assigns observed sequences to a set of reference sequences based

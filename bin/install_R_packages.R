@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript 
 #
 # This script installs R packages needed for the pipeline
 # from downloaded tarballs

@@ -18,9 +18,8 @@ process VALIDATE_METADATA {
   }
 
   input:
-  path (validate_script) 
-  path (metadata) 
-  path (sample_ids) 
+  path (metadata)         // the metadata-containing excel spreadsheet
+  path (sample_ids)       // all the sample IDS inferred from the fastq file names
 
   output:
   path(metadata)       , emit: validated_metadata
@@ -30,7 +29,7 @@ process VALIDATE_METADATA {
 
   script:
   """
-    Rscript ${validate_script} $metadata $sample_ids
+    validate_metadata.R $metadata $sample_ids
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
       R: \$(R --version 2>&1 | sed -n 1p | sed 's/R version //' | sed 's/ (.*//')

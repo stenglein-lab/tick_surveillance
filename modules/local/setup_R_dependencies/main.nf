@@ -13,7 +13,6 @@ process SETUP_R_DEPENDENCIES {
   }
 
   input:
-  path (install_script)   // the path to a script that will handle package installation
   path (R_tar_dir)        // the path to tar.gz files of R packages to be installedj
 
   output:
@@ -26,7 +25,7 @@ process SETUP_R_DEPENDENCIES {
   if (workflow.containerEngine == 'singularity') {
   """
     mkdir -p R_lib_dir
-    Rscript ${install_script} ${R_tar_dir} R_lib_dir
+    install_R_packages.R ${R_tar_dir} R_lib_dir
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

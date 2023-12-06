@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 #
 # This script performs validation on input metadata and sample IDs.  
 #

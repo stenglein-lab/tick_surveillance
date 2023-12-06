@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 #
 # This script assigns sequences that weren't assigned to any reference sequences based
 # on blastn alignments vs. the nt database

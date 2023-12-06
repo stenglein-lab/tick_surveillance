@@ -149,7 +149,7 @@ process CHECK_BLAST_TAX {
 
   script:
   // if a local blast_tax_dir is specified, check that it contains the expected files
-  existing_db ? 
+  if (existing_db) {
   """
     # check that the directory exists
     if [ ! -d "${blast_tax_dir}" ] ; then
@@ -166,7 +166,8 @@ process CHECK_BLAST_TAX {
       exit 1
     fi 
   
-  """ :
+  """ 
+  } else {
   // if tax db doesn't already exist : download the necessary files and keep track of directory 
   """
     # make a new local directory to contain the files
@@ -182,6 +183,7 @@ process CHECK_BLAST_TAX {
     # get rid of archive
     rm taxdb.tar.gz
   """
+}
 }
 
 

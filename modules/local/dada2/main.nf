@@ -30,7 +30,7 @@ process DADA2 {
   script:
   """
   # Run dada2 using trimmed fastq as input and create a tabular output of results
-  Rscript ${params.script_dir}/run_dada_on_trimmed.R .
+  run_dada_on_trimmed.R .
   """
 }
 
@@ -64,7 +64,7 @@ process TIDY_DADA_OUTPUT {
   # unique sequences observed in the amplicon dataset
   # and a sequence_abundance_table.tsv, which lists the abundances of these
   # sequences in each dataset
-  Rscript ${params.script_dir}/tidy_dada_output.R $dada_seqtab $dada_read_tracking_all
+  tidy_dada_output.R $dada_seqtab $dada_read_tracking_all
   """
 }
 
