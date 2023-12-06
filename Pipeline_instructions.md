@@ -4,6 +4,7 @@ This repository contains a bioinformatics pipeline for the analysis of amplicon 
 
 This pipeline is [described in this paper](https://pubmed.ncbi.nlm.nih.gov/37247570/).
 
+## Contents
 
 - [Running the pipeline](#Running-the-pipeline)
     - [Running from github](#Running-from-github)
