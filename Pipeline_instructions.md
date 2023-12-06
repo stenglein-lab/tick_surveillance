@@ -112,7 +112,7 @@ The location of the fastq files is specified by the `fastq_dir` parameter, whose
 
 It is expected that sample IDs are not repeated in the Illumina sample sheet.  
 
-It is not advised that datasets from multiple sequencing runs are analyzed together because error-correction in dada2 is based on the assumption that different runs have different, run-specific error profiles.  This is [discussed in more detail here](https://github.com/benjjneb/dada2/issues/1177).
+It is not advised that datasets from multiple sequencing runs be analyzed together because error-correction in dada2 is based on the assumption that different runs have different, run-specific, error profiles.  This is [discussed in more detail here](https://github.com/benjjneb/dada2/issues/1177).
 
 ## Output
 
@@ -124,11 +124,21 @@ The main outputs of the pipeline are:
 
 #### Output directory
 
-Output files are placed in a `results` directory (or `test/results` when running with `-profile test`).  The output directory can be specified using the `--outdir` parameter (e.g. `nextflow run stenglein-lab/tick_surveillance ... --outdir a_results_directory`
+Output files are placed in a `results` directory (or `test/results` when running with `-profile test`).  The output directory can be specified using the `--outdir` parameter.  For instance:
+
+```
+nextflow run stenglein-lab/tick_surveillance ... --outdir some_other_results_directory_name
+````
 
 #### Output file name prefixes 
 
-The main pipeline output file names will be prefixed by a value that is by default the date the pipeline is run (e.g. `2023_04_06_sequencing_report.xlsx`).  This filename prefix can be changed using the `--output_prefix` parameter.  For instance, running `nextflow run stenglein-lab/tick_surveillance ... --output_prefix my_new_run` will create a file named `my_new_run_sequencing_report.xlsx`)
+The main pipeline output file names will be prefixed by a value that is by default the date the pipeline is run (e.g. `2023_04_06_sequencing_report.xlsx`).  This filename prefix can be changed using the `--output_prefix` parameter.  For instance, running:
+
+```
+nextflow run stenglein-lab/tick_surveillance ... --output_prefix my_new_run
+``` 
+
+Will create a file named `my_new_run_sequencing_report.xlsx`
 
 ### Surveillance_Report
 
@@ -156,7 +166,7 @@ Two QC reports in HTML format from initial input sequence data (`...initial_qc_r
 
 ### Unassigned sequences
 
-Observed sequences that were not assigned to any reference sequence are used as queries to a BLASTN search against the NCBI nt database.  The output of this blast search is summarized in a `...non_reference_sequence_assignments.xlsx` output file: an MS Excel spreadsheet.
+Observed sequences that were not assigned to any reference sequence are used as queries to a BLASTN search against the NCBI nt database.  The output of this blast search is summarized in a `non_reference_sequence_assignments.xlsx` output file: an MS Excel spreadsheet.
 
 ## Reference sequences
 
