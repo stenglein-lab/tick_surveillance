@@ -297,11 +297,11 @@ Singularity containers will be automatically downloaded and stored in a director
 
 ### Conda
 
-It is possible to run this pipeline using an all-in-one [conda](https://docs.conda.io/en/latest/) environment, defined [in this file](./conda/tick_conda_environment.yaml).  But it is strongly recommended to use singularity instead of conda.  
+It is possible to run this pipeline using [conda](https://docs.conda.io/en/latest/) to handle dependencies. But it is strongly recommended to use singularity instead of conda.  
 
 ### R libraries
 
-Some of the pipeline code is implemented in [R scripts](./scripts/).  Some of these scripts require R packages like [openxlsx](https://www.rdocumentation.org/packages/openxlsx/versions/4.2.5.2), for writing output in Excel format.  These packages are installed locally, on top of a [Rocker tidyverse singularity image](https://rocker-project.org/images/).  This occurs in nextflow process `setup_R_dependencies`, which invokes [this script](./scripts/install_R_packages.R).
+Some of the pipeline code is implemented in [R scripts](./scripts/).  Some of these scripts require R packages like [openxlsx](https://www.rdocumentation.org/packages/openxlsx/versions/4.2.5.2), for writing output in Excel format.  When running with singularity, these packages are installed locally, on top of a [Rocker tidyverse singularity image](https://rocker-project.org/images/).  This occurs in nextflow process `setup_R_dependencies`, which invokes [this script](./scripts/install_R_packages.R).
 
 ### Python dependencies
 
