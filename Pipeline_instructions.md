@@ -291,6 +291,8 @@ The pipeline uses singularity containers to run programs like cutadapt, BLAST, a
 singularity --version
 ```
 
+There is no specified minimum version of singularity, but older versions of singularity (<~3.9) may not work.  the pipeline has been tested with singularity v3.9.5.  
+
 Singularity containers will be automatically downloaded and stored in a directory named `singularity_cacheDir` in your home directory.  They will only be downloaded once.
 
 ### Conda
