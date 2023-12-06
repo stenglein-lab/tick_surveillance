@@ -148,7 +148,7 @@ This first tab of this spreadsheet contains the main surveillance report table w
 
 #### Surveillance_columns_file
 
-The columns in this report are defined in [this file](./refseq/surveillance_columns.txt).  It is possible to add or remove columns from this report by adding or removing them from this file.  
+The columns in this report are defined in [the surveillance_columns file](./refseq/surveillance_columns.txt).  It is possible to add or remove columns from this report by adding or removing them from this file.  
 
 This is a 2-column tab-delimited file.  The first column contains the names of the columns that will form the surveillance report table.  The second column contains optional default text for thiis column.
 
