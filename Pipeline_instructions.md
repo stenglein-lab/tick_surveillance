@@ -11,7 +11,7 @@ This pipeline is [described in this paper](https://pubmed.ncbi.nlm.nih.gov/37247
     - [Running a specific version:](#Running-a-specific-version)
     - [Making sure that you are running the latest version](#Making-sure-that-you-are-running-the-latest-version)
     - [Running in different computing environments](#Running-in-different-computing-environments)
-    - [Running by cloning the pipeline's repository](#Running-by-cloning-the-pipeline's-repository)
+    - [Running by cloning the pipeline's repository](#Running-by-cloning-the-pipeline-repository)
 - [Inputs](#Inputs)
     - [Metadata file](#Metadata-file)
     - [Input fastq](#Input-fastq)
@@ -102,7 +102,7 @@ You will want to use a profile that matches your computing environment.  So, for
 nextflow run stenglein-lab/tick_surveillance -resume --metadata /path/to/metadata_xls --fastq_dir /path/to/fastq/directory -profile singularity,sge 
 ```
 
-### Running by cloning the pipeline's repository
+### Running by cloning the pipeline repository
 
 It is also possible to download the pipeline code to a directory of your choosing.  This can be useful if, for instance, you want to modify or debug the code.  You can do this by cloning the repository (or a fork of the repository):
 
