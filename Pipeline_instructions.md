@@ -150,7 +150,7 @@ The main outputs of the pipeline are:
 
 1. [A surveillance report](#Surveillance-report)
 2. [QC reports](#qc-reports)
-3. Information about [observed sequences that were not assigned to any reference sequences](#unassigned-sequences).
+3. Information about [observed sequences that were not assigned to any reference sequences](#BLASTing-of-unassigned-sequences)
 
 ### Output directory
 
