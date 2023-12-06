@@ -144,7 +144,7 @@ To add, remove columns from the surveillance report table, add or remove lines f
 
 The values in the surveillance report come from two possible sources:
 
-1. **Metadata**.   Metadata values will be populated from the input [metadata spreadsheet](#Metadata_spreadsheet).
+1. **Metadata**.   Metadata values will be populated from the input [metadata spreadsheet](#Metadata_file).
 
 2. **Read counts from the sequence data.**
 
