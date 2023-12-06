@@ -231,11 +231,11 @@ Multiple mappings for one reference sequence can be defined, seperated by semico
 
 `Borrelia_sp:count;Borrelia_burgdorferi_sensu_stricto:count`
 
-This means that reads assigned to Bor_burgdorferi_B31 would be assigned to two surveillance targets: Borrelia_sp, a catch-all target for many different types of Borrelia, and Borrelia_burgdorferi_sensu_stricto, a target for *B. burgdorferi sensu stricto*.
+This means that reads assigned to Bor_burgdorferi_B31 would be assigned to two surveillance targets: Borrelia_sp, a catch-all target for many different types of *Borrelia*, and Borrelia_burgdorferi_sensu_stricto, a target for *B. burgdorferi sensu stricto*.
 
-**Count mapping**: As in the example above, count type mapping of reference sequences to targets means that counts assigned to those reference sequences will contribute to the summed count for that target.
+**Count mapping**: As in the example above, count type mapping that counts assigned to those reference sequences will contribute to the summed count for that target.
 
-**Name mapping**: Some surveillance targets report species names instead of read counts.  For instance, the Borrelia_Other_species_name target is meant to report the name of any *Borrelia* species that was called positive in that dataset.  Reference sequences can be mapped to both name and count type targets..   For example, the Bor_andersoni_BC_1_AF264908 reference sequence is mapped to two targets:
+**Name mapping**: Some surveillance targets report species names instead of read counts.  For instance, the Borrelia_Other_species_name target is meant to report the name of any *Borrelia* species that was called positive in that dataset.  Reference sequences can be mapped to both name and count type targets.   For example, the Bor_andersoni_BC_1_AF264908 reference sequence is mapped to two targets:
 
 `Borrelia_sp:count;Borrelia_Other_species_name:name`
 
@@ -243,11 +243,11 @@ This means that reads counts for this reference sequence will be included in the
 
 ### Calling positive hits
 
-An important output of this pipeline is the [surveillance report](#Surveillance_Report), which defines whether specific samples are positive for particular pathogens.  There are two ways to call a positive hit, depending on whether the surveillance target is a positive control target or not.
+A key output of the pipeline is to define whether specific samples are positive for particular pathogens.  There are two ways to call a positive hit, depending on whether the surveillance target is a positive control target or not.
 
 **Positive control targets**: these targets are defined as `internal_control` in [targets.tsv](./refseq/targets.tsv).  These are targets that are expected to amplify from any tick DNA sample (e.g tick actin, or a "tick ID" target).   These targets are called positive according to the following procedure:
 
-- The mean number of reads for the target is calculated for each batch of datasets.  Samples can be binned into batches in [the metadata file](#Metadata_file) using the batch column.  If batches are not defined in the metadata, then all datasets will be binnned into a single batch.
+- The mean number of reads for the target is calculated for each batch of datasets.  Samples can be binned into batches in [the metadata file](#Metadata-file) using the batch column.  If batches are not defined in the metadata, then all datasets will be binnned into a single batch.
 - For each sample, if the number of reads assigned to this target is >= the mean value less 3 standard deviations, the sample is called positive for this target
 - For all calculations, the log10(# reads) are used, because we observed that read counts for internal control targets exhibited log-normal distributions.
 
