@@ -73,5 +73,6 @@ for more information about [contributing to this repository](https://github.com/
 and [code of conduct](https://github.com/CDCgov/template/blob/master/code-of-conduct.md).
 
 ## Pipeline References  
-Hojgaard, A., Osikowicz, L. M., Eisen, L., & Eisen, R. J. (2020). Evaluation of a novel multiplex PCR amplicon sequencing assay for detection of human pathogens in Ixodes ticks. Ticks and tick-borne diseases, 11(6), 101504. https://doi.org/10.1016/j.ttbdis.2020.101504
+Hojgaard, A., Osikowicz, L. M., Eisen, L., & Eisen, R. J. (2020). Evaluation of a novel multiplex PCR amplicon sequencing assay for detection of human pathogens in Ixodes ticks. Ticks and tick-borne diseases, 11(6), 101504. https://doi.org/10.1016/j.ttbdis.2020.101504.  [PMID: 32993925](https://pubmed.ncbi.nlm.nih.gov/32993925/).
 
+Osikowicz LM, Hojgaard A, Maes S, Eisen RJ, Stenglein MD. A bioinformatics pipeline for a tick pathogen surveillance multiplex amplicon sequencing assay.  Ticks Tick Borne Dis. 2023 Sep;14(5):102207. doi: 10.1016/j.ttbdis.2023.102207.  Epub 2023 May 27. [PMID: 37247570](https://pubmed.ncbi.nlm.nih.gov/37247570/).
