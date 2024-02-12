@@ -1,7 +1,7 @@
 *.fastq
 *.fastq.gz
 *.nextflow*
-results
+results*
 work
 refseq/reference_sequences.fasta*
 draft_versions
@@ -11,4 +11,5 @@ python_venv
 *.bak
 lib/R/openxlsx
 lib/R/zip
+test.sh
 
