@@ -33,7 +33,7 @@ if (!interactive()) {
   r_libdir                    = "../lib/R/"
   tidy_table_path             = "../results/dada2/sequence_abundance_table.tsv"
   blast_output_path           = "../results/blast/observed_sequences.fasta.bn_refseq"
-  sample_metadata_file        = "../../2022_2_24_datasets/2021_4_group_2_v3.xlsx"
+  sample_metadata_file        = "../../2024_2_13_issue_89/metadata.xlsx"
   targets_tsv_file            = "../refseq/targets.tsv"
   surveillance_columns_file   = "../refseq/surveillance_columns.txt"
   input_min_non_control_reads = 50
@@ -372,16 +372,14 @@ internal_control_batch_averages <- dataset_df %>%
   summarize(mean_batch_internal_ctrl_reads = mean(per_sample_internal_ctrl_reads),
             sd_batch_internal_ctrl_reads   = sd  (per_sample_internal_ctrl_reads))
 
-# ------------------------------
-# cutoffs to call a positive hit
-# ------------------------------
+# -------------------------------------------------
+# Minimum number of internal control mapping reads
+# -------------------------------------------------
 
 # for internal control targets, this is the mean of the batch log10 read # - 3 standard deviations
 internal_control_batch_averages <- internal_control_batch_averages %>%
   mutate(minimum_internal_control_log_reads =
-           mean_batch_internal_ctrl_reads - (3 * sd_batch_internal_ctrl_reads),
-# for non-internal control targets, this is a simple cutoff passed in as an argument (e.g. 50 reads)
-         minimum_non_control_reads = input_min_non_control_reads)  
+           mean_batch_internal_ctrl_reads - (3 * sd_batch_internal_ctrl_reads))
 
 # join in info about internal control cutoffs
 dataset_df <- left_join(dataset_df, internal_control_batch_averages, by="batch")
@@ -480,7 +478,7 @@ dataset_by_spp <- dataset_df %>%
   # get rid of unneeded columns
   select(Index, Pathogen_Testing_ID, batch, species, abundance, percent_identity, 
          percent_query_aligned, richness, internal_control, 
-         minimum_internal_control_log_reads, minimum_non_control_reads)
+         minimum_internal_control_log_reads)
 
 # ----------------------------------------------------------------------
 # Collect information that will be used to populate surveillance report
@@ -490,6 +488,11 @@ dataset_by_spp <- dataset_df %>%
 # because each target can be mapped to >1 surveillance column, this will result in rows with
 # duplicate target info but multiple surveillance columns
 dataset_with_surv_df <- left_join(dataset_df, targets_to_surv_df, by=c("subject" = "target"))
+
+# create a column defining the minimum cutoff for non-internal control targets
+# for non-internal control targets, this is a simple cutoff passed in as an argument 
+# (e.g. 50 reads)
+dataset_with_surv_df$minimum_non_control_reads = input_min_non_control_reads
 
 # keep track of whether individual (dataset x target) combinations have sufficient reads to be
 # called positive
@@ -530,6 +533,7 @@ count_type_surveillance_values <- dataset_with_surv_df %>%
     percent_query_aligned = mean(percent_query_aligned),
     richness              = n(),
     internal_control      = any(internal_control),   
+    minimum_non_control_reads = first(minimum_non_control_reads),
     .groups="drop"
   ) 
 
@@ -913,3 +917,4 @@ saveWorkbook(wb, paste0(output_dir, "sequencing_report.xlsx"), overwrite = TRUE)
 # write out version info into versions.yml
 # TODO
 writeLines("", "versions.yml")
+
