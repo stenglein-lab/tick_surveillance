@@ -146,8 +146,8 @@ include { GENERATE_TREES                } from '../subworkflows/generate_trees'
 include { SETUP_BLAST_DB_AND_TAX        } from '../subworkflows/setup_blast_db_and_tax'
 include { CLASSIFY_UNASSIGNED_SEQUENCES } from '../subworkflows/classify_unassigned_sequences'
 include { PREPEND_OUTPUT_FILENAMES      } from '../modules/local/prepend_filenames/main'
-include { ORG_UNASSIGNED_SEQUENCES      } from '../modules/local/org_unassigned_sequences/main'
-include {FILTER_UNASSIGNED_SEQUENCES    } from '../modules/local/filter_unassigned_sequences/main'
+// include { ORG_UNASSIGNED_SEQUENCES      } from '../modules/local/org_unassigned_sequences/main'
+// include { FILTER_UNASSIGNED_SEQUENCES   } from '../modules/local/filter_unassigned_sequences/main'
 
 // modules from NF-CORE 
 include { FASTQC as FASTQC_PRE        } from '../modules/nf-core/fastqc/main'
@@ -259,21 +259,27 @@ workflow MPAS_PIPELINE {
     CLASSIFY_UNASSIGNED_SEQUENCES(ASSIGN_OBSERVED_SEQS.out.unassigned_sequences,
                                   SETUP_BLAST_DB_AND_TAX.out.blast_db_dir,
                                   SETUP_BLAST_DB_AND_TAX.out.blast_tax_dir,
-                                  SETUP_R_DEPENDENCIES.out.R_lib_dir)
+                                  SETUP_R_DEPENDENCIES.out.R_lib_dir,
+                                  COMPARE_OBSERVED_SEQS.out.sequence_abundance_table,
+                                  VALIDATE_METADATA.out.validated_metadata,
+                                  ASSIGN_OBSERVED_SEQS.out.surveillance_report,
+                                  filter_ch)
 
     ch_versions = ch_versions.mix ( CLASSIFY_UNASSIGNED_SEQUENCES.out.versions )      
 
+    /*
     // Update unassigned_sequences output file with metadata info
     ORG_UNASSIGNED_SEQUENCES(COMPARE_OBSERVED_SEQS.out.sequence_abundance_table,
-                                VALIDATE_METADATA.out.validated_metadata,
-                                CLASSIFY_UNASSIGNED_SEQUENCES.out.report,
-                                SETUP_R_DEPENDENCIES.out.R_lib_dir)
+                             VALIDATE_METADATA.out.validated_metadata,
+                             CLASSIFY_UNASSIGNED_SEQUENCES.out.report,
+                             SETUP_R_DEPENDENCIES.out.R_lib_dir)
 
     // Filter unassigned_sequence_report for target name. Run if parameter by user given
     FILTER_UNASSIGNED_SEQUENCES(ASSIGN_OBSERVED_SEQS.out.surveillance_report,
                                 ORG_UNASSIGNED_SEQUENCES.out.org_unassigned_sequences_report,
                                 filter_ch,
                                 SETUP_R_DEPENDENCIES.out.R_lib_dir)
+    */
 
     //                                                                          
     // MODULE: MultiQC                                                          
@@ -332,11 +338,11 @@ workflow MPAS_PIPELINE {
     ch_main_output_files = ch_main_output_files
                              .mix( 
                              ASSIGN_OBSERVED_SEQS.out.surveillance_report,
-                             FILTER_UNASSIGNED_SEQUENCES.out.sequences_report_filter,
                              ASSIGN_OBSERVED_SEQS.out.all_data_csv,
                              ASSIGN_OBSERVED_SEQS.out.txt,
                              ASSIGN_OBSERVED_SEQS.out.pdf,
-                             ORG_UNASSIGNED_SEQUENCES.out.org_unassigned_sequences_report)
+                             CLASSIFY_UNASSIGNED_SEQUENCES.out.sequences_report_filter,
+                             CLASSIFY_UNASSIGNED_SEQUENCES.out.org_unassigned_sequences_report)
                              .flatten()
     PREPEND_OUTPUT_FILENAMES(ch_main_output_files)
 
