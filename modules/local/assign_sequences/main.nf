@@ -64,7 +64,7 @@ process ASSIGN_OBSERVED_SEQS {
 
   // if using singularity
   if (workflow.containerEngine == 'singularity'){
-      container "docker://rocker/tidyverse:4.2.2"
+      container "docker://rocker/tidyverse:4.4.0"
   }
 
   input:

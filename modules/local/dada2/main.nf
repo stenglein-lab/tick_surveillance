@@ -45,7 +45,7 @@ process TIDY_DADA_OUTPUT {
   conda "conda-forge::r-tidyverse=1.3.1"                                        
   // if using singularity 
   if (workflow.containerEngine == 'singularity'){
-      container "docker://rocker/tidyverse:4.2.2"
+      container "docker://rocker/tidyverse:4.4.0"
   }
 
   input:
