@@ -169,7 +169,7 @@ def multiqc_report1 = []
 def multiqc_report2 = []
 def multiqc_report3 = []                                                        
                                                                                 
-workflow MPAS_PIPELINE {                                                                
+workflow MPAS_WORKFLOW {                                                                
                                                                                 
     // this will keep track of all software versions
     ch_versions = Channel.empty()                                               

@@ -19,14 +19,7 @@ WorkflowMain.initialise(workflow, params, log)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */                                                                              
                                                                                 
-include { MPAS_PIPELINE } from './workflows/mpas'                                      
-                                                                                
-//                                                                              
-// WORKFLOW: Run main pipeline
-//                                                                              
-workflow MAIN_WORKFLOW {                                                   
-    MPAS_PIPELINE ()                                                                    
-}                                                                               
+include { MPAS_WORKFLOW } from './workflows/mpas'                                      
                                                                                 
 /*                                                                              
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -39,6 +32,6 @@ workflow MAIN_WORKFLOW {
 // See: https://github.com/nf-core/rnaseq/issues/619                            
 //                                                                              
 workflow {                                                                      
-    MAIN_WORKFLOW ()                                                       
+    MPAS_WORKFLOW ()                                                       
 }     
 
