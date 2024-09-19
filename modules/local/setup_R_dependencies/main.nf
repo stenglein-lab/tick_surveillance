@@ -9,7 +9,7 @@ process SETUP_R_DEPENDENCIES {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity'){
-      container "docker://rocker/tidyverse:4.4.0"
+      container "docker://rocker/tidyverse:4.4.1"
   }
 
   input:

@@ -10,12 +10,12 @@ process DADA2 {
   label 'error_retry'
 
   // if using conda
-  conda "bioconda::bioconductor-dada2=1.22.0"
+  conda "bioconda::bioconductor-dada2=1.30.0"
   // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/bioconductor-dada2:1.22.0--r41h399db7b_0"
+      container "https://depot.galaxyproject.org/singularity/bioconductor-dada2:1.30.0--r43hf17093f_0"
   } else {
-      container "quay.io/biocontainers/bioconductor-dada2:1.22.0--r41h399db7b_0"
+      container "quay.io/biocontainers/bioconductor-dada2:1.30.0--r43hf17093f_0"
   }
 
   input:
@@ -42,10 +42,10 @@ process TIDY_DADA_OUTPUT {
   label 'process_low'
 
   // if using conda
-  conda "conda-forge::r-tidyverse=1.3.1"                                        
+  conda "conda-forge::r-tidyverse=2.0.0"                                        
   // if using singularity 
   if (workflow.containerEngine == 'singularity'){
-      container "docker://rocker/tidyverse:4.4.0"
+      container "docker://rocker/tidyverse:4.4.1"
   }
 
   input:

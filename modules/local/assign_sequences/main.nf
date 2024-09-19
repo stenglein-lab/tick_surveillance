@@ -9,13 +9,13 @@ process COMPARE_OBSERVED_SEQS {
   label 'process_low'
 
   // if using conda
-  conda "bioconda::blast=2.12.*"
+  conda "bioconda::blast=2.16.*"
 
   // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/blast:2.12.0--pl5262h3289130_0"
+      container "https://depot.galaxyproject.org/singularity/blast:2.16.0--hc155240_2"
   } else {
-      container "quay.io/biocontainers/blast:2.12.0--pl5262h3289130_0"
+      container "quay.io/biocontainers/blast:2.16.0--hc155240_2"
   }
 
   input:
@@ -64,7 +64,7 @@ process ASSIGN_OBSERVED_SEQS {
 
   // if using singularity
   if (workflow.containerEngine == 'singularity'){
-      container "docker://rocker/tidyverse:4.4.0"
+      container "docker://rocker/tidyverse:4.4.1"
   }
 
   input:

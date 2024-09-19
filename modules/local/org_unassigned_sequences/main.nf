@@ -10,7 +10,7 @@ process ORG_UNASSIGNED_SEQUENCES {
 
   // if using singularity 
   if (workflow.containerEngine == 'singularity'){
-      container "docker://rocker/tidyverse:4.4.0"
+      container "docker://rocker/tidyverse:4.4.1"
   }
 
   input:

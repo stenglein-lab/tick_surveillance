@@ -10,11 +10,11 @@ process VALIDATE_METADATA {
   label 'process_low'
 
   // if using conda
-  conda "conda-forge::r-tidyverse=1.3.1"
+  conda "conda-forge::r-tidyverse=2.0.0"
 
   // if using singularity 
   if (workflow.containerEngine == 'singularity'){
-      container "docker://rocker/tidyverse:4.4.0"
+      container "docker://rocker/tidyverse:4.4.1"
   }
 
   input:
