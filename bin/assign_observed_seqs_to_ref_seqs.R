@@ -33,7 +33,7 @@ if (!interactive()) {
   r_libdir                    = "../lib/R/"
   tidy_table_path             = "../results/dada2/sequence_abundance_table.tsv"
   blast_output_path           = "../results/blast/observed_sequences.fasta.bn_refseq"
-  sample_metadata_file        = "../../2024_2_13_issue_89/metadata.xlsx"
+  sample_metadata_file        = "../../2022_2_24_datasets/2021_4_group_2_v3.xlsx"
   targets_tsv_file            = "../refseq/targets.tsv"
   surveillance_columns_file   = "../refseq/surveillance_columns.txt"
   input_min_non_control_reads = 50
@@ -503,16 +503,36 @@ dataset_with_surv_df <- dataset_with_surv_df %>%
                 (!internal_control & (abundance >= minimum_non_control_reads)) ~ "Positive",
                 TRUE ~ "Negative"))
 
+# make species-level calls
+# first, calculate summed read counts by species
+dataset_with_surv_df_species_level_calls <- dataset_with_surv_df %>% 
+  filter(surveillance_column_type == "count") %>%
+  group_by(Index, batch, species) %>%
+  summarize(
+    species_abundance             = sum(abundance),
+    .groups="drop")
+
+# join in species-level calls
+dataset_with_surv_df <- left_join(dataset_with_surv_df, dataset_with_surv_df_species_level_calls)
+    
+# make species-level pos/neg calls using read counts summed by species
+dataset_with_surv_df <- dataset_with_surv_df %>% 
+  mutate(
+    species_level_pos_neg_call = 
+      case_when((internal_control & (log10(species_abundance) >= minimum_internal_control_log_reads)) ~ "Positive",
+                (!internal_control & (species_abundance >= minimum_non_control_reads)) ~ "Positive",
+                TRUE ~ "Negative"))
+
+
 # ------------------
 # name-type columns
 # ------------------
 
 # for each name-type surveillance column, keep track of which targets had sufficient #s 
 # to be reported 
-# dataset_by_names_surv_column <- dataset_with_surv_df %>% 
 name_type_surveillance_values <- dataset_with_surv_df %>% 
   filter(surveillance_column_type == "name" & 
-           individual_pos_neg_call == "Positive") %>%
+           species_level_pos_neg_call == "Positive") %>%
   group_by(Index, batch, surveillance_column) %>%
   summarize(
     contributing_target_names = str_trim(paste0(unique(species), sep = " ", collapse="")),
