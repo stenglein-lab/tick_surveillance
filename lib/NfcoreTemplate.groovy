@@ -7,28 +7,16 @@ import org.yaml.snakeyaml.Yaml
 class NfcoreTemplate {
 
     //
-    // Check AWS Batch related parameters have been specified correctly
-    //
-    public static void awsBatch(workflow, params) {
-        if (workflow.profile.contains('awsbatch')) {
-            // Check params.awsqueue and params.awsregion have been set if running on AWSBatch
-            assert (params.awsqueue && params.awsregion) : "Specify correct --awsqueue and --awsregion parameters on AWSBatch!"
-            // Check outdir paths to be S3 buckets if running on AWSBatch
-            assert params.outdir.startsWith('s3:')       : "Outdir not on S3 - specify S3 Bucket to run on AWSBatch!"
-        }
-    }
-
-    //
     //  Warn if a -profile or Nextflow config has not been provided to run the pipeline
     //
     public static void checkConfigProvided(workflow, log) {
         if (workflow.profile == 'standard' && workflow.configFiles.size() <= 1) {
-            log.warn "[$workflow.manifest.name] You are attempting to run the pipeline without any custom configuration!\n\n" +
-                    "This will be dependent on your local compute environment but can be achieved via one or more of the following:\n" +
-                    "   (1) Using an existing pipeline profile e.g. `-profile docker` or `-profile singularity`\n" +
-                    "   (2) Using an existing nf-core/configs for your Institution e.g. `-profile crick` or `-profile uppmax`\n" +
-                    "   (3) Using your own local custom config e.g. `-c /path/to/your/custom.config`\n\n" +
-                    "Please refer to the quick start section and usage docs for the pipeline.\n "
+          log.error "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
+                    "You are attempting to run the pipeline without setting a profile to handle dependencies. \n\n" +
+                    "For instructions on running the pipeline, see: \n" + 
+                    "  https://github.com/stenglein-lab/tick_surveillance/blob/main/Pipeline_instructions.md\n" +
+                    "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+          System.exit(1)
         }
     }
 
@@ -146,61 +134,6 @@ class NfcoreTemplate {
     }
 
     //
-    // Construct and send adaptive card
-    // https://adaptivecards.io
-    //
-    public static void adaptivecard(workflow, params, summary_params, projectDir, log) {
-        def hook_url = params.hook_url
-
-        def summary = [:]
-        for (group in summary_params.keySet()) {
-            summary << summary_params[group]
-        }
-
-        def misc_fields = [:]
-        misc_fields['start']                                = workflow.start
-        misc_fields['complete']                             = workflow.complete
-        misc_fields['scriptfile']                           = workflow.scriptFile
-        misc_fields['scriptid']                             = workflow.scriptId
-        if (workflow.repository) misc_fields['repository']  = workflow.repository
-        if (workflow.commitId)   misc_fields['commitid']    = workflow.commitId
-        if (workflow.revision)   misc_fields['revision']    = workflow.revision
-        misc_fields['nxf_version']                          = workflow.nextflow.version
-        misc_fields['nxf_build']                            = workflow.nextflow.build
-        misc_fields['nxf_timestamp']                        = workflow.nextflow.timestamp
-
-        def msg_fields = [:]
-        msg_fields['version']      = workflow.manifest.version
-        msg_fields['runName']      = workflow.runName
-        msg_fields['success']      = workflow.success
-        msg_fields['dateComplete'] = workflow.complete
-        msg_fields['duration']     = workflow.duration
-        msg_fields['exitStatus']   = workflow.exitStatus
-        msg_fields['errorMessage'] = (workflow.errorMessage ?: 'None')
-        msg_fields['errorReport']  = (workflow.errorReport ?: 'None')
-        msg_fields['commandLine']  = workflow.commandLine
-        msg_fields['projectDir']   = workflow.projectDir
-        msg_fields['summary']      = summary << misc_fields
-
-        // Render the JSON template
-        def engine       = new groovy.text.GStringTemplateEngine()
-        def hf = new File("$projectDir/assets/adaptivecard.json")
-        def json_template = engine.createTemplate(hf).make(msg_fields)
-        def json_message  = json_template.toString()
-
-        // POST
-        def post = new URL(hook_url).openConnection();
-        post.setRequestMethod("POST")
-        post.setDoOutput(true)
-        post.setRequestProperty("Content-Type", "application/json")
-        post.getOutputStream().write(json_message.getBytes("UTF-8"));
-        def postRC = post.getResponseCode();
-        if (! postRC.equals(200)) {
-            log.warn(post.getErrorStream().getText());
-        }
-    }
-
-    //
     // Print pipeline summary on completion
     //
     public static void summary(workflow, params, log) {
@@ -292,22 +225,4 @@ class NfcoreTemplate {
         return "-${colors.dim}----------------------------------------------------${colors.reset}-"
     }
 
-    //
-    // nf-core logo
-    //
-    public static String logo(workflow, monochrome_logs) {
-        Map colors = logColours(monochrome_logs)
-        String.format(
-            """\n
-            ${dashedLine(monochrome_logs)}
-                                                    ${colors.green},--.${colors.black}/${colors.green},-.${colors.reset}
-            ${colors.blue}        ___     __   __   __   ___     ${colors.green}/,-._.--~\'${colors.reset}
-            ${colors.blue}  |\\ | |__  __ /  ` /  \\ |__) |__         ${colors.yellow}}  {${colors.reset}
-            ${colors.blue}  | \\| |       \\__, \\__/ |  \\ |___     ${colors.green}\\`-._,-`-,${colors.reset}
-                                                    ${colors.green}`._,._,\'${colors.reset}
-            ${colors.purple}  ${workflow.manifest.name} v${workflow.manifest.version}${colors.reset}
-            ${dashedLine(monochrome_logs)}
-            """.stripIndent()
-        )
-    }
 }

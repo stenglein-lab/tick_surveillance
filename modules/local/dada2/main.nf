@@ -3,7 +3,7 @@
 */
 process DADA2 {      
   publishDir "${params.dada_outdir}", mode: 'link'
-  publishDir "${params.QC_and_summary_stats}", pattern: 'dada_read_clean_all.csv', mode: 'copy'
+  publishDir "${params.QC_and_summary_stats_dir}", pattern: 'dada_read_clean_all.csv', mode: 'copy'
   tag        "all"
 
   label 'process_high'
@@ -36,7 +36,7 @@ process DADA2 {
 
 process TIDY_DADA_OUTPUT {      
   publishDir "${params.dada_outdir}", mode: 'link'
-  publishDir "${params.QC_and_summary_stats}", pattern: 'dada_read_clean_summary.csv', mode: 'copy'
+  publishDir "${params.QC_and_summary_stats_dir}", pattern: 'dada_read_clean_summary.csv', mode: 'copy'
   tag        "all"
 
   label 'process_low'

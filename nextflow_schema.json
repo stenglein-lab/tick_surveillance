@@ -5,6 +5,44 @@
   "description": "A pipeline to analyze amplicon sequencing data for tick-borne pathogens",
   "type": "object",
   "definitions": {
+    "input_options": {
+      "title": "Input options",
+      "type": "object",
+      "fa_icon": "fas fa-angle-left",
+      "description": "Define where the pipeline should find input data.",
+      "required": ["fastq_pattern", "fastq_dir", "metadata", "targets"],
+      "properties": {
+        "fastq_pattern": {
+          "type": "string",
+          "default": "*_R[12]_*.fastq*",
+          "description": "fastq files must match this pattern to be used as input to the pipeline."
+        },
+        "fastq_dir": {
+          "type": "string",
+          "description": "A directory containing fastq files that will be input to the pipeline.",
+          "format": "directory-path",
+          "fa_icon": "fas fa-folder-open"
+        },
+        "metadata": {
+          "type": "string",
+          "description": "The path to an excel spreadsheet containing sample metadata",
+          "fa_icon": "fas fa-file-excel"
+        },
+        "refseq_dir": {
+          "type": "string",
+          "default": "refseq/",
+          "description": "Default location of certain input files",
+          "fa_icon": "fas fa-folder-open"
+        },
+        "targets": {
+          "type": "string",
+          "default": "${refseq_dir}/targets.tsv",
+          "description": "A file containing the target sequences and other information about these sequences.",
+          "format": "file-path",
+          "fa_icon": "fas fa-file"
+        }
+      }
+    },
     "primer_and_adapter_trimming_options": {
       "title": "Primer and adapter trimming options",
       "type": "object",
@@ -13,9 +51,10 @@
       "properties": {
         "primers": {
           "type": "string",
-          "default": "refseq/primers.tsv",
+          "default": "${refseq_dir}/primers.tsv",
           "format": "file-path",
-          "description": "A file containing the names and sequences of primers used to amplify targets."
+          "description": "A file containing the names and sequences of primers used to amplify targets.",
+          "fa_icon": "fas fa-file"
         },
         "post_trim_min_length": {
           "type": "integer",
@@ -54,9 +93,10 @@
       "properties": {
         "surveillance_columns": {
           "type": "string",
-          "default": "refseq/surveillance_columns.txt",
+          "default": "${refseq_dir}/surveillance_columns.txt",
           "description": "This file specifies what columns will be included in the surveillance report and optional default values.",
-          "format": "file-path"
+          "format": "file-path",
+          "fa_icon": "fas fa-file"
         },
         "min_reads_for_positive_surveillance_call": {
           "type": "integer",
@@ -77,69 +117,6 @@
         "min_reads_for_positive_surveillance_call",
         "max_blast_refseq_evalue"
       ]
-    },
-    "input_output_options": {
-      "title": "Input/output options",
-      "type": "object",
-      "fa_icon": "fas fa-terminal",
-      "description": "Define where the pipeline should find input data and save output data.",
-      "required": [
-        "fastq_pattern",
-        "fastq_dir",
-        "outdir",
-        "targets",
-        "output_prefix",
-        "metadata"
-      ],
-      "properties": {
-        "fastq_pattern": {
-          "type": "string",
-          "default": "*_R[12]_*.fastq*",
-          "description": "fastq files must match this pattern to be used as input to the pipeline."
-        },
-        "fastq_dir": {
-          "type": "string",
-          "default": "input/fastq/",
-          "description": "A directory containing fastq files that will be input to the pipeline.",
-          "format": "directory-path"
-        },
-        "metadata": {
-          "type": "string",
-          "default": "None",
-          "description": "The path to an excel spreadsheet containing sample metadata"
-        },
-        "outdir": {
-          "type": "string",
-          "format": "directory-path",
-          "description": "The output directory where results will be saved. You have to use absolute paths to store on Cloud infrastructure.",
-          "fa_icon": "fas fa-folder-open",
-          "default": "./results/"
-        },
-        "targets": {
-          "type": "string",
-          "default": "refseq//targets.tsv",
-          "description": "A file containing the target sequences and other information about these sequences.",
-          "format": "file-path"
-        },
-        "tracedir": {
-          "type": "string",
-          "description": "Directory in which Nextflow logs and reports will be placed.",
-          "default": "${params.outdir}/pipeline_info",
-          "fa_icon": "fas fa-cogs",
-          "format": "directory-path"
-        },
-        "log_outdir": {
-          "type": "string",
-          "default": "${params.outdir}/log",
-          "description": "Directory in which pipeline logs and reports will be placed.",
-          "format": "directory-path"
-        },
-        "output_prefix": {
-          "type": "string",
-          "default": "Today's date in YYYY_MM_DD format",
-          "description": "Main pipeline output file names will contain this prefix."
-        }
-      }
     },
     "max_job_request_options": {
       "title": "Max job request options",
@@ -181,73 +158,12 @@
       "properties": {
         "dada_outdir": {
           "type": "string",
-          "default": "${params.outdir}/dada2",
-          "description": "Directory in which DADA2 output files will be placed."
+          "default": "${outdir}/dada2",
+          "description": "Directory in which DADA2 output files will be placed.",
+          "fa_icon": "fas fa-folder-open"
         }
       },
       "required": ["dada_outdir"]
-    },
-    "blasting_of_unassigned_sequences": {
-      "title": "BLASTing of unassigned sequences",
-      "type": "object",
-      "description": "Parameters associated with BLASTing of unassigned sequences against the NCBI nt database for the purposes of taxonomic classification of non-target sequences.",
-      "default": "",
-      "properties": {
-        "blast_unassigned_sequences": {
-          "type": "boolean",
-          "description": "A flag to turn off or on this BLAST / assignment step."
-        },
-        "max_blast_nt_evalue": {
-          "type": "number",
-          "default": 1e-10,
-          "description": "The maximum BLAST e-value."
-        },
-        "blast_perc_identity": {
-          "type": "number",
-          "default": 70,
-          "description": "The minimum percent identity for BLAST hits to be considered.",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "blast_qcov_hsp_perc": {
-          "type": "number",
-          "default": 70,
-          "description": "The minimum query coverage percentage for BLAST hits to be considered.",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "local_nt_database_dir": {
-          "type": "string",
-          "default": "None",
-          "description": "The path to a directory containing a local copy of the NCBI nt database (or whatever database you wish to search).  Note that this is not the path of the database, but is the path of the directory containing the database.",
-          "format": "directory-path"
-        },
-        "local_nt_database_name": {
-          "type": "string",
-          "default": "nt",
-          "description": "The name of the local BLAST database to be searched in this step."
-        },
-        "remote_blast_nt": {
-          "type": "boolean",
-          "description": "Setting this parameter to true will run this BLAST search using NCBI's remote copy of the nt blast database.  This avoids needing to have a local copy of the nt database installed.  Note that this will be very slow."
-        },
-        "blast_tax_dir": {
-          "type": "string",
-          "default": "None",
-          "description": "The directory containing local copies of the files contained in https://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz.  This is optional and if you don't specify it (recommended), the pipeine will download these automatically.",
-          "format": "directory-path"
-        }
-      },
-      "required": [
-        "blast_unassigned_sequences",
-        "max_blast_nt_evalue",
-        "blast_perc_identity",
-        "blast_qcov_hsp_perc",
-        "local_nt_database_dir",
-        "local_nt_database_name",
-        "remote_blast_nt",
-        "blast_tax_dir"
-      ]
     },
     "tree_building": {
       "title": "Tree-building",
@@ -262,23 +178,281 @@
         },
         "tree_outdir": {
           "type": "string",
-          "default": "${params.outdir}/trees",
+          "default": "${outdir}/trees",
           "description": "A directory in which tree files will be placed.",
-          "format": "directory-path"
+          "format": "directory-path",
+          "fa_icon": "fas fa-folder-open"
         }
       },
       "required": ["make_trees", "tree_outdir"]
+    },
+    "blasting_of_unassigned_sequences": {
+      "title": "BLASTing of unassigned sequences",
+      "type": "object",
+      "description": "Parameters associated with BLASTing of unassigned sequences against the NCBI nt database for the purposes of taxonomic classification of non-target sequences.",
+      "default": "",
+      "properties": {
+        "blast_unassigned_sequences": {
+          "type": "boolean",
+          "description": "A flag to turn off this BLAST step"
+        },
+        "local_nt_database_dir": {
+          "type": "string",
+          "description": "The path to a directory containing a local copy of the NCBI nt database (or whatever database you wish to search).  Note that this is not the path of the database, but is the path of the directory containing the database.",
+          "format": "directory-path",
+          "fa_icon": "fas fa-folder-open"
+        },
+        "local_nt_database_name": {
+          "type": "string",
+          "default": "nt",
+          "description": "The name of the local BLAST database to be searched in this step.",
+          "fa_icon": "fas fa-folder-open"
+        },
+        "blast_tax_dir": {
+          "type": "string",
+          "description": "The directory containing local copies of the files contained in https://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz.  This is optional and if you don't specify it (recommended), the pipeine will download these automatically.",
+          "format": "directory-path",
+          "fa_icon": "fas fa-folder-open"
+        },
+        "remote_blast_nt": {
+          "type": "boolean",
+          "description": "Setting this parameter to true will run this BLAST search using NCBI's remote copy of the nt blast database.  This avoids needing to have a local copy of the nt database installed.  Note that this will be very slow."
+        },
+        "max_blast_nt_evalue": {
+          "type": "number",
+          "default": 1e-10,
+          "description": "The maximum BLAST e-value for classifying unassigned sequences."
+        },
+        "blast_perc_identity": {
+          "type": "number",
+          "default": 70,
+          "description": "The minimum percent identity for BLAST hits to be considered when classifying unassigned sequences.",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "blast_qcov_hsp_perc": {
+          "type": "number",
+          "default": 70,
+          "description": "The minimum query coverage percentage for BLAST hits to be considered when classifying unassigned sequences.",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "max_blast_nt_evalue",
+        "blast_perc_identity",
+        "blast_qcov_hsp_perc"
+      ]
+    },
+    "software_dependencies": {
+      "title": "Software dependencies",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "singularity_pull_docker_container": {
+          "type": "boolean",
+          "description": "If you are using singularity and are persistently observing issues downloading Singularity images directly due to timeout or network issues, then you can use the --singularity_pull_docker_container parameter to pull and convert the Docker image instead.",
+          "hidden": true
+        },
+        "R_tar_dir": {
+          "type": "string",
+          "default": "${baseDir}/lib/R/",
+          "description": "Directory containing R package .tar.gz files",
+          "fa_icon": "fas fa-folder-open",
+          "hidden": true
+        },
+        "python_venv_path": {
+          "type": "string",
+          "default": "python_venv/",
+          "description": "The path to a directory where the python venv will be created",
+          "fa_icon": "fas fa-folder-open",
+          "hidden": true
+        },
+        "python_requirements": {
+          "type": "string",
+          "default": "${baseDir}/lib/requirements.txt",
+          "description": "A file listing the python packages that will be installed in the venv",
+          "fa_icon": "fas fa-file",
+          "hidden": true
+        },
+        "script_dir": {
+          "type": "string",
+          "default": "${baseDir}/scripts/",
+          "description": "The path to a directory where scripts for creating python venv exist",
+          "fa_icon": "fas fa-folder-open",
+          "hidden": true
+        }
+      }
+    },
+    "output_options": {
+      "title": "Output options",
+      "type": "object",
+      "description": "Output related options",
+      "default": "",
+      "fa_icon": "fas fa-angle-right",
+      "properties": {
+        "outdir": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "The output directory where results will be saved. You have to use absolute paths to store on Cloud infrastructure.",
+          "fa_icon": "fas fa-folder-open",
+          "default": "results/"
+        },
+        "output_prefix": {
+          "type": "string",
+          "default": "Today's date in YYYY_MM_DD format",
+          "description": "Main pipeline output file names will contain this prefix."
+        },
+        "blast_outdir": {
+          "type": "string",
+          "default": "${outdir}/blast",
+          "fa_icon": "fas fa-folder-open",
+          "description": "Directory in which BLAST output will be placed"
+        },
+        "trimmed_outdir": {
+          "type": "string",
+          "default": "${outdir}/trimmed_fastq",
+          "fa_icon": "fas fa-folder-open",
+          "description": "Directory in which adapter, primer, and quality trimmed fastq will be placed"
+        },
+        "QC_and_summary_stats_dir": {
+          "type": "string",
+          "fa_icon": "fas fa-folder-open",
+          "default": "${outdir}/QC_and_summary_stats",
+          "description": "Directory in which QC report files will be placed and other files summarizing pipeline run and output"
+        },
+        "multiQC_reports": {
+          "type": "string",
+          "default": "${QC_and_summary_stats_dir}/multiqc",
+          "fa_icon": "fas fa-folder-open",
+          "description": "Directory in which multiqc reports will be placed"
+        },
+        "tracedir": {
+          "type": "string",
+          "description": "Directory in which Nextflow logs and reports will be placed.",
+          "default": "${QC_and_summary_stats_dir}/pipeline_info",
+          "fa_icon": "fas fa-folder-open",
+          "format": "directory-path"
+        },
+        "log_outdir": {
+          "type": "string",
+          "default": "${QC_and_summary_stats_dir}/log",
+          "description": "Directory in which pipeline logs and reports will be placed.",
+          "format": "directory-path",
+          "fa_icon": "fas fa-folder-open"
+        },
+        "cutadapt_trim_reports": {
+          "type": "string",
+          "default": "${QC_and_summary_stats_dir}/cutadapt_trim_reports",
+          "description": "Directory in which cutadapt trim reports will be placed."
+        },
+        "publish_dir_mode": {
+          "type": "string",
+          "default": "link",
+          "description": "The default mode for publishing files in output dirs (hard link)"
+        }
+      },
+      "required": ["outdir", "output_prefix", "blast_outdir", "trimmed_outdir"]
+    },
+    "unassigned_sequence_filtering": {
+      "title": "Unassigned sequence filtering",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "filter_unassigned_seq": {
+          "type": "string",
+          "default": "Borrelia,Borreliella,Babesia,Anaplasma,Ehrlichia",
+          "description": "List of taxa of interest"
+        }
+      }
+    },
+    "reporting_options": {
+      "title": "Reporting options",
+      "type": "object",
+      "description": "",
+      "default": "",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Email address that will be mailed on pipeline completion"
+        },
+        "email_on_fail": {
+          "type": "string",
+          "description": "Email address that will be mailed on pipeline completion in case of failure"
+        },
+        "plaintext_email": {
+          "type": "boolean",
+          "hidden": true,
+          "description": "Non-HTML email only"
+        },
+        "monochrome_logs": {
+          "type": "boolean",
+          "hidden": true,
+          "description": "Don't use color in logs"
+        },
+        "multiqc_title": {
+          "type": "string",
+          "hidden": true
+        },
+        "multiqc_config": {
+          "type": "string",
+          "hidden": true
+        },
+        "multiqc_logo": {
+          "type": "string",
+          "hidden": true
+        },
+        "max_multiqc_email_size": {
+          "type": "string",
+          "default": "25.MB",
+          "hidden": true
+        },
+        "multiqc_methods_description": {
+          "type": "string",
+          "hidden": true
+        }
+      }
+    },
+    "parameter_validation_and_display": {
+      "title": "Parameter validation and display",
+      "type": "object",
+      "description": "Parameters related to parameter validation and display",
+      "default": "",
+      "properties": {
+        "validate_params": {
+          "type": "boolean",
+          "hidden": true,
+          "description": "Validate parameter values using this schema"
+        },
+        "schema_ignore_params": {
+          "type": "string",
+          "hidden": true,
+          "description": "Ignore validation for this list of parameters"
+        },
+        "show_hidden_params": {
+          "type": "boolean",
+          "description": "Show parameters marked as hidden in this schema when running pipeline",
+          "hidden": true
+        },
+        "validationLenientMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate parameters in lenient mode.  See: https://nextflow-io.github.io/nf-validation/parameters/validation/#variable-type-checking"
+        }
+      }
     }
   },
   "allOf": [
+    {
+      "$ref": "#/definitions/input_options"
+    },
     {
       "$ref": "#/definitions/primer_and_adapter_trimming_options"
     },
     {
       "$ref": "#/definitions/calling_of_positives_and_surveillance_report"
-    },
-    {
-      "$ref": "#/definitions/input_output_options"
     },
     {
       "$ref": "#/definitions/max_job_request_options"
@@ -287,143 +461,25 @@
       "$ref": "#/definitions/dada2_options"
     },
     {
+      "$ref": "#/definitions/tree_building"
+    },
+    {
       "$ref": "#/definitions/blasting_of_unassigned_sequences"
     },
     {
-      "$ref": "#/definitions/tree_building"
+      "$ref": "#/definitions/software_dependencies"
+    },
+    {
+      "$ref": "#/definitions/output_options"
+    },
+    {
+      "$ref": "#/definitions/unassigned_sequence_filtering"
+    },
+    {
+      "$ref": "#/definitions/reporting_options"
+    },
+    {
+      "$ref": "#/definitions/parameter_validation_and_display"
     }
-  ],
-  "properties": {
-    "python_venv_path": {
-      "type": "string",
-      "default": "python_venv/",
-      "hidden": true
-    },
-    "script_dir": {
-      "type": "string",
-      "default": "scripts/",
-      "hidden": true
-    },
-    "initial_fastqc_dir": {
-      "type": "string",
-      "default": "${params.outdir}/initial_fastqc/",
-      "hidden": true
-    },
-    "post_trim_fastqc_dir": {
-      "type": "string",
-      "default": "${params.outdir}/post_trim_fastqc/",
-      "hidden": true
-    },
-    "trimmed_outdir": {
-      "type": "string",
-      "default": "${params.outdir}/trimmed_fastq",
-      "hidden": true
-    },
-    "blast_outdir": {
-      "type": "string",
-      "default": "${params.outdir}/blast",
-      "hidden": true
-    },
-    "refseq_dir": {
-      "type": "string",
-      "default": "/home/mdstengl/2023_1_issues/refseq/",
-      "hidden": true
-    },
-    "singularity_pull_docker_container": {
-      "type": "boolean",
-      "hidden": true
-    },
-    "publish_dir_mode": {
-      "type": "string",
-      "default": "link",
-      "hidden": true
-    },
-    "multiqc_title": {
-      "type": "string",
-      "hidden": true
-    },
-    "multiqc_config": {
-      "type": "string",
-      "hidden": true
-    },
-    "multiqc_logo": {
-      "type": "string",
-      "hidden": true
-    },
-    "max_multiqc_email_size": {
-      "type": "string",
-      "default": "25.MB",
-      "hidden": true
-    },
-    "multiqc_methods_description": {
-      "type": "string",
-      "hidden": true
-    },
-    "email": {
-      "type": "string",
-      "default": "mark.stenglein@colostate.edu",
-      "hidden": true
-    },
-    "email_on_fail": {
-      "type": "string",
-      "default": "mark.stenglein@colostate.edu",
-      "hidden": true
-    },
-    "plaintext_email": {
-      "type": "string",
-      "hidden": true
-    },
-    "monochrome_logs": {
-      "type": "string",
-      "hidden": true
-    },
-    "hook_url": {
-      "type": "string",
-      "hidden": true
-    },
-    "version": {
-      "type": "string",
-      "hidden": true
-    },
-    "validate_params": {
-      "type": "string",
-      "hidden": true
-    },
-    "python_requirements": {
-      "type": "string",
-      "default": "/home/mdstengl/2023_8_dsl2_dev/lib/requirements.txt",
-      "hidden": true
-    },
-    "QC_and_summary_stats": {
-      "type": "string",
-      "default": "results/QC_and_summary_stats",
-      "hidden": true
-    },
-    "cutadapt_trim_reports": {
-      "type": "string",
-      "default": "results/QC_and_summary_stats/cutadapt_trim_reports",
-      "hidden": true
-    },
-    "multiQC_reports": {
-      "type": "string",
-      "default": "results/QC_and_summary_stats/multiqc",
-      "hidden": true
-    },
-    "schema_ignore_params": {
-      "type": "string",
-      "hidden": true
-    },
-    "R_tar_dir": {
-      "type": "string",
-      "default": "/home/mdstengl/2023_8_dsl2_dev/lib/R/",
-      "hidden": true
-    },
-    "show_hidden_params": {
-      "type": "string"
-    },
-    "filter_unassigned_seq": {
-      "type": "string",
-      "default": "Borrelia,Borreliella,Babesia,Anaplasma,Ehrlichia"
-    }
-  }
+  ]
 }
