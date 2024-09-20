@@ -1,12 +1,15 @@
 *.fastq
 *.fastq.gz
 *.nextflow*
-results
+results*
 work
 refseq/reference_sequences.fasta*
 draft_versions
 python_venv
 *.swp
+*.swp.*
 *.bak
 lib/R/openxlsx
 lib/R/zip
+test.sh
+
