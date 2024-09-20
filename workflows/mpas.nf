@@ -166,7 +166,7 @@ include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoft
                                                                                 
 // Info required for completion email and summary                               
 def multiqc_report1 = []
-def multiqc_report2 = []
+def multiqc_report2 = []                                                        
 def multiqc_report3 = []                                                        
                                                                                 
 workflow MPAS_WORKFLOW {                                                                
@@ -347,25 +347,12 @@ workflow MPAS_WORKFLOW {
     PREPEND_OUTPUT_FILENAMES(ch_main_output_files)
 
 }                                                                               
-                                                                                
-/*                                                                              
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    COMPLETION EMAIL AND SUMMARY                                                
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/                                                                              
-                                                                                
-workflow.onComplete {                                                           
+
 /*
-    TODO: fix this emailing functionality
-    if (params.email || params.email_on_fail) {                                 
-        NfcoreTemplate.email(workflow, params, summary_params, projectDir, log, multiqc_report)
-    }                                                                           
+ Upon workflow completion 
 */
-    NfcoreTemplate.summary(workflow, params, log)                               
-}                                                                               
-                                                                                
-/*                                                                              
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    THE END                                                                     
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/  
+workflow.onComplete {                                                           
+  // print summary message 
+  NfcoreTemplate.summary(workflow, params, log)                               
+}             
+

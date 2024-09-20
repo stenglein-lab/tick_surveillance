@@ -225,14 +225,14 @@
         },
         "blast_perc_identity": {
           "type": "number",
-          "default": 70,
+          "default": 70.0,
           "description": "The minimum percent identity for BLAST hits to be considered when classifying unassigned sequences.",
           "minimum": 0,
           "maximum": 100
         },
         "blast_qcov_hsp_perc": {
           "type": "number",
-          "default": 70,
+          "default": 70.0,
           "description": "The minimum query coverage percentage for BLAST hits to be considered when classifying unassigned sequences.",
           "minimum": 0,
           "maximum": 100
@@ -374,19 +374,6 @@
       "description": "",
       "default": "",
       "properties": {
-        "email": {
-          "type": "string",
-          "description": "Email address that will be mailed on pipeline completion"
-        },
-        "email_on_fail": {
-          "type": "string",
-          "description": "Email address that will be mailed on pipeline completion in case of failure"
-        },
-        "plaintext_email": {
-          "type": "boolean",
-          "hidden": true,
-          "description": "Non-HTML email only"
-        },
         "monochrome_logs": {
           "type": "boolean",
           "hidden": true,
@@ -402,11 +389,6 @@
         },
         "multiqc_logo": {
           "type": "string",
-          "hidden": true
-        },
-        "max_multiqc_email_size": {
-          "type": "string",
-          "default": "25.MB",
           "hidden": true
         },
         "multiqc_methods_description": {

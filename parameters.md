@@ -74,8 +74,8 @@ Parameters associated with BLASTing of unassigned sequences against the NCBI nt 
 | `blast_tax_dir` | The directory containing local copies of the files contained in https://ftp.ncbi.nlm.nih.gov/blast/db/taxdb.tar.gz.  This is optional and if you don't specify it (recommended), the pipeine will download these automatically. | `string` |  |  |  |
 | `remote_blast_nt` | Setting this parameter to true will run this BLAST search using NCBI's remote copy of the nt blast database.  This avoids needing to have a local copy of the nt database installed.  Note that this will be very slow. | `boolean` |  |  |  |
 | `max_blast_nt_evalue` | The maximum BLAST e-value for classifying unassigned sequences. | `number` | 1e-10 | True |  |
-| `blast_perc_identity` | The minimum percent identity for BLAST hits to be considered when classifying unassigned sequences. | `number` | 70 | True |  |
-| `blast_qcov_hsp_perc` | The minimum query coverage percentage for BLAST hits to be considered when classifying unassigned sequences. | `number` | 70 | True |  |
+| `blast_perc_identity` | The minimum percent identity for BLAST hits to be considered when classifying unassigned sequences. | `number` | 70.0 | True |  |
+| `blast_qcov_hsp_perc` | The minimum query coverage percentage for BLAST hits to be considered when classifying unassigned sequences. | `number` | 70.0 | True |  |
 
 ## Software dependencies
 
@@ -120,14 +120,10 @@ Output related options
 
 | Parameter | Description | Type | Default | Required | Hidden |
 |-----------|-----------|-----------|-----------|-----------|-----------|
-| `email` | Email address that will be mailed on pipeline completion | `string` |  |  |  |
-| `email_on_fail` | Email address that will be mailed on pipeline completion in case of failure | `string` |  |  |  |
-| `plaintext_email` | Non-HTML email only | `boolean` |  |  | True |
 | `monochrome_logs` | Don't use color in logs | `boolean` |  |  | True |
 | `multiqc_title` |  | `string` |  |  | True |
 | `multiqc_config` |  | `string` |  |  | True |
 | `multiqc_logo` |  | `string` |  |  | True |
-| `max_multiqc_email_size` |  | `string` | 25.MB |  | True |
 | `multiqc_methods_description` |  | `string` |  |  | True |
 
 ## Parameter validation and display
