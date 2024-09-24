@@ -1,6 +1,8 @@
 process FASTQC {
     tag "$meta.id"
     label 'process_medium'
+    publishDir "${params.fastqc_outdir}", pattern: "*.html", mode: "link"    
+
 
     conda "bioconda::fastqc=0.11.9"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -8,7 +10,7 @@ process FASTQC {
         'quay.io/biocontainers/fastqc:0.11.9--0' }"
 
     input:
-    tuple val(meta), path(reads)
+    tuple val(meta), path(reads), val(file_prefix)
 
     output:
     tuple val(meta), path("*.html"), emit: html
@@ -20,7 +22,8 @@ process FASTQC {
 
     script:
     def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
+    // def prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = "${meta.id}.${file_prefix}"
     // Make list of old name and new name pairs to use for renaming in the bash while loop
     def old_new_pairs = reads instanceof Path || reads.size() == 1 ? [[ reads, "${prefix}.${reads.extension}" ]] : reads.withIndex().collect { entry, index -> [ entry, "${prefix}_${index + 1}.${entry.extension}" ] }
     def rename_to = old_new_pairs*.join(' ').join(' ')
