@@ -13,7 +13,7 @@
 process COLLECT_CUTADAPT_OUTPUT {      
   label      'process_low'
   tag        "${meta.id}"
-  publishDir "${params.trimmed_outdir}", pattern: "*.fastq.gz"
+  publishDir "${params.trimmed_outdir}", pattern: "*.fastq.gz", mode: "link"
                                                                    
   // if using conda
   conda "bioconda::cutadapt=3.5"                                        

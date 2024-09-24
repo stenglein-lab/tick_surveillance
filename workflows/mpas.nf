@@ -201,7 +201,7 @@ workflow MPAS_WORKFLOW {
     ch_versions = ch_versions.mix ( VALIDATE_METADATA.out.versions )      
 
     // run fastqc on input reads
-    FASTQC_PRE ( reads_ch )
+    FASTQC_PRE ( reads_ch.map {meta, reads -> [meta, reads, "pre_trimming"] } )
     ch_versions = ch_versions.mix ( FASTQC_PRE.out.versions )      
 
     // identify and trim expected primer sequences
@@ -214,7 +214,7 @@ workflow MPAS_WORKFLOW {
     ch_versions = ch_versions.mix ( COLLECT_CUTADAPT_OUTPUT.out.versions )      
 
     // run fastqc on trimmed reads
-    FASTQC_POST ( COLLECT_CUTADAPT_OUTPUT.out.trimmed_reads )
+    FASTQC_POST ( COLLECT_CUTADAPT_OUTPUT.out.trimmed_reads.map {meta, reads -> [meta, reads, "post_trimming"] } )
     ch_versions = ch_versions.mix ( FASTQC_POST.out.versions )      
 
     // run dada2 on trimmed reads
