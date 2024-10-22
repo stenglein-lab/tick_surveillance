@@ -72,6 +72,9 @@ track_reads <- read.csv("dada_read_clean_all.csv")
 # Add column that output the percentage of reads that passed dada2 cleanup
 track_reads$PercentPass <- (track_reads$nonchim/track_reads$input)*100
 
+# write read tracking with % passing to new csv
+write.csv(track_reads, paste0(outdir, "dada_read_clean_all_with_pct_pass.csv"), col.names=T)
+
 # Create summary stats table
 track_sum <- track_reads %>%
   summarise(across(where(is.numeric), .fns =

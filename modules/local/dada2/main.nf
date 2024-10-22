@@ -56,6 +56,7 @@ process TIDY_DADA_OUTPUT {
   path "observed_sequences.fasta"      , emit: observed_sequences
   path "sequence_abundance_table.tsv"  , emit: sequence_abundance_table
   path "dada_read_clean_summary.csv"   , emit: dada_read_tracking_summary
+  path "dada_read_clean_all_with_pct_pass.csv"   
   path "versions.yml"                  , emit: versions                                         
 
   script:

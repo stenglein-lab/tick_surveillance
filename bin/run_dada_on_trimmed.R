@@ -24,8 +24,8 @@ if (!interactive()) {
 } else {
   # if running via RStudio (for development or troubleshooting)
   r_bindir = "."
-  trimmed_path = NA
-  outdir="../results/"
+  trimmed_path = "../test/results/trimmed_fastq"
+  outdir="../test/results/"
 }
 
 # get lists of fastq files in trimmed directory 
@@ -39,6 +39,8 @@ fnRs <- sort(list.files(trimmed_path, pattern="_R2_trimmed.fastq.gz", full.names
 # remove _R[12]_trimmed.fastq.gz from file names to make better sample names
 sample.names <- gsub("_R[12]_trimmed.fastq.gz", "", basename(fnFs))
 
+# keep a map of sample names -> input filenames
+sample_name_file_name_map <- data.frame(sample_id = sample.names, filename = basename(fnFs))
 
 # This will place dada-filtered files in dada_filtered/ subdirectory of the pwd
 filtFs <- file.path("dada_filtered", paste0(sample.names, "_F_filt.fastq.gz"))
@@ -101,8 +103,8 @@ errF <- learnErrors(filtFs, multithread=TRUE)
 errR <- learnErrors(filtRs, multithread=TRUE)
 
 # Could save this as output...
-plotErrors(errF, nominalQ=TRUE)
-plotErrors(errR, nominalQ=TRUE)
+# plotErrors(errF, nominalQ=TRUE)
+# plotErrors(errR, nominalQ=TRUE)
 
 # save the error profile for bases with a Q-score of 35
 # q35_errors <- errF$err_out[,36]
@@ -121,7 +123,6 @@ seqtab <- makeSequenceTable(mergers)
 
 # remove chimeras
 seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
-
 
 #
 # Handle empty datasets.  These should be reported as datasets with abundances of 0 for all sequences.
@@ -151,13 +152,43 @@ write.table(t, paste0(outdir, "dada_seqtab.txt"), sep="\t", col.names=T, quote=F
 # write out version info into versions.yml
 writeLines(c("DADA2:", paste0("    R: ", paste0(R.Version()[c("major","minor")], collapse = ".")),paste0("    dada2: ", packageVersion("dada2")),paste0("    ShortRead: ", packageVersion("ShortRead")) ), "versions.yml")
 
+# turn out object into data frame with sample ID
+out_df <- as.data.frame(out)
+out_df$filename <- rownames(out)
+# switch from filename to sample ID
+# merge in sample IDs based on file names
+out_df <- merge(out_df, sample_name_file_name_map)
+out_df <- out_df[ , c("sample_id", "reads.in", "reads.out")]
+colnames(out_df) <- c("sample_id", "input", "filtered")
 
 # Track reads and create output file (https://benjjneb.github.io/dada2/tutorial.html)
-getN <- function(x) sum(getUniques(x))
-track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
 # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
-colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
-rownames(track) <- sample.names
+getN <- function(x) sum(getUniques(x))
+
+# this function returns a data frame instead of a named
+getN_to_df <- function(x, column_name) {
+   Ns <- sapply(x, getN)
+   new_df <- data.frame(sample_id = names(Ns), temp_new_name = Ns)
+   colnames(new_df) <- c("sample_id", column_name)
+   new_df
+}
+
+# turn these lists into data frames with reasonable names
+dadaFs_N  <- getN_to_df(dadaFs, "denoisedF")
+dadaRs_N  <- getN_to_df(dadaFs, "denoisedR")
+mergers_N <- getN_to_df(mergers, "merged")
+
+# non-chimeric read counts in seqtab
+nochim_N <- data.frame(sample_id = rownames(seqtab.nochim), nonchim = rowSums(seqtab.nochim))
+
+# combine all columns using sample_id as key
+track <- merge(out_df, dadaFs_N, all.x = T)
+track <- merge(track, dadaRs_N, all.x = T)
+track <- merge(track, mergers_N, all.x = T)
+track <- merge(track, nochim_N, all.x = T)
+
+# convert NA values to 0s
+track[is.na(track)] <- 0
 
 # write read tracking info to csv file
-write.csv(track, paste0(outdir, "dada_read_clean_all.csv"), col.names=T)
+write.csv(track, paste0(outdir, "dada_read_clean_all.csv"), row.names = F)
