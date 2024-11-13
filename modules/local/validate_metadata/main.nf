@@ -6,11 +6,10 @@ process VALIDATE_METADATA {
   tag        "${metadata}"
   publishDir "${params.outdir}", mode: "copy"
 
-
   label 'process_low'
 
   // if using conda
-  conda "conda-forge::r-tidyverse=2.0.0"
+  conda "$baseDir/conda/R_conda_environment.yaml"                               
 
   // if using singularity 
   if (workflow.containerEngine == 'singularity'){

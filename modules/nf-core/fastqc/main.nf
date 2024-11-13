@@ -3,11 +3,10 @@ process FASTQC {
     label 'process_medium'
     publishDir "${params.fastqc_outdir}", pattern: "*.html", mode: "link"    
 
-
-    conda "bioconda::fastqc=0.11.9"
+    conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/fastqc:0.11.9--0' :
-        'quay.io/biocontainers/fastqc:0.11.9--0' }"
+        'https://depot.galaxyproject.org/singularity/fastqc:0.12.1--hdfd78af_0' :
+        'biocontainers/fastqc:0.12.1--hdfd78af_0' }"
 
     input:
     tuple val(meta), path(reads), val(file_prefix)

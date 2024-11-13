@@ -69,7 +69,7 @@ process CHECK_LOCAL_BLAST_DATABASE {
   tag "all"
 
   // if using conda
-  conda "bioconda::blast=2.12.*"
+  conda "${moduleDir}/blast_environment.yml"
 
   // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -129,7 +129,7 @@ process CHECK_BLAST_TAX {
   tag "all"
 
   // if using conda 
-  conda "conda-forge::curl=8.4.0"
+  conda "${moduleDir}/curl_environment.yml"
 
   // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {

@@ -89,7 +89,7 @@ process MAKE_TREE_ALIGNMENT {
   label 'process_medium'
 
   // if using conda 
-  conda "bioconda::mafft=7.508"
+  conda "${moduleDir}/mafft_environment.yml"
 
   // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -127,7 +127,7 @@ process MAKE_ML_TREE {
   tag "all"
 
   // if using conda 
-  conda "bioconda::iqtree=2.2.0.3"
+  conda "${moduleDir}/iqtree_environment.yml"
 
   // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
