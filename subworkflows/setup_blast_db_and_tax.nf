@@ -96,6 +96,10 @@ process CHECK_LOCAL_BLAST_DATABASE {
     echo "Don't need to check local BLAST database when running with -remote option"
     rm $local_nt_database_dir
     touch $local_nt_database_dir
+    
+    # create empty versions.yml
+    touch versions.yml
+    
   """ : 
   """
     # check for expected .nal file: if not present, output a helpful warning message
