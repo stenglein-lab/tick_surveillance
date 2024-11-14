@@ -13,7 +13,7 @@ process BLASTN_UNASSIGNED_SEQUENCES {
   label 'error_retry'                                                           
                                                                                 
   // if using conda                                                             
-  conda "bioconda::blast=2.16.*"                                                
+  conda "${moduleDir}/environment.yml"
                                                                                 
   // if using singularity                                                       
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {

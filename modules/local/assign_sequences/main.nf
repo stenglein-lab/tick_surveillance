@@ -9,7 +9,7 @@ process COMPARE_OBSERVED_SEQS {
   label 'process_low'
 
   // if using conda
-  conda "bioconda::blast=2.16.*"
+  conda "${moduleDir}/environment.yml"
 
   // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -90,7 +90,7 @@ process ASSIGN_OBSERVED_SEQS {
   // only use R lib dir for singularity
   def r_lib_dir = workflow.containerEngine == 'singularity' ? "${R_lib_dir_input}" : "NA"
   """
-  assign_observed_seqs_to_ref_seqs.R $r_lib_dir $abundance_table $blast_output $metadata ${targets_file} ${surveillance_columns_file} ${params.min_reads_for_positive_surveillance_call}
+  assign_observed_seqs_to_ref_seqs.R $r_lib_dir $abundance_table $blast_output $metadata ${targets_file} ${surveillance_columns_file} ${params.min_reads_for_positive_surveillance_call} ${params.min_reads_for_acceptable_dna_call}
   """
 }
 

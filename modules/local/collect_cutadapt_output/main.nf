@@ -16,14 +16,21 @@ process COLLECT_CUTADAPT_OUTPUT {
   publishDir "${params.trimmed_outdir}", pattern: "*.fastq.gz", mode: "link"
                                                                    
   // if using conda
-  conda "bioconda::cutadapt=3.5"                                        
+  conda "${moduleDir}/environment.yml"                                          
 
   // if using singularity
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+    container "https://depot.galaxyproject.org/singularity/cutadapt:4.9--py312hf67a6ed_2"
+  } else {                                                                      
+    container "quay.io/biocontainers/cutadapt:4.9--py312hf67a6ed_2"             
+  } 
+/*
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
     container "https://depot.galaxyproject.org/singularity/cutadapt:3.5--py39h38f01e4_0"
   } else {
     container "quay.io/biocontainers/cutadapt:3.5--py39h38f01e4_0"
   }
+*/
 
   input:
   tuple val(meta), path(individual_R1_fastq), path(individual_R2_fastq)
