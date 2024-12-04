@@ -99,7 +99,6 @@ process CHECK_LOCAL_BLAST_DATABASE {
     
     # create empty versions.yml
     touch versions.yml
-    
   """ : 
   """
     # check for expected .nal file: if not present, output a helpful warning message
