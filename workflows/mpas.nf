@@ -104,7 +104,7 @@ reads_ch.map{meta, reads -> meta.id}
    input fastq and primer pair
 */                 
     
-primers_and_reads_ch = primers_ch.combine(reads_ch)
+// primers_and_reads_ch = primers_ch.combine(reads_ch)
 
 // set channel for filter blast report process
 Channel
@@ -130,26 +130,44 @@ ch_multiqc_custom_methods_description = params.multiqc_methods_description ? fil
 */                                                                              
 
                                                                                 
-// local modules and subworkflows
-include { GENERATE_REFSEQ_FASTA         } from '../subworkflows/generate_refseq_fasta'
+// include modules and subworkflows
+
+// setup indexes and R/python environments
 include { SETUP_INDEXES                 } from '../subworkflows/setup_indexes'
 include { SETUP_PYTHON_ENVIRONMENT      } from '../modules/local/setup_python_env/main'
 include { SETUP_R_DEPENDENCIES          } from '../modules/local/setup_R_dependencies/main'
+
+// make a fasta of all reference sequences
+include { GENERATE_REFSEQ_FASTA         } from '../subworkflows/generate_refseq_fasta'
+
+// validate metadata
 include { VALIDATE_METADATA             } from '../modules/local/validate_metadata/main'
-include { TRIM_PRIMER_SEQS              } from '../modules/local/trim_primer_seqs/main'
-include { COLLECT_CUTADAPT_OUTPUT       } from '../modules/local/collect_cutadapt_output/main'
+
+// primer, quality, and adapter trimming
+include { GENERATE_PRIMER_FILES         } from '../subworkflows/generate_primers_file'
+include { TRIM_READS                    } from '../subworkflows/trim_reads'
+
+// dada2
 include { DADA2                         } from '../modules/local/dada2/main'
 include { TIDY_DADA_OUTPUT              } from '../modules/local/dada2/main'
+
+// compare ASVs to expected sequences and make positive/negative calls
 include { COMPARE_OBSERVED_SEQS         } from '../modules/local/assign_sequences/main'
 include { ASSIGN_OBSERVED_SEQS          } from '../modules/local/assign_sequences/main'
+
+// tree-building
 include { GENERATE_TREES                } from '../subworkflows/generate_trees'
+
+// BLAST unassigned sequences
 include { SETUP_BLAST_DB_AND_TAX        } from '../subworkflows/setup_blast_db_and_tax'
 include { CLASSIFY_UNASSIGNED_SEQUENCES } from '../subworkflows/classify_unassigned_sequences'
+
 include { PREPEND_OUTPUT_FILENAMES      } from '../modules/local/prepend_filenames/main'
+
 // include { ORG_UNASSIGNED_SEQUENCES      } from '../modules/local/org_unassigned_sequences/main'
 // include { FILTER_UNASSIGNED_SEQUENCES   } from '../modules/local/filter_unassigned_sequences/main'
 
-// modules from NF-CORE 
+// nf-core modules 
 include { FASTQC as FASTQC_PRE        } from '../modules/nf-core/fastqc/main'
 include { FASTQC as FASTQC_POST       } from '../modules/nf-core/fastqc/main'
 include { MULTIQC as MULTIQC_PRE      } from '../modules/nf-core/multiqc/main'
@@ -204,23 +222,23 @@ workflow MPAS_WORKFLOW {
     FASTQC_PRE ( reads_ch.map {meta, reads -> [meta, reads, "pre_trimming"] } )
     ch_versions = ch_versions.mix ( FASTQC_PRE.out.versions )      
 
-    // identify and trim expected primer sequences
-    // this happens once per sample x primer combination
-    TRIM_PRIMER_SEQS ( primers_and_reads_ch )
-    ch_versions = ch_versions.mix ( TRIM_PRIMER_SEQS.out.versions )      
- 
-    // concatenate individually-trimmed outputs and concatenate per sample
-    COLLECT_CUTADAPT_OUTPUT ( TRIM_PRIMER_SEQS.out.trimmed_reads.groupTuple())
-    ch_versions = ch_versions.mix ( COLLECT_CUTADAPT_OUTPUT.out.versions )      
+    // Create files with primers to be trimmed.
+    // These files will be input to cutadapt for trimming
+    GENERATE_PRIMER_FILES(primers_ch)
 
+    // trim reads of primers, adapters, and low quality bases 
+    TRIM_READS ( reads_ch, GENERATE_PRIMER_FILES.out.f_primer_file, GENERATE_PRIMER_FILES.out.r_primer_file )
+    ch_versions = ch_versions.mix ( TRIM_READS.out.versions )      
+ 
     // run fastqc on trimmed reads
-    FASTQC_POST ( COLLECT_CUTADAPT_OUTPUT.out.trimmed_reads.map {meta, reads -> [meta, reads, "post_trimming"] } )
+    FASTQC_POST ( TRIM_READS.out.trimmed_reads.map {meta, reads -> [meta, reads, "post_trimming"] } )
     ch_versions = ch_versions.mix ( FASTQC_POST.out.versions )      
 
     // run dada2 on trimmed reads
-    ch_all_trimmed_reads = COLLECT_CUTADAPT_OUTPUT.out.trimmed_reads
+    ch_all_trimmed_reads = TRIM_READS.out.trimmed_reads
                             .map { meta, reads -> [ reads ] }                                   
                             .flatten().collect()
+
     DADA2(ch_all_trimmed_reads)
     ch_versions = ch_versions.mix ( DADA2.out.versions )      
 
@@ -306,7 +324,7 @@ workflow MPAS_WORKFLOW {
     ch_multiqc_files3 = ch_multiqc_files3.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
     ch_multiqc_files3 = ch_multiqc_files3.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml'))
     ch_multiqc_files3 = ch_multiqc_files3.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
-    ch_multiqc_files3= ch_multiqc_files3.mix(TRIM_PRIMER_SEQS.out.cutadapt_trim_report.collectFile(name: '*_summary.txt'))
+    ch_multiqc_files3= ch_multiqc_files3.mix(TRIM_READS.out.cutadapt_trim_report.collectFile(name: '*_summary.txt'))
                                                                                 
     MULTIQC_PRE (                                                                   
         ch_multiqc_files1.collect(),                                             

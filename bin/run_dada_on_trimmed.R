@@ -29,15 +29,15 @@ if (!interactive()) {
 }
 
 # get lists of fastq files in trimmed directory 
-fnFs <- sort(list.files(trimmed_path, pattern="_R1_trimmed.fastq.gz", full.names = TRUE))
-fnRs <- sort(list.files(trimmed_path, pattern="_R2_trimmed.fastq.gz", full.names = TRUE))
+fnFs <- sort(list.files(trimmed_path, pattern="fully_trimmed.R1.fastq.gz", full.names = TRUE))
+fnRs <- sort(list.files(trimmed_path, pattern="fully_trimmed.R2.fastq.gz", full.names = TRUE))
 
 # extract sample names from fastq file names
 # so that sample names will match execpted values provided to sample sheet 
 # when demultiplexing
 
 # remove _R[12]_trimmed.fastq.gz from file names to make better sample names
-sample.names <- gsub("_R[12]_trimmed.fastq.gz", "", basename(fnFs))
+sample.names <- gsub(".fully_trimmed.R[12].fastq.gz", "", basename(fnFs))
 
 # keep a map of sample names -> input filenames
 sample_name_file_name_map <- data.frame(sample_id = sample.names, filename = basename(fnFs))
