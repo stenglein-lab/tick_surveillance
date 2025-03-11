@@ -69,8 +69,13 @@ names(filtRs) <- sample.names
 # nominal definition of the quality score: EE = sum(10^(-Q/10))
 
 out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, 
-                     maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
-                     compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
+                     maxN=0, 
+		     maxEE=c(2,2), 
+		     truncQ=2, 
+		     rm.phix=TRUE,
+		     trimRight = 5,
+                     compress=TRUE, 
+		     multithread=TRUE) # On Windows set multithread=FALSE
 
 
 # only keep datasets with >0 reads to avoid dada2 throwing an error because of empty datasets
