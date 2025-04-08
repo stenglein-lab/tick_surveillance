@@ -183,6 +183,8 @@ process CHECK_BLAST_TAX {
     tar xvf taxdb.tar.gz
     # move files to blast_tax_dir
     mv taxdb.??? $blast_tax_dir
+    # move sqlite3 file needed for restricting by taxid
+    mv taxonomy4blast.sqlite3 $blast_tax_dir
     # get rid of archive
     rm taxdb.tar.gz
   """

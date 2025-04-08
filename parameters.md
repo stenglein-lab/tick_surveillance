@@ -76,6 +76,7 @@ Parameters associated with BLASTing of unassigned sequences against the NCBI nt 
 | `max_blast_nt_evalue` | The maximum BLAST e-value for classifying unassigned sequences. | `number` | 1e-10 | True |  |
 | `blast_perc_identity` | The minimum percent identity for BLAST hits to be considered when classifying unassigned sequences. | `number` | 70.0 | True |  |
 | `blast_qcov_hsp_perc` | The minimum query coverage percentage for BLAST hits to be considered when classifying unassigned sequences. | `number` | 70.0 | True |  |
+| `taxids_of_interest` | An optional list of taxids to restrict BLAST search of unassigned sequences. This should be in the form of a comma-separated list of NCBI taxids, for instance: 766,6656,5794 | `string` | | |  |
 
 ## Software dependencies
 
