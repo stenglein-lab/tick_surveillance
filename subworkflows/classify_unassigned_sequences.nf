@@ -24,7 +24,15 @@ workflow CLASSIFY_UNASSIGNED_SEQUENCES {
 
   ch_versions = Channel.empty()                           
 
-  BLASTN_UNASSIGNED_SEQUENCES(unassigned_sequences, blast_db_dir, blast_tax_dir) 
+  // filter BLAST results by taxids of interest?
+  // initialize param value to empty string
+  ch_taxids_of_interest = Channel.value("")
+  if (params.taxids_of_interest) {
+     // if taxids of interest defined, create new value channel with string
+     ch_taxids_of_interest = Channel.value(params.taxids_of_interest)
+  }  
+
+  BLASTN_UNASSIGNED_SEQUENCES(unassigned_sequences, blast_db_dir, blast_tax_dir, ch_taxids_of_interest) 
   ch_versions = ch_versions.mix(BLASTN_UNASSIGNED_SEQUENCES.out.versions)
 
   ASSIGN_UNASSIGNED_SEQUENCES(BLASTN_UNASSIGNED_SEQUENCES.out.blast_out, unassigned_sequences, R_lib_dir)

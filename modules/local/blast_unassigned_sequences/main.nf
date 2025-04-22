@@ -29,6 +29,7 @@ process BLASTN_UNASSIGNED_SEQUENCES {
   path(unassigned_sequences)                                                    
   path(local_nt_database_dir)  , stageAs: 'local_nt_db_dir'                     
   path(blast_tax_dir)          , stageAs: 'local_blast_tax_dir'                 
+  val(taxids_of_interest)     
                                                                                 
   output:                                                                       
   path("${unassigned_sequences}.bn_nt"), emit: blast_out                        
@@ -58,13 +59,24 @@ process BLASTN_UNASSIGNED_SEQUENCES {
     // local blastn: faster but requires locally installed nt database          
     blast_db_params = "-db ${local_nt_database}"                                
   }                                                                             
-                                                                                
+
+  // filter by taxids of interest, if defined
+  def taxids_of_interest_arg = taxids_of_interest ? "-taxids $taxids_of_interest" : ""
                                                                                 
   """                                                                           
   export BLASTDB="$blast_tax_dir" 
                                                                                 
   # run blastn                                                                  
-  blastn $blast_db_params -task megablast -perc_identity ${params.blast_perc_identity} -qcov_hsp_perc ${params.blast_qcov_hsp_perc} -evalue ${params.max_blast_nt_evalue} -query $unassigned_sequences -outfmt "6 $blastn_columns" -out ${unassigned_sequences}.bn_nt.no_header
+  blastn \
+   $blast_db_params \
+   -task megablast \
+   -perc_identity ${params.blast_perc_identity} \
+   -qcov_hsp_perc ${params.blast_qcov_hsp_perc} \
+   -evalue ${params.max_blast_nt_evalue} \
+   $taxids_of_interest_arg \
+   -query $unassigned_sequences \
+   -outfmt "6 $blastn_columns" \
+   -out ${unassigned_sequences}.bn_nt.no_header
                                                                                 
   # prepend blast output with the column names so we don't have to manually name them later
   # the perl inline command here is to replace spaces with tabs                 

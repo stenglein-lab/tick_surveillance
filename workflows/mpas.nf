@@ -239,7 +239,13 @@ workflow MPAS_WORKFLOW {
                             .map { meta, reads -> [ reads ] }                                   
                             .flatten().collect()
 
-    DADA2(ch_all_trimmed_reads)
+    // params related to dada2 error correction, filtering, and filtering
+    def maxN      = params.dada2_maxN
+    def maxEE     = params.dada2_maxEE
+    def truncQ    = params.dada2_truncQ
+    def trimRight = params.dada2_trimRight
+    def min_reads = params.dada2_min_reads
+    DADA2(ch_all_trimmed_reads, maxN, maxEE, truncQ, trimRight, min_reads)
     ch_versions = ch_versions.mix ( DADA2.out.versions )      
 
     // tidy dada2 output 
