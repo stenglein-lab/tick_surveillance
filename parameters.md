@@ -24,6 +24,7 @@ Define where the pipeline should find input data.
 | `post_trim_min_length` | After trimming of adapter and primer sequences, amplicons shorter than this length will be discarded. | `integer` | 100 | True |  |
 | `amplicon_primers_max_error_fraction` | This specifies the error tolerance (fraction) used when searching for adapters sequences to trim. This value is passed to the the cutadapt -e parameter. | `number` | 0.2 | True |  |
 | `adapters_min_overlap` | Used in trimming of Illumina adapter sequences.  Specifies the minimum length of overlap between adapter sequence and read sequence for trimming to occur.  Passed to cutadapt -O parameter. | `integer` | 10 | True |  |
+| `basecall_quality_limit` | These comma-separated values will be input to the cutadapt -q and -Q options.  These values specify lower basecall quality limits for trimming.  The first number is for trimming bases from the 5' end of reads. The second number is for trimming bases from the 3' end. For more information, see: https://cutadapt.readthedocs.io/en/stable/guide.html#quality-trimming | `string` | 18,22 |  |  |
 
 ## Calling of positives and Surveillance Report
 
@@ -52,6 +53,11 @@ Set the top limit for requested resources for any single job.
 | Parameter | Description | Type | Default | Required | Hidden |
 |-----------|-----------|-----------|-----------|-----------|-----------|
 | `dada_outdir` | Directory in which DADA2 output files will be placed. | `string` | ${outdir}/dada2 | True |  |
+| `dada2_maxN` | This value will be passed to the dada2 filterAndTrim function as the maxN parameter. After truncation, sequences with more than maxN Ns will be discarded. See dada2 manual for more information. | `number` | 0.0 |  |  |
+| `dada2_maxEE` | This value will be passed to the dada2 filterAndTrim function as the maxEE parameter. After truncation, reads with higher than maxEE 'expected errors' will be discarded. See dada2 manual for more information. | `number` | 2.0 |  |  |
+| `dada2_truncQ` | This value will be passed to the dada2 filterAndTrim function as the truncQ parameter. Truncate reads at the first instance of a quality score less than or equal to truncQ. See dada2 manual for more informatio.n | `number` | 2.0 |  |  |
+| `dada2_trimRight` | This value will be passed to the dada2 filterAndTrim function as the trimRight parameter. The number of nucleotides to remove from the 3' (right) end of each read. See dada2 manual for more information. | `number` | 0.0 |  |  |
+| `dada2_min_reads` | This parameter defines the minimum total # of reads in the whole dataset: if the total number of reads in a dataset is lower than this value, dada2 will discard the dataset. | `number` | 10.0 |  |  |
 
 ## Tree-building
 
@@ -76,7 +82,7 @@ Parameters associated with BLASTing of unassigned sequences against the NCBI nt 
 | `max_blast_nt_evalue` | The maximum BLAST e-value for classifying unassigned sequences. | `number` | 1e-10 | True |  |
 | `blast_perc_identity` | The minimum percent identity for BLAST hits to be considered when classifying unassigned sequences. | `number` | 70.0 | True |  |
 | `blast_qcov_hsp_perc` | The minimum query coverage percentage for BLAST hits to be considered when classifying unassigned sequences. | `number` | 70.0 | True |  |
-| `taxids_of_interest` | An optional list of taxids to restrict BLAST search of unassigned sequences. This should be in the form of a comma-separated list of NCBI taxids, for instance: 766,6656,5794 | `string` | | |  |
+| `taxids_of_interest` | This optional list of NCBI taxids can be used to restrict BLASTing of unassigned sequences to these taxids. This value should be of the form of a comma-separated list of taxids, e.g.: 766,1643685,6656,40674,5794 | `string` | None |  |  |
 
 ## Software dependencies
 

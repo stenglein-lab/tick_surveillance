@@ -18,14 +18,22 @@ library(dada2)
 if (!interactive()) {
   # if running from Rscript
   args = commandArgs(trailingOnly=TRUE)
-  # TODO: check CLAs
-  trimmed_path=args[1]
-  outdir="./"
+  trimmed_path     = args[1]
+  outdir           = "./"
+  input_maxN       = as.numeric(args[2])
+  input_maxEE      = as.numeric(args[3])
+  input_truncQ     = as.numeric(args[4])
+  input_trimRight  = as.numeric(args[5])
+  input_min_reads  = as.numeric(args[6])
 } else {
   # if running via RStudio (for development or troubleshooting)
-  r_bindir = "."
-  trimmed_path = "../test/results/trimmed_fastq"
-  outdir="../test/results/"
+  trimmed_path     = "../test/results/trimmed_fastq"
+  outdir           = "../test/results/"
+  input_maxN       = 0
+  input_maxEE      = 2
+  input_truncQ     = 2
+  input_trimRight  = 0
+  input_min_reads  = 10
 }
 
 # get lists of fastq files in trimmed directory 
@@ -69,19 +77,19 @@ names(filtRs) <- sample.names
 # nominal definition of the quality score: EE = sum(10^(-Q/10))
 
 out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, 
-                     maxN=0, 
-		     maxEE=c(2,2), 
-		     truncQ=2, 
-		     rm.phix=TRUE,
-		     trimRight = 5,
-                     compress=TRUE, 
-		     multithread=TRUE) # On Windows set multithread=FALSE
+                     maxN        = input_maxN, 
+		     maxEE       = c(input_maxEE, input_maxEE), 
+		     truncQ      = input_truncQ, 
+		     rm.phix     = TRUE,
+		     trimRight   = input_trimRight,
+                     compress    = TRUE, 
+		     multithread = TRUE) # On Windows set multithread=FALSE
 
 
 # only keep datasets with >0 reads to avoid dada2 throwing an error because of empty datasets
 # empty datasets will not contribute to error learning and will have no assigned ASVs, as expected.
 # see: https://github.com/benjjneb/dada2/issues/469
-keep <- out[,"reads.out"] > 10 
+keep <- out[,"reads.out"] > input_min_reads 
 filtFs <- filtFs[keep]
 filtRs <- filtRs[keep]
 

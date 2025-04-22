@@ -20,7 +20,12 @@ process DADA2 {
   }
 
   input:
-  path(all_trimmed_reads)
+  path (all_trimmed_reads)
+  val  (maxN)
+  val  (maxEE)
+  val  (truncQ)
+  val  (trimRight)
+  val  (min_reads)
 
   output:
   path("dada_seqtab.txt")                    , emit: seqtab
@@ -31,7 +36,7 @@ process DADA2 {
   script:
   """
   # Run dada2 using trimmed fastq as input and create a tabular output of results
-  run_dada_on_trimmed.R .
+  run_dada_on_trimmed.R . $maxN $maxEE $truncQ $trimRight $min_reads
   """
 }
 

@@ -76,6 +76,11 @@
           "description": "Used in trimming of Illumina adapter sequences.  Specifies the minimum length of overlap between adapter sequence and read sequence for trimming to occur.  Passed to cutadapt -O parameter.",
           "minimum": 1,
           "maximum": 20
+        },
+	 "basecall_quality_limit": {
+                    "type": "string",
+                    "default": "18,22",
+                    "description": "These comma-separated values will be input to the cutadapt -q and -Q options.  These values specify lower basecall quality limits for trimming.  The first number is for trimming bases from the 5' end of reads. The second number is for trimming bases from the 3' end. For more information, see: https://cutadapt.readthedocs.io/en/stable/guide.html#quality-trimming"
         }
       },
       "required": [
@@ -161,6 +166,31 @@
           "default": "${outdir}/dada2",
           "description": "Directory in which DADA2 output files will be placed.",
           "fa_icon": "fas fa-folder-open"
+        },
+        "dada2_maxN": {
+          "type": "number",
+          "description": "This value will be passed to the dada2 filterAndTrim function as the maxN parameter. After truncation, sequences with more than maxN Ns will be discarded. See dada2 manual for more information.",
+          "default": 0.0
+        },
+        "dada2_maxEE": {
+          "type": "number",
+          "description": "This value will be passed to the dada2 filterAndTrim function as the maxEE parameter. After truncation, reads with higher than maxEE 'expected errors' will be discarded. See dada2 manual for more information.",
+          "default": 2.0
+        },
+        "dada2_truncQ": {
+          "type": "number",
+          "description": "This value will be passed to the dada2 filterAndTrim function as the truncQ parameter. Truncate reads at the first instance of a quality score less than or equal to truncQ. See dada2 manual for more informatio.n",
+          "default": 2.0
+        },
+        "dada2_trimRight": {
+          "type": "number",
+          "description": "This value will be passed to the dada2 filterAndTrim function as the trimRight parameter. The number of nucleotides to remove from the 3' (right) end of each read. See dada2 manual for more information.",
+          "default": 0.0
+        },
+        "dada2_min_reads": {
+          "type": "number",
+          "description": "This parameter defines the minimum total # of reads in the whole dataset: if the total number of reads in a dataset is lower than this value, dada2 will discard the dataset.",
+          "default": 10.0
         }
       },
       "required": ["dada_outdir"]
@@ -236,6 +266,11 @@
           "description": "The minimum query coverage percentage for BLAST hits to be considered when classifying unassigned sequences.",
           "minimum": 0,
           "maximum": 100
+        },
+        "taxids_of_interest": {
+          "type": "string",
+          "default": "None",
+          "description": "This optional list of NCBI taxids can be used to restrict BLASTing of unassigned sequences to these taxids. This value should be of the form of a comma-separated list of taxids, e.g.: 766,1643685,6656,40674,5794"
         }
       },
       "required": [
