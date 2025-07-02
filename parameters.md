@@ -58,8 +58,8 @@ Set the top limit for requested resources for any single job.
 | `dada2_truncQ` | This value will be passed to the dada2 filterAndTrim function as the truncQ parameter. Truncate reads at the first instance of a quality score less than or equal to truncQ. See dada2 manual for more informatio.n | `number` | 2.0 |  |  |
 | `dada2_trimRight` | This value will be passed to the dada2 filterAndTrim function as the trimRight parameter. The number of nucleotides to remove from the 3' (right) end of each read. See dada2 manual for more information. | `number` | 0.0 |  |  |
 | `dada2_min_reads` | This parameter defines the minimum total # of reads in the whole dataset: if the total number of reads in a dataset is lower than this value, dada2 will discard the dataset. | `number` | 10.0 |  |  |
-| `dada2_min_mismatch` | This parameter defines the minimum overlap of forward and reverse reads required to merge read pairs by dada2::mergePairs.  See: https://rdrr.io/bioc/dada2/man/mergePairs.html. | `number` | 12.0 |  |  |
-| `dada2_max_overlap` | This parameter defines the maximum number of mismatches in the overlapping region when merging read pairs by dada2::mergePairs.  See: https://rdrr.io/bioc/dada2/man/mergePairs.html. | `number` | 0.0 |  |  |
+| `dada2_min_overlap` | This parameter defines the minimum overlap length of forward and reverse reads required to merge read pairs by dada2::mergePairs.  See: https://rdrr.io/bioc/dada2/man/mergePairs.html. | `number` | 12.0 |  |  |
+| `dada2_max_mismatch` | This parameter defines the maximum number of mismatches in the overlapping region when merging read pairs by dada2::mergePairs.  See: https://rdrr.io/bioc/dada2/man/mergePairs.html. | `number` | 0.0 |  |  |
 
 ## Tree-building
 
