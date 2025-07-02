@@ -26,6 +26,8 @@ process DADA2 {
   val  (truncQ)
   val  (trimRight)
   val  (min_reads)
+  val  (min_overlap)
+  val  (max_mismatch)
 
   output:
   path("dada_seqtab.txt")                    , emit: seqtab
@@ -36,7 +38,7 @@ process DADA2 {
   script:
   """
   # Run dada2 using trimmed fastq as input and create a tabular output of results
-  run_dada_on_trimmed.R . $maxN $maxEE $truncQ $trimRight $min_reads
+  run_dada_on_trimmed.R . $maxN $maxEE $truncQ $trimRight $min_reads $min_overlap $max_mismatch
   """
 }
 

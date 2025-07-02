@@ -1,6 +1,5 @@
 /*                                                                              
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    VALIDATE INPUTS                                                             
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ VALIDATE INPUTS                                                             
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */                                                                              
                                                                                 
@@ -240,12 +239,16 @@ workflow MPAS_WORKFLOW {
                             .flatten().collect()
 
     // params related to dada2 error correction, filtering, and filtering
-    def maxN      = params.dada2_maxN
-    def maxEE     = params.dada2_maxEE
-    def truncQ    = params.dada2_truncQ
-    def trimRight = params.dada2_trimRight
-    def min_reads = params.dada2_min_reads
-    DADA2(ch_all_trimmed_reads, maxN, maxEE, truncQ, trimRight, min_reads)
+    def maxN         = params.dada2_maxN
+    def maxEE        = params.dada2_maxEE
+    def truncQ       = params.dada2_truncQ
+    def trimRight    = params.dada2_trimRight
+    def min_reads    = params.dada2_min_reads
+    def min_overlap  = params.dada2_min_overlap
+    def max_mismatch = params.dada2_max_mismatch
+
+    // run DADA2 on trimmed reads
+    DADA2(ch_all_trimmed_reads, maxN, maxEE, truncQ, trimRight, min_reads, min_overlap, max_mismatch)
     ch_versions = ch_versions.mix ( DADA2.out.versions )      
 
     // tidy dada2 output 

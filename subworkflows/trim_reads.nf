@@ -42,7 +42,7 @@ process TRIM_PRIMERS_AND_LOW_Q {
   publishDir "${params.cutadapt_trim_reports}", pattern: '*_summary.txt', mode: 'copy'
 
   // if using conda
-  conda "${moduleDir}/environment.yml"
+  conda "${moduleDir}/cutadapt_environment.yml"
 
   // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -126,7 +126,7 @@ process TRIM_ADAPTERS {
   publishDir "${params.trimmed_outdir}", pattern: "*.fastq.gz", mode: "link"
                                                                    
   // if using conda
-  conda "${moduleDir}/environment.yml"                                          
+  conda "${moduleDir}/cutadapt_environment.yml"                                          
 
   // if using singularity
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {

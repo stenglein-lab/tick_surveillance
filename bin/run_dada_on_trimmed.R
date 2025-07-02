@@ -17,14 +17,16 @@ library(dada2)
 #
 if (!interactive()) {
   # if running from Rscript
-  args = commandArgs(trailingOnly=TRUE)
-  trimmed_path     = args[1]
-  outdir           = "./"
-  input_maxN       = as.numeric(args[2])
-  input_maxEE      = as.numeric(args[3])
-  input_truncQ     = as.numeric(args[4])
-  input_trimRight  = as.numeric(args[5])
-  input_min_reads  = as.numeric(args[6])
+  args               = commandArgs(trailingOnly=TRUE)
+  trimmed_path       = args[1]
+  outdir             = "./"
+  input_maxN         = as.numeric(args[2])
+  input_maxEE        = as.numeric(args[3])
+  input_truncQ       = as.numeric(args[4])
+  input_trimRight    = as.numeric(args[5])
+  input_min_reads    = as.numeric(args[6])
+  input_min_overlap  = as.numeric(args[7])
+  input_max_mismatch = as.numeric(args[8])
 } else {
   # if running via RStudio (for development or troubleshooting)
   trimmed_path     = "../test/results/trimmed_fastq"
@@ -34,6 +36,8 @@ if (!interactive()) {
   input_truncQ     = 2
   input_trimRight  = 0
   input_min_reads  = 10
+  input_min_overlap  = 12
+  input_max_mismatch = 0
 }
 
 # get lists of fastq files in trimmed directory 
@@ -129,7 +133,11 @@ dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
 dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
 
 # merge paired reads
-mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
+mergers <- mergePairs(dadaFs, filtFs, 
+		      dadaRs, filtRs, 
+                      minOverlap  = input_min_overlap,
+                      maxMismatch = input_max_mismatch,
+		      verbose     = TRUE)
 
 # create a table of dada2 results
 seqtab <- makeSequenceTable(mergers)

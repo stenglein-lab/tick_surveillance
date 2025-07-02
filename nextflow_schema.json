@@ -191,6 +191,16 @@
           "type": "number",
           "description": "This parameter defines the minimum total # of reads in the whole dataset: if the total number of reads in a dataset is lower than this value, dada2 will discard the dataset.",
           "default": 10.0
+        },
+        "dada2_min_mismatch": {
+          "type": "number",
+          "description": "This parameter defines the minimum overlap of forward and reverse reads required to merge read pairs by dada2::mergePairs.  See: https://rdrr.io/bioc/dada2/man/mergePairs.html.",
+          "default": 12.0
+        },
+        "dada2_max_overlap": {
+          "type": "number",
+          "description": "This parameter defines the maximum number of mismatches in the overlapping region when merging read pairs by dada2::mergePairs.  See: https://rdrr.io/bioc/dada2/man/mergePairs.html.",
+          "default": 0.0
         }
       },
       "required": ["dada_outdir"]
