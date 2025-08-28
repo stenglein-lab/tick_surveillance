@@ -210,8 +210,32 @@ To add a new sequence to the targets.tsv file, you will need to edit this file. 
 The default location of the targets.tsv file can be overriden by specifying the --targets option on the nextflow command line.  For instance:
 
 ```
-nextflow run main.nf -profile singularity --targets /path/to/targets.tsv
-```
+nextflow run main.nf -profile singularity --targets /path/to/targets.tsv  
+```  
+
+When using --make_targets parameter, reference sequences and primers are defined in the all_refseq.xlsx file. This file contains two tabs (targets, primers) with the following required collumns:  
+| Column             | Tab | Description |
+| :-----------       | :--: | --------- |
+| ref_sequence_name      | targets | The reference sequence name |
+| species                | targets | The species for this reference sequence.  This value will be reported but is not used to map reference sequences to surveillance targets (reporting_columns is used for that). |  
+| primer_name            | targets | The name of the primers expected to amplify this target (e.g., FlaB).  Provided for reference only. |
+| SURVEILLANCE_reporting_columns      | targets | A semicolon-separated list of surveillance targets.  Reads that are assigned to this reference sequence will be assigned to these targets, as described [below](#Mapping-of-reference-sequence-to-surveillance-targets). |
+| RESEARCH_reporting_columns      | targets | A semicolon-separated list of surveillance targets.  Reads that are assigned to this reference sequence will be assigned to these targets, as described [below](#Mapping-of-reference-sequence-to-surveillance-targets). |
+| SURVEILLANCE_min_percent_identity   | targets | The minimum percent identity of the alignment between an observed sequence and this reference sequence to be assigned as a positive hit |
+| SURVEILLANCE_min_percent_aligned    | targets | The minimum percent of the observed sequence that must align to this reference sequence to be assigned as a positive hit |
+| SURVEILLANCE_max_percent_gaps       | targets | The maximum percent gap characters in alignments of observed sequences and this reference sequence to be assigned as a positive hit|
+| SURVEILLANCE_internal_control       | targets | True if this corresponds to an internal control target, such as tick actin or a "tick ID" amplicon|
+| RESEARCH_min_percent_identity   | targets | The minimum percent identity of the alignment between an observed sequence and this reference sequence to be assigned as a positive hit |
+| RESEARCH_min_percent_aligned    | targets | The minimum percent of the observed sequence that must align to this reference sequence to be assigned as a positive hit |
+| RESEARCH_max_percent_gaps       | targets | The maximum percent gap characters in alignments of observed sequences and this reference sequence to be assigned as a positive hit|
+| RESEARCH_internal_control       | targets | True if this corresponds to an internal control target, such as tick actin or a "tick ID" amplicon|
+| sequence               | targets | The expected reference sequence, including primers |
+| primer_mix | primers | The name of the primer mix |
+| primer_name | primers | The primer name |
+| primer_f_name | primers | The forward primer name |
+| primer_f_sequence | primers | The forward primer sequence |
+| primer_r_name | primers | The reverse primer name |
+| primer_r_seq | primers | The reverse primer sequence |
 
 ### Assignment of observed sequences to reference sequences
 

@@ -79,7 +79,7 @@
         },
 	 "basecall_quality_limit": {
                     "type": "string",
-                    "default": "18,22",
+                    "default": "18,18",
                     "description": "These comma-separated values will be input to the cutadapt -q and -Q options.  These values specify lower basecall quality limits for trimming.  The first number is for trimming bases from the 5' end of reads. The second number is for trimming bases from the 3' end. For more information, see: https://cutadapt.readthedocs.io/en/stable/guide.html#quality-trimming"
         }
       },

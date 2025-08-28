@@ -1,6 +1,6 @@
 /*                                                                              
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ VALIDATE INPUTS                                                             
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ VALIDATE INPUTS                                                             
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */                                                                              
                                                                                 
 
@@ -18,23 +18,25 @@ WorkflowMPAS.initialise(params, log)
   Read in the targets tsv-format file that describes the expected target sequences.
   and create channel
  */
+ // targets_ch, tagets_file_ch, primer_ch moved to like 213 - only use targets.tsv and primers.tsv if make_targets param is false
+/*
 Channel
     .fromPath(params.targets, checkIfExists: true)
     .splitCsv(header:true, sep:"\t", strip:true)
     .set { targets_ch }
-
+*/
 /*
   A channel containing the path of the tsv file specifying surveillance targets
   
   This channel differs from targets_ch in that targets_ch contains a groovy
   data structure from the parsed file.  This ch just contains the file's path.
  */
+/*
 Channel
      .fromPath(params.targets, type: 'file', checkIfExists: true)
      .set{ targets_file_ch }
-
+*/
 /*
-
  This channel contains the primer sequences that were
  used to amplify surveillance targets read from the primers.tsv file.  
 
@@ -42,11 +44,12 @@ Channel
  identify legitimate PCR products, which contain an expected F/R primer pair 
  at their ends.
  */
+/*
 Channel
     .fromPath(params.primers, checkIfExists: true)
     .splitCsv(header:true, sep:"\t", strip:true)
     .set { primers_ch }
-
+*/
 //  A channel containing the tsv file specifying surveillance report columns 
 Channel
      .fromPath(params.surveillance_columns, type: 'file', checkIfExists: true)
@@ -112,9 +115,9 @@ Channel
     .set { filter_ch }
 
 /*                                                                              
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     CONFIG FILES                                                                
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */                                                                              
                                                                                 
 ch_multiqc_config          = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
@@ -123,9 +126,9 @@ ch_multiqc_logo            = params.multiqc_logo   ? Channel.fromPath( params.mu
 ch_multiqc_custom_methods_description = params.multiqc_methods_description ? file(params.multiqc_methods_description, checkIfExists: true) : file("$projectDir/assets/methods_description_template.yml", checkIfExists: true)
                                                                                 
 /*                                                                              
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT MODULES/SUBWORKFLOWS                                           
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */                                                                              
 
                                                                                 
@@ -135,6 +138,9 @@ ch_multiqc_custom_methods_description = params.multiqc_methods_description ? fil
 include { SETUP_INDEXES                 } from '../subworkflows/setup_indexes'
 include { SETUP_PYTHON_ENVIRONMENT      } from '../modules/local/setup_python_env/main'
 include { SETUP_R_DEPENDENCIES          } from '../modules/local/setup_R_dependencies/main'
+
+// make a target and primer files from a refseq all list
+include { MAKE_TARGET_PRIMER_FILES      } from '../modules/local/make_target_primer_files/main'
 
 // make a fasta of all reference sequences
 include { GENERATE_REFSEQ_FASTA         } from '../subworkflows/generate_refseq_fasta'
@@ -176,9 +182,9 @@ include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoft
 
 
 /*                                                                              
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW                                                           
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */                                                                              
                                                                                 
 // Info required for completion email and summary                               
@@ -195,17 +201,47 @@ workflow MPAS_WORKFLOW {
         ch_versions.unique().collectFile(name: 'collated_versions.yml')         
     )                     
 
+    // setup python venv to handle python dependencies for tree-building
+    python_req_ch = Channel.fromPath(params.python_requirements, checkIfExists: true)
+    SETUP_PYTHON_ENVIRONMENT(params.python_venv_path, python_req_ch)
+    ch_versions = ch_versions.mix ( SETUP_PYTHON_ENVIRONMENT.out.versions )      
+
+    // setup target and primer channels. If make targets param true, then create targets/primer files from the all refseq file. If false, then use the input targets.tsv and primers.tsv files.
+    // If make target param true, user must specify the study type (surveillance or other) and the primer mix name
+    if(params.make_targets) {
+        Channel
+            .fromPath(params.all_refseq, type: 'file', checkIfExists:true)
+            .set{all_refseq_ch}
+    // primer_mix channel
+        Channel.of(params.primer_mix).set{primer_mix_ch}
+    // study type channel
+        Channel.of(params.study_type).set{study_type_ch}
+        // make targets and primer files from all refseq input
+        MAKE_TARGET_PRIMER_FILES(SETUP_PYTHON_ENVIRONMENT.out.venv_path, all_refseq_ch, primer_mix_ch, study_type_ch)
+        targets_ch = MAKE_TARGET_PRIMER_FILES.out.targets.splitCsv(header:true, sep:"\t", strip:true)
+        targets_file_ch = MAKE_TARGET_PRIMER_FILES.out.targets
+        primers_ch1 = MAKE_TARGET_PRIMER_FILES.out.primers
+        primers_ch = primers_ch1.splitCsv(header:true, sep:"\t", strip:true)
+        } else {
+            Channel
+            .fromPath(params.primers)
+            .splitCsv(header:true, sep:"\t", strip:true)
+            .set { primers_ch }
+            Channel
+            .fromPath(params.targets)
+            .splitCsv(header:true, sep:"\t", strip:true)
+            .set { targets_ch }
+            Channel
+            .fromPath(params.targets, type: 'file')
+            .set{ targets_file_ch }
+            }
+
     // generate fasta file for all reference sequences defined in targets file
     GENERATE_REFSEQ_FASTA(targets_ch)
 
     // create a blast db of reference sequences
     SETUP_INDEXES (GENERATE_REFSEQ_FASTA.out.fasta)
     ch_versions = ch_versions.mix ( SETUP_INDEXES.out.versions )      
-
-    // setup python venv to handle python dependencies for tree-building
-    python_req_ch = Channel.fromPath(params.python_requirements, checkIfExists: true)
-    SETUP_PYTHON_ENVIRONMENT(params.python_venv_path, python_req_ch)
-    ch_versions = ch_versions.mix ( SETUP_PYTHON_ENVIRONMENT.out.versions )      
 
     // setup R packages not included in base environment 
     R_tar_dir_ch = Channel.fromPath(params.R_tar_dir, checkIfExists: true)
