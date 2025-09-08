@@ -54,7 +54,7 @@ else:
 
 # 10. conditional based on user input if desired target file is for surveillance or 'other'. Update reporting column name
 # if for surviellance, the target df should contain 'surveillance_report_col_format'
-# if not surviellance, target df should countain 'reserach_report_col_format'
+# if not surviellance, target df should countain 'reseach_report_col_format'
 
 if study_type == 'surveillance':
     filter_targets = new_targets[['ref_sequence_name', 'species', 'primer_name', 'SURVEILLANCE_reporting_columns', 'SURVEILLANCE_min_percent_identity', 'SURVEILLANCE_min_percent_aligned', 'SURVEILLANCE_max_percent_gaps', 'SURVEILLANCE_internal_control', 'sequence']]
