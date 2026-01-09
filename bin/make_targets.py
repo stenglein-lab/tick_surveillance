@@ -26,12 +26,26 @@ pm_no = sys.argv[2]
 split_pm = pm_no.split(",")
 
 # 5. surveillance or other?
-study_type = sys.argv[3]
+study_type_in = sys.argv[3]
+#make all study_type input lower case
+study_type = study_type_in.lower()
+#check that study_type is surveillance or research
+study_type_options = ('surveillance', 'research')
+
+if study_type in study_type_options:
+    pass
+else:
+    exit("Error: Incorrect study_type provided. The input --study_type must be surveillance or research. Exit process")
 
 # 6. create df of primes names based on input primer_mix
 select_primers = primers[primers['primer_mix'].isin(split_pm)]
 select_primers_new = select_primers.drop(columns=['primer_mix']) #remove primer_mix column
 uniq_pfile = select_primers_new.drop_duplicates() # primers for primer.tsv file, duplicates removed
+#checks if input primer_mix name is found in the primers tab of refseq_all.xlsx
+if len(uniq_pfile) > 0:
+    pass
+else:
+    exit("Error: The provided --primer_mix cannnot be found in the the primers tab of reafseq_all.xlsx. Exit process.")
 
 
 # 7. capture only the primer name
@@ -40,7 +54,11 @@ unique_select_primers = list(set(p_name)) #remove duplicate primers
 
 # 8. select only ref sequences that are for the selected iPM primer name
 new_targets = targets[targets['primer_name'].isin(unique_select_primers)]
-new_targets = pd.DataFrame(new_targets)
+#checks if primer_name from targets tab is in primer_name of primers tab
+if len(new_targets) > 0: 
+    new_targets = pd.DataFrame(new_targets)
+else: 
+    exit('Error: The targets tab primer_name column cannot be found in primer_name column of primers tab in refseq_all.xlsx. Exit process.')
 
 # 9. rename  columns requried in targets file
 # if Genus_species_strain_Genbank_Tick_Host_Location_Primers, rename to 'reference_sequence_name'
