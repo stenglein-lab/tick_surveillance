@@ -208,7 +208,7 @@ workflow MPAS_WORKFLOW {
 
     // setup target and primer channels. If make targets param true, then create targets/primer files from the all refseq file. If false, then use the input targets.tsv and primers.tsv files.
     // If make target param true, user must specify the study type (surveillance or other) and the primer mix name
-    if(params.make_targets) {
+    if(params.make_targets == 'true') {
         Channel
             .fromPath(params.all_refseq, type: 'file', checkIfExists:true)
             .set{all_refseq_ch}
