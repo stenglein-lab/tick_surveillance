@@ -13,7 +13,7 @@ Define where the pipeline should find input data.
 | `metadata` | The path to an excel spreadsheet containing sample metadata | `string` |  | True |  |
 | `refseq_dir` | Default location of certain input files | `string` | refseq/ |  |  |
 | `targets` | A file containing the target sequences and other information about these sequences. | `string` | ${refseq_dir}/targets.tsv | True |  |
-| `make_targets` | An optional parameter that creates targets.tsv and primers.tsv files from al an_refseq excel file. If true, all_refseq, primer_mix, and study_type parameters must be used. | | `string` | False | | |  
+| `make_targets` | An optional parameter that creates targets.tsv and primers.tsv files from al an_refseq excel file. If true, all_refseq, primer_mix, and study_type parameters must be used. | | `boolean` | False | | |  
 | `all_refseq` | The path to an excell spreadsheet containing reference sequences and primer mix info. Required when `make_targets` True | `string` | ${params.refseq_dir}/refseq_all.xlsx | | | |  
 | `primer_mix` | The desirerd primer mix name listed in the primers tab of refseq_all.xlsx file. Required when `make_targets` True. | `string` | | | |
 | `study_type`| surveillance or research study types. Required when `make_targets` True. | `string` | | | |
