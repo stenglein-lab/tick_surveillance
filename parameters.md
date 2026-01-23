@@ -13,6 +13,10 @@ Define where the pipeline should find input data.
 | `metadata` | The path to an excel spreadsheet containing sample metadata | `string` |  | True |  |
 | `refseq_dir` | Default location of certain input files | `string` | refseq/ |  |  |
 | `targets` | A file containing the target sequences and other information about these sequences. | `string` | ${refseq_dir}/targets.tsv | True |  |
+| `make_targets` | An optional parameter that creates targets.tsv and primers.tsv files from al an_refseq excel file. If true, all_refseq, primer_mix, and study_type parameters must be used. | | `string` | False | | |  
+| `all_refseq` | The path to an excell spreadsheet containing reference sequences and primer mix info. Required when `make_targets` True | `string` | ${params.refseq_dir}/refseq_all.xlsx | | | |  
+| `primer_mix` | The desirerd primer mix name listed in the primers tab of refseq_all.xlsx file. Required when `make_targets` True. | `string` | | | |
+| `study_type`| surveillance or research study types. Required when `make_targets` True. | `string` | | | |
 
 ## Primer and adapter trimming options
 
@@ -24,7 +28,7 @@ Define where the pipeline should find input data.
 | `post_trim_min_length` | After trimming of adapter and primer sequences, amplicons shorter than this length will be discarded. | `integer` | 100 | True |  |
 | `amplicon_primers_max_error_fraction` | This specifies the error tolerance (fraction) used when searching for adapters sequences to trim. This value is passed to the the cutadapt -e parameter. | `number` | 0.2 | True |  |
 | `adapters_min_overlap` | Used in trimming of Illumina adapter sequences.  Specifies the minimum length of overlap between adapter sequence and read sequence for trimming to occur.  Passed to cutadapt -O parameter. | `integer` | 10 | True |  |
-| `basecall_quality_limit` | These comma-separated values will be input to the cutadapt -q and -Q options.  These values specify lower basecall quality limits for trimming.  The first number is for trimming bases from the 5' end of reads. The second number is for trimming bases from the 3' end. For more information, see: https://cutadapt.readthedocs.io/en/stable/guide.html#quality-trimming | `string` | 18,22 |  |  |
+| `basecall_quality_limit` | These comma-separated values will be input to the cutadapt -q and -Q options.  These values specify lower basecall quality limits for trimming.  The first number is for trimming bases from the 5' end of reads. The second number is for trimming bases from the 3' end. For more information, see: https://cutadapt.readthedocs.io/en/stable/guide.html#quality-trimming | `string` | 18,18 |  |  |
 
 ## Calling of positives and Surveillance Report
 
