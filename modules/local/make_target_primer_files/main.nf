@@ -2,7 +2,7 @@ params.make_targets = true
 
 process MAKE_TARGET_PRIMER_FILES {
   label      'process_low'
-  tag        "${venv_input_path}"
+  tag        "${venv_path}"
   publishDir "${params.outdir}", mode: 'link'
 
   // singularity info for this process
