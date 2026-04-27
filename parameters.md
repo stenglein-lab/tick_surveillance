@@ -29,6 +29,7 @@ Define where the pipeline should find input data.
 | `amplicon_primers_max_error_fraction` | This specifies the error tolerance (fraction) used when searching for adapters sequences to trim. This value is passed to the the cutadapt -e parameter. | `number` | 0.2 | True |  |
 | `adapters_min_overlap` | Used in trimming of Illumina adapter sequences.  Specifies the minimum length of overlap between adapter sequence and read sequence for trimming to occur.  Passed to cutadapt -O parameter. | `integer` | 10 | True |  |
 | `basecall_quality_limit` | These comma-separated values will be input to the cutadapt -q and -Q options.  These values specify lower basecall quality limits for trimming.  The first number is for trimming bases from the 5' end of reads. The second number is for trimming bases from the 3' end. For more information, see: https://cutadapt.readthedocs.io/en/stable/guide.html#quality-trimming | `string` | 18,18 |  |  |
+| `always_trim_3p_bases` | Always trim this number of bases from the 3' ends of reads. For more information, see: https://cutadapt.readthedocs.io/en/stable/guide.html#cut-bases | `integer` | 1 |  |  |
 
 ## Calling of positives and Surveillance Report
 
