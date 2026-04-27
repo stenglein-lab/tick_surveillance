@@ -148,6 +148,11 @@ blast_df <- left_join(blast_df, sequences, by=c("query" = "sequence_number"))
 #   - alignment_length == query length
 #   - gaps = # of bases in insertion
 #
+# 4) If observed sequences is longer (extend beyond) the reference sequence,
+#    for instance because of untrimmed primers
+#   - alignment_length < query length
+#    then this will cause percent_query_aligned to be < 100
+#
 # Note that any indels relative to reference sequence have the effect of decreasing 
 # the % identity of the alignment in blast output in addition to influencing 
 # gaps and alignment length values as described above.  So, any gaps in the alignment
@@ -246,7 +251,6 @@ assign_blast_hits_to_refseqs <- function() {
                                   TRUE, 
                                   FALSE))
 }  
-
 
 # Call function to see if sequences are close enough to a target to be assigned to that target
 assign_blast_hits_to_refseqs()
