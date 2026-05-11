@@ -18,4 +18,4 @@ requests==2.33.0
 six==1.16.0
 toyplot==1.0.1
 toytree==2.0.1
-urllib3==2.6.3
+urllib3==2.7.0
