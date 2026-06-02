@@ -38,7 +38,7 @@ if (!interactive()) {
   targets_tsv_file            = "../refseq/targets.tsv"
   surveillance_columns_file   = "../refseq/surveillance_columns.txt"
   input_min_non_control_reads = 50
-  input_min_control_reads     = "NA"
+  input_min_control_reads     = "null"
   output_dir                  = "../results/"
 }
 
@@ -235,7 +235,7 @@ input_min_non_control_reads <- as.numeric(input_min_non_control_reads)
 # This input parameter specifies how many reads will be required to make a positive call 
 # in the surveillance table for control reads (for example: tick actin reads)
 # --------------------------------------------------------------------------------------
-if (input_min_control_reads == "NA") { 
+if (input_min_control_reads == "NA" || input_min_control_reads == "null" || input_min_control_reads == "") { 
   input_min_control_reads = NA
 } else {
   input_min_control_reads <- as.numeric(input_min_control_reads)

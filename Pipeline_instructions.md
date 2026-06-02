@@ -258,6 +258,12 @@ A key output of the pipeline is to define whether specific samples are positive 
 2) **Optional behavior, simple cutoff** (if parameter min_reads_for_positive_control_call *is* specified):
 - The number of reads for the target must exceed the value specied by min_reads_for_positive_control_call
 
+To use an optional simple cutoff for internal control targets, run the pipeline with a command-line like:
+```
+# require a simple cutoff of 300 reads to call a control target positive
+nextflow run stenglein-lab/tick_surveillance ... --min_reads_for_positive_control_call 300
+```
+
 **All other targets**: These are any surveillance target that is not defined as an internal control in [targets.tsv](./refseq/targets.tsv).  If the summed ASV counts for a surveillance target are ≥50, the target will be called positive.  The value of 50 is a default cutoff that can be overridden using the `--min_reads_for_positive_surveillance_call` parameter on the nextflow command line.
 
 
