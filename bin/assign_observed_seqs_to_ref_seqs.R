@@ -236,7 +236,7 @@ input_min_non_control_reads <- as.numeric(input_min_non_control_reads)
 # in the surveillance table for control reads (for example: tick actin reads)
 # --------------------------------------------------------------------------------------
 if (input_min_control_reads == "NA" || input_min_control_reads == "null" || input_min_control_reads == "") { 
-  input_min_control_reads = NA
+  input_min_control_reads <- NA
 } else {
   input_min_control_reads <- as.numeric(input_min_control_reads)
 }
@@ -399,12 +399,16 @@ internal_control_batch_averages <- dataset_df %>%
 # as the cutoff
   
 # determine cutoff for the minimum number of reads to call the internal controls positive
-internal_control_batch_averages <- internal_control_batch_averages %>%
-  mutate(minimum_internal_control_log_reads =
-           if_else(is.na(input_min_control_reads), 
-		   mean_batch_internal_ctrl_reads - (3 * sd_batch_internal_ctrl_reads),
-		   # log10 transform to match cutoff comparison below
-		   log10(input_min_control_reads)))
+# default scenario: use the mean and sd to calculate cutoff
+if (is.na(input_min_control_reads)) {
+  internal_control_batch_averages <- internal_control_batch_averages %>%
+    mutate(minimum_internal_control_log_reads = mean_batch_internal_ctrl_reads - (3 * sd_batch_internal_ctrl_reads))
+} else {
+  # use a simple cutoff
+  # log10 transform to match cutoff comparison below
+  internal_control_batch_averages <- internal_control_batch_averages %>%
+    mutate(minimum_internal_control_log_reads = log10(input_min_control_reads))
+}
 
 # join in info about internal control cutoffs
 dataset_df <- left_join(dataset_df, internal_control_batch_averages, by="batch")
