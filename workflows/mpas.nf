@@ -14,6 +14,7 @@ def summary_params = NfcoreSchema.paramsSummaryMap(workflow, params)
 // Validate input parameters                                                    
 WorkflowMPAS.initialise(params, log)                                           
 
+
 /*
   Read in the targets tsv-format file that describes the expected target sequences.
   and create channel
@@ -168,6 +169,7 @@ include { SETUP_BLAST_DB_AND_TAX        } from '../subworkflows/setup_blast_db_a
 include { CLASSIFY_UNASSIGNED_SEQUENCES } from '../subworkflows/classify_unassigned_sequences'
 
 include { PREPEND_OUTPUT_FILENAMES      } from '../modules/local/prepend_filenames/main'
+include { OUTPUT_PARAMETER_VALUES       } from '../modules/local/output_parameter_values/main'
 
 // include { ORG_UNASSIGNED_SEQUENCES      } from '../modules/local/org_unassigned_sequences/main'
 // include { FILTER_UNASSIGNED_SEQUENCES   } from '../modules/local/filter_unassigned_sequences/main'
@@ -200,6 +202,9 @@ workflow MPAS_WORKFLOW {
     CUSTOM_DUMPSOFTWAREVERSIONS (                                               
         ch_versions.unique().collectFile(name: 'collated_versions.yml')         
     )                     
+
+    // output parameter values to a file
+    OUTPUT_PARAMETER_VALUES()
 
     // setup python venv to handle python dependencies for tree-building
     python_req_ch = Channel.fromPath(params.python_requirements, checkIfExists: true)
@@ -405,7 +410,10 @@ workflow MPAS_WORKFLOW {
                              ASSIGN_OBSERVED_SEQS.out.txt,
                              ASSIGN_OBSERVED_SEQS.out.pdf,
                              CLASSIFY_UNASSIGNED_SEQUENCES.out.sequences_report_filter,
-                             CLASSIFY_UNASSIGNED_SEQUENCES.out.org_unassigned_sequences_report)
+                             CLASSIFY_UNASSIGNED_SEQUENCES.out.org_unassigned_sequences_report,
+                             OUTPUT_PARAMETER_VALUES.out.parameter_values,
+                             OUTPUT_PARAMETER_VALUES.out.workflow_values,
+                             OUTPUT_PARAMETER_VALUES.out.nextflow_values)
                              .flatten()
     PREPEND_OUTPUT_FILENAMES(ch_main_output_files)
 
