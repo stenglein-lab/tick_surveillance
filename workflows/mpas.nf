@@ -61,9 +61,15 @@ Channel
  These fastq files represent the main input to this workflow
  */
 
+// check that fastq_dir exists and is a directory
+if ( !file(params.fastq_dir).exists() || !file(params.fastq_dir).isDirectory() ) {
+   error "ERROR: fastq directory (--fastq_dir) does not exist: ${params.fastq_dir}"
+}
+
 Channel
     .fromFilePairs("${params.fastq_dir}/${params.fastq_pattern}",
                    size: 2,
+                   checkIfExists: true,
                    maxDepth: 1)
     .map { untrimmed_sample_id, fastq  ->
            // strip off any _L### text from the end of the sample ID
