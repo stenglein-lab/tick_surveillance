@@ -13,9 +13,9 @@ process SETUP_PYTHON_ENVIRONMENT {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/python:3.10.4"
+      container "https://depot.galaxyproject.org/singularity/python:3.14"
   } else {
-      container "quay.io/biocontainers/python:3.10.4"
+      container "quay.io/biocontainers/python:3.14"
   }
 
   when:
@@ -37,10 +37,14 @@ process SETUP_PYTHON_ENVIRONMENT {
   """
     python -m venv --clear $venv_input_path
     source ${venv_input_path}/bin/activate
+
+    # upgrade core tools inside the venv 
+    pip install --upgrade pip setuptools wheel
+
     # install modules needed for tree-building scripts
     # see https://github.com/stenglein-lab/tick_surveillance/issues/76
     # see https://github.com/stenglein-lab/tick_surveillance/issues/77
-    pip install -r ${requirements_path}
+    pip install --no-build-isolation -r ${requirements_path}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

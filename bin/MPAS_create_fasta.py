@@ -109,10 +109,11 @@ def write_ref_fasta(infile, outfile):
 
 # 8.Create csv files and fasta files for samples and ref sequences based on primers
 
-for primers, seqs in seq_50_new.groupby(['primer_name']):
+for primers, seqs in seq_50_new.groupby('primer_name'):
     seqs.to_csv(f'{primers}.csv', index=False)
     write_fasta(f'{primers}.csv', f'{primers}_all.fasta')
 
-for primer, seq in targets_sub.groupby(['primer_name']):
+for primer, seq in targets_sub.groupby('primer_name'):
     seq.to_csv(f'{primer}_ref.csv', index=False)
     write_ref_fasta(f'{primer}_ref.csv', f'{primer}_all.fasta')
+

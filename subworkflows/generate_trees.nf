@@ -46,9 +46,9 @@ process CREATE_FASTA_FOR_TREES {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/python:3.10.4" 
+      container "https://depot.galaxyproject.org/singularity/python:3.14" 
   } else {
-      container "quay.io/biocontainers/python:3.10.4"
+      container "quay.io/biocontainers/python:3.14"
   }
 
   when:
@@ -170,9 +170,9 @@ process VIEW_PHYLO_TREE {
 
   // if using singularity 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/python:3.10.4" 
+      container "https://depot.galaxyproject.org/singularity/python:3.14" 
   } else {
-      container "quay.io/biocontainers/python:3.10.4"
+      container "quay.io/biocontainers/python:3.14"
   }
 
   input:

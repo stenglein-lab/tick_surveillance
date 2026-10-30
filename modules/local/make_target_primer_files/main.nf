@@ -7,9 +7,9 @@ process MAKE_TARGET_PRIMER_FILES {
 
   // singularity info for this process
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-      container "https://depot.galaxyproject.org/singularity/python:3.10.4"
+      container "https://depot.galaxyproject.org/singularity/python:3.14"
   } else {
-      container "quay.io/biocontainers/python:3.10.4"
+      container "quay.io/biocontainers/python:3.14"
   }
 
 
