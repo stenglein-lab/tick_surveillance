@@ -252,7 +252,7 @@
           "fa_icon": "fas fa-folder-open"
         }
       },
-      "required": ["make_trees", "tree_outdir"]
+      "required": ["tree_outdir"]
     },
     "blasting_of_unassigned_sequences": {
       "title": "BLASTing of unassigned sequences",
