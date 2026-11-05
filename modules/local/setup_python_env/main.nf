@@ -19,7 +19,7 @@ process SETUP_PYTHON_ENVIRONMENT {
   }
 
   when:
-  params.make_trees 
+  params.make_trees || params.make_targets
 
   input:
   val(venv_input_path)
